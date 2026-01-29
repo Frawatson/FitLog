@@ -67,8 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (response.ok) {
         const userData = await response.json();
+        console.log("[AuthContext] Received user data:", JSON.stringify(userData, null, 2));
         setUser(userData);
       } else {
+        console.log("[AuthContext] Auth check failed, status:", response.status);
         // Clear invalid token
         if (token) {
           await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
@@ -76,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (error) {
-      console.log("Not authenticated");
+      console.log("[AuthContext] Not authenticated, error:", error);
     }
   };
 

@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import { getUserByEmail, getUserById, createUser, updateUserProfile } from "./db";
 
 declare module "express-session" {
@@ -11,32 +11,21 @@ declare module "express-session" {
 
 const router = Router();
 
-// Simple in-memory token store (in production, use Redis or database)
-const tokenStore = new Map<string, { userId: number; expires: number }>();
+// JWT secret from environment or fallback
+const JWT_SECRET = process.env.SESSION_SECRET || "fitlog-jwt-secret-key";
+const JWT_EXPIRES_IN = "30d"; // 30 days
 
-function generateToken(): string {
-  return crypto.randomBytes(32).toString("hex");
-}
-
-function storeToken(userId: number): string {
-  const token = generateToken();
-  const expires = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
-  tokenStore.set(token, { userId, expires });
-  return token;
+function generateToken(userId: number): string {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
 function getUserIdFromToken(token: string): number | null {
-  const data = tokenStore.get(token);
-  if (!data) return null;
-  if (Date.now() > data.expires) {
-    tokenStore.delete(token);
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+    return decoded.userId;
+  } catch (error) {
     return null;
   }
-  return data.userId;
-}
-
-function removeToken(token: string): void {
-  tokenStore.delete(token);
 }
 
 // Get user ID from session or Bearer token
@@ -45,7 +34,7 @@ function getUserIdFromRequest(req: Request): number | null {
   if (req.session.userId) {
     return req.session.userId;
   }
-  // Then check Authorization header
+  // Then check Authorization header (JWT token)
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
@@ -85,13 +74,13 @@ router.post("/register", async (req: Request, res: Response) => {
     const user = await createUser({ email, passwordHash, name });
 
     req.session.userId = user.id;
-    const token = storeToken(user.id);
+    const token = generateToken(user.id);
 
     res.status(201).json({
       id: user.id,
       email: user.email,
       name: user.name,
-      token, // Return token for mobile clients
+      token, // Return JWT token for mobile clients
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -118,7 +107,7 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 
     req.session.userId = user.id;
-    const token = storeToken(user.id);
+    const token = generateToken(user.id);
 
     res.json({
       id: user.id,
@@ -131,7 +120,7 @@ router.post("/login", async (req: Request, res: Response) => {
       experience: user.experience,
       goal: user.goal,
       activityLevel: user.activity_level,
-      token, // Return token for mobile clients
+      token, // Return JWT token for mobile clients
     });
   } catch (error) {
     console.error("Login error:", error);

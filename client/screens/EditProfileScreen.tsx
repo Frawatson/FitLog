@@ -33,6 +33,7 @@ export default function EditProfileScreen() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    console.log("[EditProfile] User data:", JSON.stringify(user, null, 2));
     if (user) {
       setName(user.name || "");
       setAge(user.age?.toString() || "");
@@ -42,6 +43,7 @@ export default function EditProfileScreen() {
       setExperience(user.experience || "");
       setGoal(user.goal || "");
       setActivityLevel(user.activityLevel || "");
+      console.log("[EditProfile] Setting sex:", user.sex, "experience:", user.experience, "goal:", user.goal, "activityLevel:", user.activityLevel);
     }
   }, [user]);
 
@@ -192,6 +194,7 @@ export default function EditProfileScreen() {
             style={[styles.picker, { color: theme.text }]}
           >
             <Picker.Item label="Select..." value="" />
+            <Picker.Item label="1-2 days/week" value="1-2" />
             <Picker.Item label="3-4 days/week" value="3-4" />
             <Picker.Item label="5-6 days/week" value="5-6" />
           </Picker>
