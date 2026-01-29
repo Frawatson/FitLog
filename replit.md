@@ -1,7 +1,7 @@
-# NextRep - Fitness Tracking App
+# FitLog - Fitness Tracking App
 
 ## Overview
-NextRep is a comprehensive fitness tracking mobile app built with React Native (Expo) and Express.js. It allows users to log workouts, track progress with rule-based progression suggestions, monitor nutrition, and track body weight.
+FitLog is a comprehensive fitness tracking mobile app built with React Native (Expo) and Express.js. It allows users to log workouts, track progress with rule-based progression suggestions, monitor nutrition, and track body weight.
 
 ## Current State
 MVP completed with the following features:

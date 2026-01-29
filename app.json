@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "NextRep",
-    "slug": "nextrep",
+    "name": "FitLog",
+    "slug": "fitlog",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "nextrep",
+    "scheme": "fitlog",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

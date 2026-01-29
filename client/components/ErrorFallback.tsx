@@ -63,7 +63,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
         </View>
         
         <ThemedText type="h1" style={styles.title}>
-          NextRep hit a snag
+          FitLog hit a snag
         </ThemedText>
 
         <ThemedText type="body" style={styles.message}>

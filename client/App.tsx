@@ -1,6 +1,6 @@
 import "react-native-get-random-values";
 import React, { useEffect } from "react";
-import { StyleSheet, Platform, useColorScheme } from "react-native";
+import { StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -20,14 +20,10 @@ import { queryClient } from "@/lib/query-client";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { Colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  
   const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
     Montserrat_600SemiBold,
@@ -39,14 +35,6 @@ export default function App() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
-
-  useEffect(() => {
-    if (Platform.OS === "web" && typeof document !== "undefined") {
-      const bgColor = isDark ? Colors.dark.backgroundRoot : Colors.light.backgroundRoot;
-      document.body.style.backgroundColor = bgColor;
-      document.documentElement.style.backgroundColor = bgColor;
-    }
-  }, [isDark]);
 
   if (!fontsLoaded && !fontError) {
     return null;
