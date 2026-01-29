@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -35,6 +35,9 @@ export default function ProfileScreen() {
   const [macros, setMacros] = useState<MacroTargets | null>(null);
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [newWeight, setNewWeight] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   const loadData = async () => {
     const [profileData, weightData, macroData] = await Promise.all([
@@ -69,57 +72,59 @@ export default function ProfileScreen() {
     await logout();
   };
   
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      "Delete Account",
-      "This will permanently delete your account and all associated data. This action cannot be undone. Are you sure?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete Account",
-          style: "destructive",
-          onPress: () => {
-            Alert.alert(
-              "Confirm Deletion",
-              "Please confirm that you want to permanently delete your account.",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Yes, Delete My Account",
-                  style: "destructive",
-                  onPress: async () => {
-                    try {
-                      const apiUrl = getApiUrl();
-                      const token = await storage.getAuthToken();
-                      
-                      const response = await fetch(new URL("/api/auth/account", apiUrl).toString(), {
-                        method: "DELETE",
-                        headers: {
-                          "Authorization": `Bearer ${token}`,
-                          "Content-Type": "application/json",
-                        },
-                      });
-                      
-                      if (!response.ok) {
-                        throw new Error("Failed to delete account");
-                      }
-                      
-                      await storage.clearAllData();
-                      await logout();
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                    } catch (error) {
-                      console.error("Delete account error:", error);
-                      Alert.alert("Error", "Failed to delete account. Please try again.");
-                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-                    }
-                  },
-                },
-              ]
-            );
-          },
+  const performDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      const apiUrl = getApiUrl();
+      const token = await storage.getAuthToken();
+      
+      const response = await fetch(new URL("/api/auth/account", apiUrl).toString(), {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-      ]
-    );
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to delete account");
+      }
+      
+      await storage.clearAllData();
+      setShowDeleteModal(false);
+      setDeleteStep(1);
+      await logout();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Delete account error:", error);
+      if (Platform.OS === "web") {
+        window.alert("Failed to delete account. Please try again.");
+      } else {
+        Alert.alert("Error", "Failed to delete account. Please try again.");
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setDeleteStep(1);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteModalNext = () => {
+    if (deleteStep === 1) {
+      setDeleteStep(2);
+    } else {
+      performDeleteAccount();
+    }
+  };
+
+  const handleDeleteModalCancel = () => {
+    setShowDeleteModal(false);
+    setDeleteStep(1);
   };
   
   const getGoalLabel = (goal: string) => {
@@ -135,6 +140,7 @@ export default function ProfileScreen() {
   const latestWeight = bodyWeights[0];
   
   return (
+    <>
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
@@ -306,6 +312,49 @@ export default function ProfileScreen() {
         <View style={{ width: 20 }} />
       </Pressable>
     </ScrollView>
+
+    <Modal
+      visible={showDeleteModal}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={handleDeleteModalCancel}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+          <View style={styles.modalHeader}>
+            <Feather name="alert-triangle" size={48} color={Colors.light.error} />
+            <ThemedText type="h3" style={styles.modalTitle}>
+              {deleteStep === 1 ? "Delete Account?" : "Final Confirmation"}
+            </ThemedText>
+          </View>
+          
+          <ThemedText type="body" style={styles.modalText}>
+            {deleteStep === 1 
+              ? "This will permanently delete your account and all associated data. This action cannot be undone."
+              : "Please confirm that you want to permanently delete your account. All your workouts, routines, and progress will be lost forever."}
+          </ThemedText>
+          
+          <View style={styles.modalButtons}>
+            <Pressable
+              onPress={handleDeleteModalCancel}
+              style={[styles.modalButton, styles.modalButtonCancel, { borderColor: theme.border }]}
+            >
+              <ThemedText type="body">Cancel</ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={handleDeleteModalNext}
+              disabled={isDeleting}
+              style={[styles.modalButton, styles.modalButtonDelete]}
+            >
+              <ThemedText type="body" style={{ color: "#FFFFFF" }}>
+                {isDeleting ? "Deleting..." : deleteStep === 1 ? "Continue" : "Delete My Account"}
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -390,5 +439,48 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1,
     marginLeft: Spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+  },
+  modalHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    marginTop: Spacing.md,
+    textAlign: "center",
+  },
+  modalText: {
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: Spacing.xl,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalButtonCancel: {
+    borderWidth: 1,
+  },
+  modalButtonDelete: {
+    backgroundColor: Colors.light.error,
   },
 });
