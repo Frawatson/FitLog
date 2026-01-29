@@ -143,9 +143,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const data = await response.json();
       
+      // Check for API errors (like IP whitelist issues)
+      if (data.error) {
+        console.error("FatSecret API error:", data.error);
+        // Return error to client so it can fall back to local database
+        return res.status(503).json({ 
+          error: "Food API temporarily unavailable", 
+          useLocalDatabase: true,
+          details: data.error.message 
+        });
+      }
+      
       // Parse the response - FatSecret returns foods in a nested structure
       const foods = data.foods?.food || [];
-      const foodArray = Array.isArray(foods) ? foods : [foods];
+      const foodArray = Array.isArray(foods) ? foods : foods ? [foods] : [];
       
       // Transform to a cleaner format with parsed nutritional info
       const results = foodArray.map((food: FatSecretFood) => {

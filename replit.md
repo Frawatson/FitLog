@@ -28,10 +28,11 @@ MVP completed with the following features:
 ### Backend (Express.js)
 - **Location**: `server/`
 - **Port**: 5000
-- **Purpose**: Serves landing page, static Expo builds, and workout API endpoints
+- **Purpose**: Serves landing page, static Expo builds, and API endpoints
 - **API Endpoints**:
-  - `GET /api/exercises` - Fetches exercises from API Ninjas by muscle, type, difficulty
+  - `GET /api/exercises` - Fetches exercises from WorkoutAPI by muscle group
   - `POST /api/generate-routine` - Generates a complete workout routine from selected muscle groups
+  - `GET /api/foods/search` - Searches FatSecret food database (falls back to local DB if API unavailable)
 
 ### Shared
 - **Location**: `shared/`
@@ -90,7 +91,16 @@ All data is stored locally using AsyncStorage:
 2. Start Frontend: `npm run expo:dev` (port 8081)
 3. Scan QR code in Expo Go app to test on device
 
+## API Integrations
+- **WorkoutAPI** (exercises): Uses WORKOUT_API_KEY secret, 30-min cache
+- **FatSecret** (nutrition): Uses FATSECRET_CLIENT_ID and FATSECRET_CLIENT_SECRET secrets for OAuth 2.0
+  - Note: FatSecret requires IP whitelisting in developer portal. Falls back to local food database (85+ foods) when API is unavailable.
+
 ## Recent Changes
+- January 2026: FatSecret Food API Integration
+  - Integrated FatSecret OAuth 2.0 API for food search
+  - Backend endpoint with token caching
+  - Automatic fallback to local food database when API unavailable
 - January 2026: Workout API Integration
   - Integrated API Ninjas Exercises API (3,000+ exercises database)
   - Added Generate Custom Routine feature with muscle group and difficulty selection

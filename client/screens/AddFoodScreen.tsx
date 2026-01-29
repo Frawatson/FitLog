@@ -16,7 +16,7 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
-import { FOOD_DATABASE, FoodDatabaseItem } from "@/lib/foodDatabase";
+import { FOOD_DATABASE, FoodDatabaseItem, searchFoods } from "@/lib/foodDatabase";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
@@ -58,7 +58,7 @@ export default function AddFoodScreen() {
     loadSavedFoods();
   }, []);
   
-  // Debounced API search
+  // Debounced search - tries API first, falls back to local database
   useEffect(() => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -79,10 +79,53 @@ export default function AddFoodScreen() {
         const response = await fetch(url.toString());
         if (response.ok) {
           const data = await response.json();
-          setSearchResults(data.foods || []);
+          if (data.foods && data.foods.length > 0) {
+            setSearchResults(data.foods);
+          } else {
+            // Fall back to local database if API returns no results
+            const localResults = searchFoods(searchQuery).map(f => ({
+              id: f.id,
+              name: f.name,
+              brand: null,
+              type: "local",
+              servingSize: f.servingSize,
+              calories: f.calories,
+              fat: f.fat,
+              carbs: f.carbs,
+              protein: f.protein,
+            }));
+            setSearchResults(localResults);
+          }
+        } else {
+          // API error - fall back to local database
+          const localResults = searchFoods(searchQuery).map(f => ({
+            id: f.id,
+            name: f.name,
+            brand: null,
+            type: "local",
+            servingSize: f.servingSize,
+            calories: f.calories,
+            fat: f.fat,
+            carbs: f.carbs,
+            protein: f.protein,
+          }));
+          setSearchResults(localResults);
         }
       } catch (error) {
         console.error("Food search error:", error);
+        // Network error - fall back to local database
+        const localResults = searchFoods(searchQuery).map(f => ({
+          id: f.id,
+          name: f.name,
+          brand: null,
+          type: "local",
+          servingSize: f.servingSize,
+          calories: f.calories,
+          fat: f.fat,
+          carbs: f.carbs,
+          protein: f.protein,
+        }));
+        setSearchResults(localResults);
       } finally {
         setIsSearching(false);
       }
