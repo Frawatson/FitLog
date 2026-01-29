@@ -1,0 +1,320 @@
+1. Authentication & Accounts
+1.1 Email / Google / Apple Sign-in
+
+Users can create an account and log in.
+
+Why
+
+Sync across devices
+
+Required for future subscriptions
+
+Includes
+
+Sign up
+
+Login
+
+Logout
+
+Password reset
+
+Does NOT include
+
+Social profiles
+
+Friends system
+
+2. User Profile & Goals
+2.1 Basic Profile
+
+Age
+
+Sex
+
+Height
+
+Bodyweight
+
+Training experience (Beginner / Intermediate / Advanced)
+
+2.2 Goal Selection
+
+Lose Fat
+
+Gain Muscle
+
+Recomposition
+
+Maintain
+
+2.3 Activity Level
+
+3–4 days/week
+
+5–6 days/week
+
+Why
+Used to calculate calories and progression ranges.
+
+3. Workout Routine Builder
+3.1 Create Routine
+
+User can:
+
+Name routine
+
+Add training days
+
+Add exercises per day
+
+Example:
+Push Day
+
+Bench Press
+
+Incline DB Press
+
+Shoulder Press
+
+3.2 Exercise Library
+
+Preloaded exercises:
+
+Squat
+
+Bench
+
+Deadlift
+
+Row
+
+Pulldown
+
+Shoulder Press
+
+Curl
+
+Triceps Extension
+
+Plus:
+
+Add Custom Exercise
+
+Why
+You don’t need 3,000 exercises at MVP.
+
+4. Workout Logging (Core Feature)
+4.1 Start Workout
+
+User selects routine → sees exercise list.
+
+4.2 Log Sets
+
+Each set includes:
+
+Weight
+
+Reps
+
+Optional:
+
+Notes
+
+4.3 Add / Remove Sets
+4.4 One-Tap Previous Values
+
+Button:
+“Use Last Workout”
+
+Autofills last weight & reps.
+
+4.5 Rest Timer
+
+Manual start / stop timer per set.
+
+Why This Matters
+Speed > beauty
+If logging feels slow, app fails.
+
+5. Simple Progression Engine
+
+(Not AI. Rule-based.)
+
+After workout:
+
+If user completes all reps →
+Suggest +2.5–5 lbs next session
+
+If user fails reps →
+Suggest same weight
+
+If fails multiple sets →
+Suggest -5%
+
+Displayed as:
+
+“Next time: Bench Press → 185 lbs”
+
+Why
+Feels smart without complexity.
+
+6. Workout History
+6.1 Workout Log List
+
+Shows:
+
+Date
+
+Routine
+
+Duration
+
+6.2 Exercise History
+
+Tap exercise → view past weights/reps.
+
+No charts yet (tables only).
+
+7. Bodyweight Tracking
+7.1 Log Daily Weight
+7.2 Weight History List
+
+Date → Weight
+
+Optional simple line chart.
+
+8. Macro & Calorie Targets
+8.1 Auto Calculation
+
+Based on:
+
+Weight
+
+Goal
+
+Activity level
+
+Example:
+Calories: 2,300
+Protein: 180g
+Carbs: 250g
+Fat: 70g
+
+8.2 Editable Targets
+
+User can override numbers.
+
+9. Food Logging (Lightweight)
+9.1 Manual Food Entry
+
+User enters:
+
+Food name
+
+Calories
+
+Protein
+
+Carbs
+
+Fat
+
+9.2 Saved Foods
+
+User can reuse foods.
+
+9.3 Daily Totals
+
+Progress bars:
+Calories
+Protein
+Carbs
+Fat
+
+No barcode scanner
+No giant database
+(Too expensive & heavy for MVP)
+
+10. Smart Macro Adjustment (Weekly)
+
+Once per week:
+
+If:
+Weight ↓ faster than target → increase calories
+Weight ↑ too fast → decrease calories
+
+Shows message:
+
+“Based on your last 7 days, we recommend:
+Calories: 2300 → 2400”
+
+User accepts or ignores.
+
+11. Reminders
+11.1 Workout Reminders
+
+Pick days & time.
+
+11.2 Optional Weigh-In Reminder
+
+Local push notifications.
+
+12. Cloud Sync & Offline Mode
+
+App works offline
+
+Syncs when internet returns
+
+🚫 Explicitly NOT in MVP
+
+Social feed
+
+Messaging
+
+Coach chat
+
+Wearables
+
+Barcode scanner
+
+Meal plans
+
+Video exercise demos
+
+AI chatbot
+
+Subscriptions
+
+These kill timelines.
+
+🧭 Screen Count (Reality Check)
+
+Login
+
+Onboarding
+
+Home Dashboard
+
+Routines
+
+Routine Editor
+
+Start Workout
+
+Log Workout
+
+History
+
+Exercise History
+
+Bodyweight
+
+Macros
+
+Food Log
+
+Settings
+
+≈ 13 screens
+Very reasonable.
