@@ -123,7 +123,7 @@ export default function GenerateRoutineScreen() {
       await storage.saveRoutine(newRoutine);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.navigate("Main", { screen: "Routines" });
+      navigation.navigate("Main", { screen: "RoutinesTab" });
     } catch (err) {
       console.error("Error generating routine:", err);
       setError("Failed to generate routine. Please try again.");
