@@ -60,27 +60,43 @@ export default function RoutinesScreen() {
     );
   };
   
+  const handleStartWorkout = (routine: Routine) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate("ActiveWorkout", { routineId: routine.id });
+  };
+
   const renderRoutine = ({ item }: { item: Routine }) => (
-    <Pressable
-      onPress={() => navigation.navigate("EditRoutine", { routineId: item.id })}
-      onLongPress={() => handleDelete(item)}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-    >
-      <Card style={styles.routineCard}>
-        <View style={styles.routineHeader}>
+    <Card style={styles.routineCard}>
+      <View style={styles.routineHeader}>
+        <View style={{ flex: 1 }}>
           <ThemedText type="h3">{item.name}</ThemedText>
-          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-        </View>
-        <ThemedText type="small" style={styles.routineInfo}>
-          {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
-        </ThemedText>
-        {item.lastCompletedAt ? (
-          <ThemedText type="small" style={styles.lastCompleted}>
-            Last completed: {new Date(item.lastCompletedAt).toLocaleDateString()}
+          <ThemedText type="small" style={styles.routineInfo}>
+            {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
           </ThemedText>
-        ) : null}
-      </Card>
-    </Pressable>
+          {item.lastCompletedAt ? (
+            <ThemedText type="small" style={styles.lastCompleted}>
+              Last completed: {new Date(item.lastCompletedAt).toLocaleDateString()}
+            </ThemedText>
+          ) : null}
+        </View>
+        <View style={styles.routineActions}>
+          <Pressable
+            onPress={() => navigation.navigate("EditRoutine", { routineId: item.id })}
+            style={[styles.actionButton, { backgroundColor: theme.backgroundElevated }]}
+            hitSlop={8}
+          >
+            <Feather name="edit-2" size={18} color={theme.textSecondary} />
+          </Pressable>
+          <Pressable
+            onPress={() => handleStartWorkout(item)}
+            style={[styles.actionButton, styles.playButton]}
+            hitSlop={8}
+          >
+            <Feather name="play" size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
+    </Card>
   );
   
   if (routines.length === 0 && !loading) {
@@ -159,7 +175,7 @@ const styles = StyleSheet.create({
   routineHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   routineInfo: {
     opacity: 0.6,
@@ -168,6 +184,21 @@ const styles = StyleSheet.create({
   lastCompleted: {
     opacity: 0.5,
     marginTop: Spacing.xs,
+  },
+  routineActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginLeft: Spacing.md,
+  },
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  playButton: {
+    backgroundColor: Colors.light.primary,
   },
   templateButton: {
     marginBottom: Spacing.lg,
