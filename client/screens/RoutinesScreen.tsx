@@ -160,7 +160,7 @@ export default function RoutinesScreen() {
           </ThemedText>
           <View style={styles.modalButtons}>
             <Pressable
-              style={[styles.modalButton, styles.cancelButton, { backgroundColor: theme.backgroundElevated, borderColor: theme.border }]}
+              style={[styles.modalButton, styles.cancelButton, { backgroundColor: theme.background, borderColor: theme.textSecondary }]}
               onPress={cancelDelete}
             >
               <ThemedText type="body" style={{ fontWeight: "600" }}>Cancel</ThemedText>
