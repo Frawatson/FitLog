@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, FlatList, Pressable, TextInput } from "react-native";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { View, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -16,13 +16,24 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
-import { searchFoods, FoodDatabaseItem, FOOD_DATABASE } from "@/lib/foodDatabase";
+import { FOOD_DATABASE, FoodDatabaseItem } from "@/lib/foodDatabase";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-type CategoryFilter = "all" | "protein" | "carbs" | "dairy" | "vegetables" | "fruits" | "fats" | "snacks";
+interface APIFoodResult {
+  id: string;
+  name: string;
+  brand: string | null;
+  type: string;
+  servingSize: string;
+  calories: number;
+  fat: number;
+  carbs: number;
+  protein: number;
+}
 
 export default function AddFoodScreen() {
   const insets = useSafeAreaInsets();
@@ -33,26 +44,55 @@ export default function AddFoodScreen() {
   const [savedFoods, setSavedFoods] = useState<Food[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<FoodDatabaseItem[]>([]);
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [searchResults, setSearchResults] = useState<APIFoodResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [name, setName] = useState("");
   const [calories, setCalories] = useState("");
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   useEffect(() => {
     loadSavedFoods();
   }, []);
   
+  // Debounced API search
   useEffect(() => {
-    if (searchQuery.trim().length > 0) {
-      const results = searchFoods(searchQuery);
-      setSearchResults(results);
-    } else {
-      setSearchResults([]);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
+    
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const url = new URL("/api/foods/search", getApiUrl());
+        url.searchParams.set("query", searchQuery.trim());
+        
+        const response = await fetch(url.toString());
+        if (response.ok) {
+          const data = await response.json();
+          setSearchResults(data.foods || []);
+        }
+      } catch (error) {
+        console.error("Food search error:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 400); // 400ms debounce
+    
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
   }, [searchQuery]);
   
   const loadSavedFoods = async () => {
@@ -60,8 +100,8 @@ export default function AddFoodScreen() {
     setSavedFoods(foods);
   };
   
-  const handleSelectDatabaseFood = (food: FoodDatabaseItem) => {
-    setName(food.name);
+  const handleSelectApiFood = (food: APIFoodResult) => {
+    setName(food.brand ? `${food.name} (${food.brand})` : food.name);
     setCalories(food.calories.toString());
     setProtein(food.protein.toString());
     setCarbs(food.carbs.toString());
@@ -79,10 +119,10 @@ export default function AddFoodScreen() {
     navigation.goBack();
   };
   
-  const handleQuickAddDatabase = async (food: FoodDatabaseItem) => {
+  const handleQuickAddApiFood = async (food: APIFoodResult) => {
     const foodEntry: Food = {
       id: uuidv4(),
-      name: food.name,
+      name: food.brand ? `${food.name} (${food.brand})` : food.name,
       calories: food.calories,
       protein: food.protein,
       carbs: food.carbs,
@@ -126,34 +166,6 @@ export default function AddFoodScreen() {
     navigation.goBack();
   };
   
-  const getFilteredDatabaseFoods = () => {
-    if (categoryFilter === "all") {
-      return FOOD_DATABASE.slice(0, 20);
-    }
-    return FOOD_DATABASE.filter((f) => f.category === categoryFilter).slice(0, 20);
-  };
-  
-  const renderCategoryFilter = (category: CategoryFilter, label: string) => (
-    <Pressable
-      onPress={() => {
-        Haptics.selectionAsync();
-        setCategoryFilter(category);
-      }}
-      style={[
-        styles.filterChip,
-        {
-          backgroundColor: categoryFilter === category ? Colors.light.primary : theme.backgroundElevated,
-        },
-      ]}
-    >
-      <ThemedText
-        type="small"
-        style={{ color: categoryFilter === category ? "#FFFFFF" : theme.text, fontWeight: "600" }}
-      >
-        {label}
-      </ThemedText>
-    </Pressable>
-  );
   
   if (showForm) {
     return (
@@ -275,7 +287,14 @@ export default function AddFoodScreen() {
             ) : null}
           </View>
           
-          {searchResults.length > 0 ? (
+          {isSearching ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={Colors.light.primary} />
+              <ThemedText type="small" style={{ marginLeft: Spacing.sm }}>
+                Searching foods...
+              </ThemedText>
+            </View>
+          ) : searchResults.length > 0 ? (
             <View style={styles.searchResultsContainer}>
               <ThemedText type="h4" style={styles.sectionTitle}>
                 Search Results
@@ -283,8 +302,8 @@ export default function AddFoodScreen() {
               {searchResults.map((item) => (
                 <Pressable
                   key={item.id}
-                  onPress={() => handleSelectDatabaseFood(item)}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                  onPress={() => handleSelectApiFood(item)}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, marginBottom: Spacing.sm })}
                 >
                   <Card style={styles.foodCard}>
                     <View style={styles.foodContent}>
@@ -292,6 +311,11 @@ export default function AddFoodScreen() {
                         <ThemedText type="body" style={{ fontWeight: "600" }}>
                           {item.name}
                         </ThemedText>
+                        {item.brand ? (
+                          <ThemedText type="small" style={styles.brandName}>
+                            {item.brand}
+                          </ThemedText>
+                        ) : null}
                         <ThemedText type="small" style={styles.foodMacros}>
                           {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
                         </ThemedText>
@@ -301,7 +325,7 @@ export default function AddFoodScreen() {
                       </View>
                       <View style={styles.actionButtons}>
                         <Pressable
-                          onPress={() => handleQuickAddDatabase(item)}
+                          onPress={() => handleQuickAddApiFood(item)}
                           hitSlop={8}
                         >
                           <Feather name="plus-circle" size={24} color={Colors.light.primary} />
@@ -311,6 +335,12 @@ export default function AddFoodScreen() {
                   </Card>
                 </Pressable>
               ))}
+            </View>
+          ) : searchQuery.length >= 2 ? (
+            <View style={styles.noResultsContainer}>
+              <ThemedText type="small" style={{ textAlign: "center", opacity: 0.6 }}>
+                No foods found for "{searchQuery}"
+              </ThemedText>
             </View>
           ) : null}
           
@@ -350,52 +380,22 @@ export default function AddFoodScreen() {
             </>
           ) : null}
           
-          <ThemedText type="h4" style={styles.sectionTitle}>
-            Food Database
-          </ThemedText>
-          
-          <View style={styles.filtersContainer}>
-            {renderCategoryFilter("all", "All")}
-            {renderCategoryFilter("protein", "Protein")}
-            {renderCategoryFilter("carbs", "Carbs")}
-            {renderCategoryFilter("dairy", "Dairy")}
-            {renderCategoryFilter("vegetables", "Veggies")}
-            {renderCategoryFilter("fruits", "Fruits")}
-            {renderCategoryFilter("fats", "Fats")}
-          </View>
+          {searchQuery.length < 2 && searchResults.length === 0 ? (
+            <View style={styles.tipContainer}>
+              <Feather name="search" size={48} color={theme.textSecondary} style={{ opacity: 0.5 }} />
+              <ThemedText type="body" style={[styles.tipText, { color: theme.textSecondary }]}>
+                Search for any food to get nutritional info
+              </ThemedText>
+              <ThemedText type="small" style={[styles.tipSubtext, { color: theme.textSecondary }]}>
+                Powered by FatSecret food database
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
       }
-      data={getFilteredDatabaseFoods()}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <Pressable
-          onPress={() => handleSelectDatabaseFood(item)}
-          style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-        >
-          <Card style={styles.foodCard}>
-            <View style={styles.foodContent}>
-              <View style={styles.foodInfo}>
-                <ThemedText type="body" style={{ fontWeight: "600" }}>
-                  {item.name}
-                </ThemedText>
-                <ThemedText type="small" style={styles.foodMacros}>
-                  {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
-                </ThemedText>
-                <ThemedText type="small" style={styles.servingSize}>
-                  {item.servingSize}
-                </ThemedText>
-              </View>
-              <Pressable
-                onPress={() => handleQuickAddDatabase(item)}
-                hitSlop={8}
-              >
-                <Feather name="plus-circle" size={24} color={Colors.light.primary} />
-              </Pressable>
-            </View>
-          </Card>
-        </Pressable>
-      )}
-      ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+      data={[]}
+      keyExtractor={() => "empty"}
+      renderItem={() => null}
     />
   );
 }
@@ -426,22 +426,37 @@ const styles = StyleSheet.create({
   searchResultsContainer: {
     marginBottom: Spacing.lg,
   },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.xl,
+  },
+  noResultsContainer: {
+    paddingVertical: Spacing.xl,
+  },
   newFoodButton: {
     marginBottom: Spacing.xl,
   },
   sectionTitle: {
     marginBottom: Spacing.md,
   },
-  filtersContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+  tipContainer: {
+    alignItems: "center",
+    paddingVertical: Spacing["2xl"],
+    gap: Spacing.md,
   },
-  filterChip: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
+  tipText: {
+    textAlign: "center",
+    fontWeight: "500",
+  },
+  tipSubtext: {
+    textAlign: "center",
+    opacity: 0.6,
+  },
+  brandName: {
+    opacity: 0.5,
+    fontStyle: "italic",
   },
   foodCard: {
     padding: Spacing.lg,
