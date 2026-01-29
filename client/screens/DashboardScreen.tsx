@@ -191,23 +191,6 @@ export default function DashboardScreen() {
         </Card>
       ) : null}
       
-      <Card 
-        style={styles.runTrackerCard}
-        onPress={() => navigation.navigate("RunTracker")}
-      >
-        <View style={styles.runTrackerContent}>
-          <View style={[styles.runIcon, { backgroundColor: "#22C55E" }]}>
-            <Feather name="navigation" size={20} color="#FFFFFF" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <ThemedText type="h4">Run Tracker</ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>
-              Track your runs with GPS
-            </ThemedText>
-          </View>
-          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-        </View>
-      </Card>
       
       {macros ? (
         <Card style={styles.macrosCard}>
@@ -349,20 +332,5 @@ const styles = StyleSheet.create({
   },
   macroMini: {
     flex: 1,
-  },
-  runTrackerCard: {
-    marginBottom: Spacing.xl,
-  },
-  runTrackerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  runIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
