@@ -13,6 +13,7 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, Sex, TrainingExperience, FitnessGoal, ActivityLevel, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
@@ -31,10 +32,13 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const { user, register, updateProfile } = useAuth();
   
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<Sex>("male");
   const [heightCm, setHeightCm] = useState("");
@@ -43,15 +47,49 @@ export default function OnboardingScreen() {
   const [goal, setGoal] = useState<FitnessGoal>("gain_muscle");
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>("3-4");
   const [macros, setMacros] = useState<MacroTargets | null>(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   
-  const handleNext = () => {
+  const needsAccountCreation = !user;
+  
+  const handleNext = async () => {
+    setError("");
+    
+    if (step === 1 && needsAccountCreation) {
+      if (!name.trim()) {
+        setError("Please enter your name");
+        return;
+      }
+      if (!email.trim()) {
+        setError("Please enter your email");
+        return;
+      }
+      if (password.length < 6) {
+        setError("Password must be at least 6 characters");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError("Passwords do not match");
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        await register(email.trim(), password, name.trim());
+      } catch (err: any) {
+        setError(err.message || "Failed to create account");
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === 4) {
-      // Calculate macros
       const profile: UserProfile = {
         id: uuidv4(),
-        name: name.trim() || "User",
-        email: email.trim(),
+        name: name.trim() || user?.name || "User",
+        email: email.trim() || user?.email || "",
         age: parseInt(age) || 25,
         sex,
         heightCm: parseInt(heightCm) || 170,
@@ -69,11 +107,27 @@ export default function OnboardingScreen() {
   };
   
   const handleFinish = async () => {
+    setLoading(true);
+    try {
+      await updateProfile({
+        name: name.trim() || user?.name,
+        age: parseInt(age) || undefined,
+        sex,
+        heightCm: parseInt(heightCm) || undefined,
+        weightKg: parseInt(weightKg) || undefined,
+        experience,
+        goal,
+        activityLevel,
+      });
+    } catch (err) {
+      console.log("Failed to update profile in database:", err);
+    }
+    
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const profile: UserProfile = {
       id: uuidv4(),
-      name: name.trim() || "User",
-      email: email.trim(),
+      name: name.trim() || user?.name || "User",
+      email: email.trim() || user?.email || "",
       age: parseInt(age) || 25,
       sex,
       heightCm: parseInt(heightCm) || 170,
@@ -88,6 +142,7 @@ export default function OnboardingScreen() {
     if (macros) {
       await storage.saveMacroTargets(macros);
     }
+    setLoading(false);
     navigation.reset({
       index: 0,
       routes: [{ name: "Main" }],
@@ -97,28 +152,68 @@ export default function OnboardingScreen() {
   const renderStep1 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
-        Create Your Account
+        {needsAccountCreation ? "Create Your Account" : "Welcome Back"}
       </ThemedText>
       <ThemedText type="body" style={styles.stepDescription}>
-        Let's start with the basics
+        {needsAccountCreation ? "Set up your login credentials" : "Let's complete your profile setup"}
       </ThemedText>
       
-      <Input
-        label="Name"
-        placeholder="John Doe"
-        value={name}
-        onChangeText={setName}
-        autoCapitalize="words"
-      />
+      {error ? (
+        <View style={[styles.errorBox, { backgroundColor: Colors.light.danger + "20" }]}>
+          <ThemedText type="small" style={{ color: Colors.light.danger }}>
+            {error}
+          </ThemedText>
+        </View>
+      ) : null}
       
-      <Input
-        label="Email"
-        placeholder="john@example.com"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+      {needsAccountCreation ? (
+        <>
+          <Input
+            label="Full Name"
+            placeholder="John Doe"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+          />
+          
+          <Input
+            label="Email"
+            placeholder="john@example.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          
+          <Input
+            label="Password"
+            placeholder="Create a password (min 6 characters)"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+          
+          <Input
+            label="Confirm Password"
+            placeholder="Confirm your password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+        </>
+      ) : (
+        <View style={styles.welcomeBack}>
+          <View style={[styles.avatar, { backgroundColor: Colors.light.primary }]}>
+            <Feather name="user" size={40} color="#FFFFFF" />
+          </View>
+          <ThemedText type="h3" style={{ marginTop: Spacing.md }}>
+            {user?.name}
+          </ThemedText>
+          <ThemedText type="body" style={{ opacity: 0.6 }}>
+            {user?.email}
+          </ThemedText>
+        </View>
+      )}
     </View>
   );
   
@@ -384,12 +479,12 @@ export default function OnboardingScreen() {
       
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
         {step < 5 ? (
-          <Button onPress={handleNext} style={styles.button}>
-            Next
+          <Button onPress={handleNext} disabled={loading} style={styles.button}>
+            {loading ? "Creating Account..." : (step === 1 && needsAccountCreation ? "Create Account & Continue" : "Next")}
           </Button>
         ) : (
-          <Button onPress={handleFinish} style={styles.button}>
-            Start Training
+          <Button onPress={handleFinish} disabled={loading} style={styles.button}>
+            {loading ? "Saving..." : "Start Training"}
           </Button>
         )}
       </View>
@@ -478,5 +573,21 @@ const styles = StyleSheet.create({
   },
   button: {
     width: "100%",
+  },
+  errorBox: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    marginBottom: Spacing.lg,
+  },
+  welcomeBack: {
+    alignItems: "center",
+    paddingVertical: Spacing["2xl"],
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

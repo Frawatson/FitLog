@@ -125,9 +125,12 @@ App data stored locally on device:
   - Implemented register/login/logout with bcrypt password hashing
   - Session-based auth with express-session and connect-pg-simple
   - AuthContext for global auth state management
-  - Login, Register, and EditProfile screens
-  - Profile screen updated with user info, edit button, and logout
+  - **Integrated account creation into onboarding flow** - new users create their account (email/password) as the first step of onboarding, then continue with profile setup
+  - Login screen for existing users, "Sign Up" directs to onboarding
+  - EditProfile screen for updating user details
+  - Profile screen shows user info with edit and logout options
   - Navigation guards for authenticated routes
+  - Profile data saved to both PostgreSQL (auth) and AsyncStorage (local)
 - January 2026: CalorieNinjas Food API Integration
   - Integrated CalorieNinjas API for food nutrition data
   - Simple API key authentication

@@ -112,7 +112,7 @@ export default function LoginScreen() {
               <ThemedText type="body" style={{ opacity: 0.7 }}>
                 Don't have an account?
               </ThemedText>
-              <Pressable onPress={() => navigation.navigate("Register")}>
+              <Pressable onPress={() => navigation.navigate("Onboarding")}>
                 <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
                   {" "}Sign Up
                 </ThemedText>

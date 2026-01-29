@@ -81,6 +81,11 @@ export default function RootStackNavigator() {
           component={RegisterScreen}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="Onboarding"
+          component={OnboardingScreen}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     );
   }
