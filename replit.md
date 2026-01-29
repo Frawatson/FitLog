@@ -7,9 +7,12 @@ FitLog is a comprehensive fitness tracking mobile app built with React Native (E
 MVP completed with the following features:
 - User onboarding with profile setup and goal selection
 - Workout routine builder with exercise library
+- **10 pre-built workout routine templates** (Push/Pull/Legs, Upper/Lower, Full Body, Beginner, etc.) with browse and customize functionality
 - Workout logging with rest timer and set tracking
 - Rule-based progression engine (suggests weight increases/decreases)
+- **GPS Run Tracker** - track runs with distance, pace, duration, and route history
 - Nutrition tracking with macro targets
+- **Food Database** with 85+ common foods and auto-populate search for quick logging
 - Body weight logging and history
 - Workout history
 
@@ -37,17 +40,21 @@ MVP completed with the following features:
 - `client/navigation/RootStackNavigator.tsx` - Root navigation with all screens
 - `client/navigation/MainTabNavigator.tsx` - Bottom tab navigation
 - `client/lib/storage.ts` - AsyncStorage utilities for data persistence
+- `client/lib/routineTemplates.ts` - Pre-built workout routine templates (10 templates)
+- `client/lib/foodDatabase.ts` - Food database with 85+ foods and search function
 - `client/types/index.ts` - TypeScript type definitions
 - `client/constants/theme.ts` - Design system colors, spacing, typography
 
 ### Screens
-- `DashboardScreen` - Home tab with quick stats and workout start
-- `RoutinesScreen` - List of workout routines
+- `DashboardScreen` - Home tab with quick stats, workout start, and run tracker access
+- `RoutinesScreen` - List of workout routines with template browsing
+- `RoutineTemplatesScreen` - Browse and add pre-built workout templates
 - `EditRoutineScreen` - Create/edit routines with exercise selection
 - `ActiveWorkoutScreen` - Workout logging with sets, weight, reps
 - `WorkoutCompleteScreen` - Post-workout summary with progression suggestions
+- `RunTrackerScreen` - GPS run tracking with distance, pace, duration, and history
 - `NutritionScreen` - Daily macro tracking with progress rings
-- `AddFoodScreen` - Log food entries
+- `AddFoodScreen` - Log food entries with food database search and auto-populate
 - `ProfileScreen` - User settings, body weight, history
 
 ### Components
@@ -78,6 +85,13 @@ All data is stored locally using AsyncStorage:
 3. Scan QR code in Expo Go app to test on device
 
 ## Recent Changes
+- January 2026: Feature Update
+  - Added 10 pre-built workout routine templates with browse/customize functionality
+  - Added GPS Run Tracker with distance, pace, duration, and run history
+  - Added Food Database with 85+ foods and auto-populate search
+  - Updated Dashboard with Run Tracker quick access
+  - Updated Routines screen with template browsing button
+  - Updated Add Food screen with search and category filters
 - January 2026: Initial MVP release
   - Complete onboarding flow
   - Workout routine builder
