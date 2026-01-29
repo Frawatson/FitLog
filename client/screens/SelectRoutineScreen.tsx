@@ -40,24 +40,19 @@ export default function SelectRoutineScreen() {
   };
   
   const renderRoutine = ({ item }: { item: Routine }) => (
-    <Pressable
-      onPress={() => handleSelect(item)}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-    >
-      <Card style={styles.routineCard}>
-        <View style={styles.routineContent}>
-          <View style={styles.routineInfo}>
-            <ThemedText type="h3">{item.name}</ThemedText>
-            <ThemedText type="small" style={styles.exerciseCount}>
-              {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
-            </ThemedText>
-          </View>
-          <View style={[styles.playIcon, { backgroundColor: Colors.light.primary }]}>
-            <Feather name="play" size={20} color="#FFFFFF" />
-          </View>
+    <Card style={styles.routineCard} onPress={() => handleSelect(item)}>
+      <View style={styles.routineContent}>
+        <View style={styles.routineInfo}>
+          <ThemedText type="h3">{item.name}</ThemedText>
+          <ThemedText type="small" style={styles.exerciseCount}>
+            {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
+          </ThemedText>
         </View>
-      </Card>
-    </Pressable>
+        <View style={[styles.playIcon, { backgroundColor: Colors.light.primary }]}>
+          <Feather name="play" size={20} color="#FFFFFF" />
+        </View>
+      </View>
+    </Card>
   );
   
   return (
