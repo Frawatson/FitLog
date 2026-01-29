@@ -98,10 +98,18 @@ export default function RoutinesScreen() {
         <EmptyState
           image={require("../../assets/images/empty-routines.png")}
           title="No routines yet"
-          message="Create your first workout routine to get started"
-          actionLabel="Create Routine"
-          onAction={() => navigation.navigate("EditRoutine", {})}
+          message="Create your first workout routine or browse templates"
+          actionLabel="Browse Templates"
+          onAction={() => navigation.navigate("RoutineTemplates")}
         />
+        <Pressable
+          onPress={() => navigation.navigate("EditRoutine", {})}
+          style={[styles.createButton, { backgroundColor: theme.backgroundElevated }]}
+        >
+          <ThemedText type="body" style={{ fontWeight: "600" }}>
+            Or create from scratch
+          </ThemedText>
+        </Pressable>
       </View>
     );
   }
@@ -115,6 +123,23 @@ export default function RoutinesScreen() {
         paddingHorizontal: Spacing.lg,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
+      ListHeaderComponent={
+        <Pressable
+          onPress={() => navigation.navigate("RoutineTemplates")}
+          style={({ pressed }) => [
+            styles.templateButton,
+            { backgroundColor: theme.backgroundElevated, opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
+            <Feather name="grid" size={16} color="#FFFFFF" />
+          </View>
+          <ThemedText type="body" style={{ fontWeight: "600" }}>
+            Browse Workout Templates
+          </ThemedText>
+          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+        </Pressable>
+      }
       data={routines}
       keyExtractor={(item) => item.id}
       renderItem={renderRoutine}
@@ -142,5 +167,27 @@ const styles = StyleSheet.create({
   lastCompleted: {
     opacity: 0.5,
     marginTop: Spacing.xs,
+  },
+  templateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    marginBottom: Spacing.lg,
+  },
+  templateIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  createButton: {
+    alignItems: "center",
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    marginTop: Spacing.md,
   },
 });

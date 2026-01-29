@@ -9,6 +9,7 @@ import type {
   BodyWeightEntry,
   Food,
   FoodLogEntry,
+  RunEntry,
 } from "@/types";
 
 const STORAGE_KEYS = {
@@ -20,6 +21,7 @@ const STORAGE_KEYS = {
   BODY_WEIGHTS: "@fitlog_body_weights",
   SAVED_FOODS: "@fitlog_saved_foods",
   FOOD_LOG: "@fitlog_food_log",
+  RUN_HISTORY: "@fitlog_run_history",
 };
 
 // Default exercises
@@ -351,6 +353,25 @@ export function calculateProgression(
     suggestedWeight: lastWeight,
     message: `Stick with ${lastWeight} lbs until you hit all reps`,
   };
+}
+
+// Run History
+export async function getRunHistory(): Promise<RunEntry[]> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.RUN_HISTORY);
+    const runs: RunEntry[] = data ? JSON.parse(data) : [];
+    return runs.sort(
+      (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function saveRunEntry(run: RunEntry): Promise<void> {
+  const runs = await getRunHistory();
+  runs.push(run);
+  await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
 }
 
 // Clear all data (for logout)

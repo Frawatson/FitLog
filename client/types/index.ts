@@ -105,3 +105,17 @@ export interface ProgressionSuggestion {
   suggestedWeight: number;
   message: string;
 }
+
+// Run Tracking Types
+export interface RunEntry {
+  id: string;
+  distanceKm: number;
+  durationSeconds: number;
+  paceMinPerKm: number;
+  startedAt: string;
+  completedAt: string;
+  route?: {
+    latitude: number;
+    longitude: number;
+  }[];
+}
