@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import MainTabNavigator from "@/navigation/MainTabNavigator";
 import OnboardingScreen from "@/screens/OnboardingScreen";
@@ -13,10 +14,16 @@ import EditMacrosScreen from "@/screens/EditMacrosScreen";
 import RoutineTemplatesScreen from "@/screens/RoutineTemplatesScreen";
 import RunTrackerScreen from "@/screens/RunTrackerScreen";
 import GenerateRoutineScreen from "@/screens/GenerateRoutineScreen";
+import LoginScreen from "@/screens/LoginScreen";
+import RegisterScreen from "@/screens/RegisterScreen";
+import EditProfileScreen from "@/screens/EditProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
+import { useAuth } from "@/contexts/AuthContext";
 import * as storage from "@/lib/storage";
 
 export type RootStackParamList = {
+  Login: undefined;
+  Register: undefined;
   Main: { screen?: string } | undefined;
   Onboarding: undefined;
   EditRoutine: { routineId?: string };
@@ -30,35 +37,66 @@ export type RootStackParamList = {
   RoutineTemplates: undefined;
   RunTracker: undefined;
   GenerateRoutine: undefined;
+  EditProfile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const [initialRoute, setInitialRoute] = useState<"Main" | "Onboarding" | null>(null);
+  const { user, loading } = useAuth();
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   
   useEffect(() => {
     checkOnboarding();
-  }, []);
+  }, [user]);
   
   const checkOnboarding = async () => {
-    const profile = await storage.getUserProfile();
-    if (profile?.onboardingCompleted) {
-      setInitialRoute("Main");
-    } else {
-      setInitialRoute("Onboarding");
+    if (!user) {
+      setOnboardingComplete(null);
+      return;
     }
+    const profile = await storage.getUserProfile();
+    setOnboardingComplete(profile?.onboardingCompleted ?? false);
   };
   
-  if (!initialRoute) {
-    return null;
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <Stack.Navigator screenOptions={screenOptions}>
+        <Stack.Screen
+          name="Login"
+          component={LoginScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Register"
+          component={RegisterScreen}
+          options={{ headerShown: false }}
+        />
+      </Stack.Navigator>
+    );
+  }
+  
+  if (onboardingComplete === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
   
   return (
     <Stack.Navigator
       screenOptions={screenOptions}
-      initialRouteName={initialRoute}
+      initialRouteName={onboardingComplete ? "Main" : "Onboarding"}
     >
       <Stack.Screen
         name="Main"
@@ -136,6 +174,11 @@ export default function RootStackNavigator() {
         name="GenerateRoutine"
         component={GenerateRoutineScreen}
         options={{ headerTitle: "Generate Routine" }}
+      />
+      <Stack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ headerTitle: "Edit Profile" }}
       />
     </Stack.Navigator>
   );

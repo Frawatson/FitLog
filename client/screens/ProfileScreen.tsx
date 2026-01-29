@@ -13,6 +13,7 @@ import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, BodyWeightEntry, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
@@ -26,6 +27,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const { user, logout } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [bodyWeights, setBodyWeights] = useState<BodyWeightEntry[]>([]);
@@ -61,10 +63,15 @@ export default function ProfileScreen() {
     loadData();
   };
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    await logout();
+  };
+  
+  const handleClearData = () => {
     Alert.alert(
       "Clear Data",
-      "This will delete all your data including workouts, routines, and progress. Are you sure?",
+      "This will delete all your local data including workouts, routines, and progress. Are you sure?",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -105,27 +112,32 @@ export default function ProfileScreen() {
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
     >
-      {profile ? (
-        <Card style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <View style={[styles.avatar, { backgroundColor: Colors.light.primary }]}>
-              <Feather name="user" size={32} color="#FFFFFF" />
-            </View>
+      <Card style={styles.profileCard}>
+        <View style={styles.avatarContainer}>
+          <View style={[styles.avatar, { backgroundColor: Colors.light.primary }]}>
+            <Feather name="user" size={32} color="#FFFFFF" />
           </View>
-          <View style={styles.profileInfo}>
-            <ThemedText type="small" style={styles.profileLabel}>
-              Goal
-            </ThemedText>
-            <ThemedText type="h4">{getGoalLabel(profile.goal)}</ThemedText>
-            <ThemedText type="small" style={[styles.profileLabel, { marginTop: Spacing.md }]}>
-              Activity
-            </ThemedText>
-            <ThemedText type="body">
-              {profile.activityLevel === "5-6" ? "5-6 days/week" : "3-4 days/week"}
-            </ThemedText>
-          </View>
-        </Card>
-      ) : null}
+        </View>
+        <View style={styles.profileInfo}>
+          <ThemedText type="h4">{user?.name || "User"}</ThemedText>
+          <ThemedText type="small" style={{ opacity: 0.6 }}>
+            {user?.email || ""}
+          </ThemedText>
+          {profile ? (
+            <>
+              <ThemedText type="small" style={[styles.profileLabel, { marginTop: Spacing.md }]}>
+                Goal: {getGoalLabel(profile.goal)}
+              </ThemedText>
+              <ThemedText type="small" style={{ opacity: 0.6 }}>
+                {profile.activityLevel === "5-6" ? "5-6 days/week" : "3-4 days/week"}
+              </ThemedText>
+            </>
+          ) : null}
+        </View>
+        <Pressable onPress={() => navigation.navigate("EditProfile")}>
+          <Feather name="edit-2" size={20} color={Colors.light.primary} />
+        </Pressable>
+      </Card>
       
       <Card style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
@@ -231,15 +243,29 @@ export default function ProfileScreen() {
       </Pressable>
       
       <Pressable
+        onPress={handleClearData}
+        style={({ pressed }) => [
+          styles.menuItem,
+          { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.7 : 1 },
+        ]}
+      >
+        <Feather name="trash-2" size={20} color={Colors.light.error} />
+        <ThemedText type="body" style={[styles.menuLabel, { color: Colors.light.error }]}>
+          Clear Local Data
+        </ThemedText>
+        <View style={{ width: 20 }} />
+      </Pressable>
+      
+      <Pressable
         onPress={handleLogout}
         style={({ pressed }) => [
           styles.menuItem,
           { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.7 : 1 },
         ]}
       >
-        <Feather name="log-out" size={20} color={Colors.light.error} />
-        <ThemedText type="body" style={[styles.menuLabel, { color: Colors.light.error }]}>
-          Clear All Data
+        <Feather name="log-out" size={20} color={theme.text} />
+        <ThemedText type="body" style={styles.menuLabel}>
+          Log Out
         </ThemedText>
         <View style={{ width: 20 }} />
       </Pressable>

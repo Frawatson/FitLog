@@ -5,6 +5,7 @@ FitLog is a comprehensive fitness tracking mobile app built with React Native (E
 
 ## Current State
 MVP completed with the following features:
+- **User Authentication** - Full login/register system with PostgreSQL database
 - User onboarding with profile setup and goal selection
 - Workout routine builder with exercise library
 - **10 pre-built workout routine templates** (Push/Pull/Legs, Upper/Lower, Full Body, Beginner, etc.) with browse and customize functionality
@@ -29,7 +30,13 @@ MVP completed with the following features:
 - **Location**: `server/`
 - **Port**: 5000
 - **Purpose**: Serves landing page, static Expo builds, and API endpoints
+- **Database**: PostgreSQL with express-session for session management
 - **API Endpoints**:
+  - `POST /api/auth/register` - User registration with bcrypt password hashing
+  - `POST /api/auth/login` - User authentication with session creation
+  - `POST /api/auth/logout` - Session destruction
+  - `GET /api/auth/me` - Get current user info
+  - `PUT /api/auth/profile` - Update user profile
   - `GET /api/exercises` - Fetches exercises from WorkoutAPI by muscle group
   - `POST /api/generate-routine` - Generates a complete workout routine from selected muscle groups
   - `GET /api/foods/search` - Searches FatSecret food database (falls back to local DB if API unavailable)
@@ -42,7 +49,8 @@ MVP completed with the following features:
 
 ### Frontend
 - `client/App.tsx` - Main app entry with navigation and providers
-- `client/navigation/RootStackNavigator.tsx` - Root navigation with all screens
+- `client/contexts/AuthContext.tsx` - Authentication state management
+- `client/navigation/RootStackNavigator.tsx` - Root navigation with auth flow
 - `client/navigation/MainTabNavigator.tsx` - Bottom tab navigation
 - `client/lib/storage.ts` - AsyncStorage utilities for data persistence
 - `client/lib/routineTemplates.ts` - Pre-built workout routine templates (10 templates)
@@ -50,7 +58,15 @@ MVP completed with the following features:
 - `client/types/index.ts` - TypeScript type definitions
 - `client/constants/theme.ts` - Design system colors, spacing, typography
 
+### Backend Files
+- `server/db.ts` - PostgreSQL database connection and user queries
+- `server/auth.ts` - Authentication routes (register, login, logout, profile)
+- `server/index.ts` - Express app setup with session middleware
+
 ### Screens
+- `LoginScreen` - User login with email/password
+- `RegisterScreen` - User registration with name/email/password
+- `EditProfileScreen` - Edit user profile details
 - `DashboardScreen` - Home tab with quick stats, workout start, and run tracker access
 - `RoutinesScreen` - List of workout routines with template browsing
 - `RoutineTemplatesScreen` - Browse and add pre-built workout templates
@@ -71,7 +87,13 @@ MVP completed with the following features:
 - `MapDisplay` - Platform-specific map component (native: react-native-maps, web: placeholder)
 
 ## Data Storage
-All data is stored locally using AsyncStorage:
+
+### PostgreSQL Database (User Authentication)
+- **users** table: id, email, password_hash, name, age, sex, height_cm, weight_kg, experience, goal, activity_level
+- **session** table: Session storage for express-session (connect-pg-simple)
+
+### Local Storage (AsyncStorage)
+App data stored locally on device:
 - User profile and onboarding status
 - Macro targets (calculated or custom)
 - Exercise library (defaults + custom)
@@ -98,6 +120,14 @@ All data is stored locally using AsyncStorage:
   - Falls back to local food database (85+ foods) when API is unavailable
 
 ## Recent Changes
+- January 2026: User Authentication System
+  - Added PostgreSQL database with users and session tables
+  - Implemented register/login/logout with bcrypt password hashing
+  - Session-based auth with express-session and connect-pg-simple
+  - AuthContext for global auth state management
+  - Login, Register, and EditProfile screens
+  - Profile screen updated with user info, edit button, and logout
+  - Navigation guards for authenticated routes
 - January 2026: CalorieNinjas Food API Integration
   - Integrated CalorieNinjas API for food nutrition data
   - Simple API key authentication

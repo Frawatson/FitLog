@@ -1,11 +1,16 @@
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
+import authRouter from "./auth";
+import { initializeDatabase, pool } from "./db";
 import * as fs from "fs";
 import * as path from "path";
 
 const app = express();
 const log = console.log;
+const PgSession = connectPgSimple(session);
 
 declare module "http" {
   interface IncomingMessage {
@@ -226,10 +231,31 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  await initializeDatabase();
+  
   setupCors(app);
   setupBodyParsing(app);
+  
+  app.use(session({
+    store: new PgSession({
+      pool,
+      tableName: "session",
+    }),
+    secret: process.env.SESSION_SECRET || "fitlog-secret-key-change-in-prod",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    },
+  }));
+  
   setupRequestLogging(app);
 
+  app.use("/api/auth", authRouter);
+  
   configureExpoAndLanding(app);
 
   const server = await registerRoutes(app);
