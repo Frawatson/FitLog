@@ -3,30 +3,45 @@ import {
   View,
   StyleSheet,
   Pressable,
-  Alert,
   Platform,
   Linking,
-  FlatList,
+  ScrollView,
+  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import { v4 as uuidv4 } from "uuid";
+import MapView, { Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 
 import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
-import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import type { RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
+
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const MAP_HEIGHT = 220;
+
+const DARK_MAP_STYLE = [
+  { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#304a7d" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#255763" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
+];
+
+const ACCENT_GREEN = "#00FF7F";
 
 export default function RunTrackerScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
+  const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   
   const [permission, setPermission] = useState<Location.PermissionStatus | null>(null);
@@ -36,11 +51,15 @@ export default function RunTrackerScreen() {
   const [distance, setDistance] = useState(0);
   const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
   const [runHistory, setRunHistory] = useState<RunEntry[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [splits, setSplits] = useState<number[]>([]);
   
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLocation = useRef<Location.LocationObject | null>(null);
   const startTimeRef = useRef<string>("");
+  const mapRef = useRef<MapView>(null);
+  const lastSplitDistance = useRef<number>(0);
   
   useEffect(() => {
     checkPermission();
@@ -58,11 +77,31 @@ export default function RunTrackerScreen() {
   const checkPermission = async () => {
     const { status } = await Location.getForegroundPermissionsAsync();
     setPermission(status);
+    if (status === "granted") {
+      getCurrentLocation();
+    }
   };
   
   const requestPermission = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     setPermission(status);
+    if (status === "granted") {
+      getCurrentLocation();
+    }
+  };
+  
+  const getCurrentLocation = async () => {
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setCurrentLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    } catch (error) {
+      console.log("Could not get current location");
+    }
   };
   
   const loadRunHistory = async () => {
@@ -72,14 +111,7 @@ export default function RunTrackerScreen() {
   
   const startRun = async () => {
     if (permission !== "granted") {
-      Alert.alert(
-        "Location Required",
-        "Please enable location access to track your run.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Enable", onPress: requestPermission },
-        ]
-      );
+      requestPermission();
       return;
     }
     
@@ -89,7 +121,9 @@ export default function RunTrackerScreen() {
     setDuration(0);
     setDistance(0);
     setRoute([]);
+    setSplits([]);
     lastLocation.current = null;
+    lastSplitDistance.current = 0;
     startTimeRef.current = new Date().toISOString();
     
     timerRef.current = setInterval(() => {
@@ -99,13 +133,14 @@ export default function RunTrackerScreen() {
     locationSubscription.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
-        timeInterval: 3000,
+        timeInterval: 2000,
         distanceInterval: 5,
       },
       (location) => {
         const { latitude, longitude } = location.coords;
         
         setRoute((prev) => [...prev, { latitude, longitude }]);
+        setCurrentLocation({ latitude, longitude });
         
         if (lastLocation.current) {
           const dist = calculateDistance(
@@ -114,7 +149,16 @@ export default function RunTrackerScreen() {
             latitude,
             longitude
           );
-          setDistance((d) => d + dist);
+          setDistance((d) => {
+            const newDistance = d + dist;
+            const currentMile = Math.floor(newDistance * 0.621371);
+            const lastMile = Math.floor(lastSplitDistance.current * 0.621371);
+            if (currentMile > lastMile && currentMile > 0) {
+              setSplits((prev) => [...prev, duration]);
+              lastSplitDistance.current = newDistance;
+            }
+            return newDistance;
+          });
         }
         
         lastLocation.current = location;
@@ -144,13 +188,14 @@ export default function RunTrackerScreen() {
     locationSubscription.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
-        timeInterval: 3000,
+        timeInterval: 2000,
         distanceInterval: 5,
       },
       (location) => {
         const { latitude, longitude } = location.coords;
         
         setRoute((prev) => [...prev, { latitude, longitude }]);
+        setCurrentLocation({ latitude, longitude });
         
         if (lastLocation.current) {
           const dist = calculateDistance(
@@ -198,6 +243,7 @@ export default function RunTrackerScreen() {
     setDuration(0);
     setDistance(0);
     setRoute([]);
+    setSplits([]);
   };
   
   const calculateDistance = (
@@ -220,12 +266,8 @@ export default function RunTrackerScreen() {
   };
   
   const formatDuration = (seconds: number): string => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
+    const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    if (hrs > 0) {
-      return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-    }
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
   
@@ -236,39 +278,35 @@ export default function RunTrackerScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
   
+  const distanceMiles = distance * 0.621371;
+  const currentPace = duration > 0 && distance > 0 ? duration / 60 / distance : 0;
+  const speedMph = duration > 0 && distance > 0 ? (distance * 0.621371) / (duration / 3600) : 0;
+  const calories = Math.round(distanceMiles * 100);
+  
   if (permission === null) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: headerHeight }]}>
+      <View style={[styles.container, styles.darkBg, { paddingTop: headerHeight }]}>
         <View style={styles.centered}>
-          <ThemedText type="body">Checking location access...</ThemedText>
+          <ThemedText type="body" style={styles.lightText}>Checking location access...</ThemedText>
         </View>
-      </ThemedView>
+      </View>
     );
   }
   
-  if (permission === "denied") {
+  if (permission !== "granted") {
     return (
-      <ThemedView style={[styles.container, { paddingTop: headerHeight }]}>
+      <View style={[styles.container, styles.darkBg, { paddingTop: headerHeight }]}>
         <View style={styles.centered}>
-          <Feather name="map-pin" size={48} color={theme.textSecondary} />
-          <ThemedText type="h3" style={styles.permissionTitle}>
-            Location Access Required
+          <Feather name="map-pin" size={48} color={ACCENT_GREEN} />
+          <ThemedText type="h3" style={[styles.lightText, styles.permissionTitle]}>
+            Track Your Runs
           </ThemedText>
-          <ThemedText type="body" style={styles.permissionText}>
-            Enable location access to track your runs with GPS.
+          <ThemedText type="body" style={[styles.lightText, styles.permissionText]}>
+            Allow location access to track distance, pace, and route.
           </ThemedText>
           {Platform.OS !== "web" ? (
-            <Button
-              onPress={async () => {
-                try {
-                  await Linking.openSettings();
-                } catch (error) {
-                  console.error("Cannot open settings");
-                }
-              }}
-              style={styles.permissionButton}
-            >
-              Open Settings
+            <Button onPress={requestPermission} style={styles.permissionButton}>
+              Enable Location
             </Button>
           ) : (
             <ThemedText type="small" style={styles.webMessage}>
@@ -276,172 +314,174 @@ export default function RunTrackerScreen() {
             </ThemedText>
           )}
         </View>
-      </ThemedView>
+      </View>
     );
   }
-  
-  if (permission !== "granted") {
-    return (
-      <ThemedView style={[styles.container, { paddingTop: headerHeight }]}>
-        <View style={styles.centered}>
-          <Feather name="map-pin" size={48} color={Colors.light.primary} />
-          <ThemedText type="h3" style={styles.permissionTitle}>
-            Track Your Runs
-          </ThemedText>
-          <ThemedText type="body" style={styles.permissionText}>
-            Allow location access to track distance, pace, and route.
-          </ThemedText>
-          <Button onPress={requestPermission} style={styles.permissionButton}>
-            Enable Location
-          </Button>
-        </View>
-      </ThemedView>
-    );
-  }
-  
-  const currentPace = duration > 0 && distance > 0 ? duration / 60 / distance : 0;
   
   return (
-    <FlatList
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-      ListHeaderComponent={
-        <View>
-          <Card style={styles.trackerCard}>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <ThemedText type="small" style={styles.statLabel}>
-                  DISTANCE
-                </ThemedText>
-                <ThemedText type="h1" style={styles.statValue}>
-                  {distance.toFixed(2)}
-                </ThemedText>
-                <ThemedText type="small" style={styles.statUnit}>
-                  km
-                </ThemedText>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <ThemedText type="small" style={styles.statLabel}>
-                  TIME
-                </ThemedText>
-                <ThemedText type="h1" style={styles.statValue}>
-                  {formatDuration(duration)}
-                </ThemedText>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <ThemedText type="small" style={styles.statLabel}>
-                  PACE
-                </ThemedText>
-                <ThemedText type="h1" style={styles.statValue}>
-                  {formatPace(currentPace)}
-                </ThemedText>
-                <ThemedText type="small" style={styles.statUnit}>
-                  /km
-                </ThemedText>
-              </View>
+    <View style={[styles.container, styles.darkBg]}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: headerHeight,
+          paddingBottom: tabBarHeight + Spacing.xl,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.mapContainer}>
+          {currentLocation ? (
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              provider={PROVIDER_DEFAULT}
+              customMapStyle={DARK_MAP_STYLE}
+              initialRegion={{
+                latitude: currentLocation.latitude,
+                longitude: currentLocation.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              region={currentLocation ? {
+                latitude: currentLocation.latitude,
+                longitude: currentLocation.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              } : undefined}
+              showsUserLocation
+              showsMyLocationButton={false}
+              showsCompass={false}
+              pitchEnabled={false}
+              rotateEnabled={false}
+            >
+              {route.length > 1 ? (
+                <Polyline
+                  coordinates={route}
+                  strokeColor={ACCENT_GREEN}
+                  strokeWidth={4}
+                />
+              ) : null}
+            </MapView>
+          ) : (
+            <View style={[styles.map, styles.mapPlaceholder]}>
+              <Feather name="map" size={40} color="#4A5568" />
+              <ThemedText type="small" style={styles.mapPlaceholderText}>
+                Getting your location...
+              </ThemedText>
             </View>
-            
-            <View style={styles.controlsRow}>
-              {!isRunning ? (
-                <Pressable
-                  onPress={startRun}
-                  style={[styles.startButton, { backgroundColor: Colors.light.primary }]}
-                >
-                  <Feather name="play" size={32} color="#FFFFFF" />
-                  <ThemedText type="h3" style={styles.buttonLabel}>
-                    START RUN
-                  </ThemedText>
-                </Pressable>
-              ) : (
-                <View style={styles.activeControls}>
-                  {isPaused ? (
-                    <Pressable
-                      onPress={resumeRun}
-                      style={[styles.controlButton, { backgroundColor: Colors.light.primary }]}
-                    >
-                      <Feather name="play" size={28} color="#FFFFFF" />
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      onPress={pauseRun}
-                      style={[styles.controlButton, { backgroundColor: "#F59E0B" }]}
-                    >
-                      <Feather name="pause" size={28} color="#FFFFFF" />
-                    </Pressable>
-                  )}
-                  <Pressable
-                    onPress={stopRun}
-                    style={[styles.controlButton, { backgroundColor: "#EF4444" }]}
-                  >
-                    <Feather name="square" size={28} color="#FFFFFF" />
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          </Card>
-          
-          {runHistory.length > 0 ? (
-            <ThemedText type="h3" style={styles.historyTitle}>
-              Run History
+          )}
+          <View style={styles.mapOverlay}>
+            <ThemedText type="small" style={styles.dateText}>
+              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </ThemedText>
+          </View>
+        </View>
+        
+        <View style={styles.statsContainer}>
+          <View style={styles.mainStatsRow}>
+            <View style={styles.mainStat}>
+              <ThemedText type="small" style={styles.statLabel}>Mil</ThemedText>
+              <ThemedText style={styles.bigStatValue}>{distanceMiles.toFixed(2)}</ThemedText>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.mainStat}>
+              <ThemedText type="small" style={styles.statLabel}>Min : Sec</ThemedText>
+              <ThemedText style={styles.bigStatValue}>{formatDuration(duration)}</ThemedText>
+            </View>
+          </View>
+          
+          <View style={styles.secondaryStatsRow}>
+            <View style={styles.secondaryStat}>
+              <ThemedText type="small" style={styles.statLabel}>Current Speed</ThemedText>
+              <ThemedText style={styles.mediumStatValue}>{speedMph.toFixed(2)}</ThemedText>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.secondaryStat}>
+              <ThemedText type="small" style={styles.statLabel}>Calories</ThemedText>
+              <ThemedText style={styles.mediumStatValue}>{calories}</ThemedText>
+            </View>
+          </View>
+          
+          {splits.length > 0 ? (
+            <View style={styles.splitsContainer}>
+              <ThemedText type="small" style={styles.splitsLabel}>Splits:</ThemedText>
+              <View style={styles.splitsRow}>
+                {splits.map((splitTime, index) => (
+                  <View key={index} style={styles.splitItem}>
+                    <ThemedText style={styles.splitMile}>{index + 1} Mi</ThemedText>
+                    <ThemedText style={styles.splitTime}>{formatDuration(splitTime)}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            </View>
           ) : null}
         </View>
-      }
-      data={runHistory}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => (
-        <Card style={styles.historyCard}>
-          <View style={styles.historyHeader}>
-            <ThemedText type="body" style={{ fontWeight: "600" }}>
-              {new Date(item.completedAt).toLocaleDateString()}
-            </ThemedText>
-            <ThemedText type="small" style={styles.historyTime}>
-              {new Date(item.completedAt).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </ThemedText>
+        
+        <View style={styles.controlsContainer}>
+          {!isRunning ? (
+            <Pressable onPress={startRun} style={styles.startButton}>
+              <Feather name="play" size={32} color="#1A1A1A" />
+              <ThemedText style={styles.startButtonText}>START RUN</ThemedText>
+            </Pressable>
+          ) : (
+            <View style={styles.activeControls}>
+              {isPaused ? (
+                <Pressable onPress={resumeRun} style={[styles.controlButton, styles.resumeButton]}>
+                  <Feather name="play" size={28} color="#1A1A1A" />
+                </Pressable>
+              ) : (
+                <Pressable onPress={pauseRun} style={[styles.controlButton, styles.pauseButton]}>
+                  <Feather name="pause" size={28} color="#FFFFFF" />
+                </Pressable>
+              )}
+              <Pressable onPress={stopRun} style={[styles.controlButton, styles.stopButton]}>
+                <Feather name="square" size={28} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          )}
+        </View>
+        
+        {runHistory.length > 0 ? (
+          <View style={styles.historySection}>
+            <ThemedText style={styles.historyTitle}>Run History</ThemedText>
+            {runHistory.slice(0, 5).map((run) => (
+              <View key={run.id} style={styles.historyCard}>
+                <View style={styles.historyHeader}>
+                  <ThemedText style={styles.historyDate}>
+                    {new Date(run.completedAt).toLocaleDateString()}
+                  </ThemedText>
+                  <ThemedText style={styles.historyTime}>
+                    {new Date(run.completedAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </ThemedText>
+                </View>
+                <View style={styles.historyStats}>
+                  <View style={styles.historyStat}>
+                    <ThemedText style={styles.historyValue}>
+                      {(run.distanceKm * 0.621371).toFixed(2)}
+                    </ThemedText>
+                    <ThemedText style={styles.historyLabel}>mi</ThemedText>
+                  </View>
+                  <View style={styles.historyStat}>
+                    <ThemedText style={styles.historyValue}>
+                      {formatDuration(run.durationSeconds)}
+                    </ThemedText>
+                    <ThemedText style={styles.historyLabel}>time</ThemedText>
+                  </View>
+                  <View style={styles.historyStat}>
+                    <ThemedText style={styles.historyValue}>
+                      {formatPace(run.paceMinPerKm)}
+                    </ThemedText>
+                    <ThemedText style={styles.historyLabel}>/km</ThemedText>
+                  </View>
+                </View>
+              </View>
+            ))}
           </View>
-          <View style={styles.historyStats}>
-            <View style={styles.historyStat}>
-              <ThemedText type="h4">{item.distanceKm.toFixed(2)} km</ThemedText>
-              <ThemedText type="small" style={styles.historyLabel}>
-                Distance
-              </ThemedText>
-            </View>
-            <View style={styles.historyStat}>
-              <ThemedText type="h4">{formatDuration(item.durationSeconds)}</ThemedText>
-              <ThemedText type="small" style={styles.historyLabel}>
-                Duration
-              </ThemedText>
-            </View>
-            <View style={styles.historyStat}>
-              <ThemedText type="h4">{formatPace(item.paceMinPerKm)} /km</ThemedText>
-              <ThemedText type="small" style={styles.historyLabel}>
-                Pace
-              </ThemedText>
-            </View>
-          </View>
-        </Card>
-      )}
-      ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
-      ListEmptyComponent={
-        !isRunning ? (
-          <Card style={styles.emptyCard}>
-            <Feather name="activity" size={32} color={theme.textSecondary} />
-            <ThemedText type="body" style={styles.emptyText}>
-              No runs recorded yet. Start your first run!
-            </ThemedText>
-          </Card>
-        ) : null
-      }
-    />
+        ) : null}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -449,12 +489,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  darkBg: {
+    backgroundColor: "#1A1A1A",
+  },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: Spacing.xl,
     gap: Spacing.md,
+  },
+  lightText: {
+    color: "#FFFFFF",
   },
   permissionTitle: {
     marginTop: Spacing.lg,
@@ -470,102 +516,207 @@ const styles = StyleSheet.create({
   },
   webMessage: {
     marginTop: Spacing.md,
-    opacity: 0.5,
+    color: "#888",
   },
-  trackerCard: {
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
+  mapContainer: {
+    height: MAP_HEIGHT,
+    backgroundColor: "#0D1117",
+    position: "relative",
   },
-  statsRow: {
+  map: {
+    width: "100%",
+    height: "100%",
+  },
+  mapPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+  },
+  mapPlaceholderText: {
+    color: "#4A5568",
+  },
+  mapOverlay: {
+    position: "absolute",
+    top: Spacing.md,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
+  dateText: {
+    color: "#FFFFFF",
+    opacity: 0.8,
+    fontSize: 12,
+  },
+  statsContainer: {
+    padding: Spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2D2D2D",
+  },
+  mainStatsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
     alignItems: "center",
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
-  statItem: {
-    alignItems: "center",
+  mainStat: {
     flex: 1,
+    alignItems: "center",
   },
   statDivider: {
     width: 1,
-    height: 60,
-    backgroundColor: "rgba(128,128,128,0.2)",
+    height: 50,
+    backgroundColor: "#3D3D3D",
   },
   statLabel: {
-    opacity: 0.5,
-    marginBottom: Spacing.xs,
+    color: "#888888",
+    fontSize: 11,
     letterSpacing: 1,
+    marginBottom: Spacing.xs,
   },
-  statValue: {
-    fontSize: 28,
+  bigStatValue: {
+    color: "#FFFFFF",
+    fontSize: 42,
     fontWeight: "700",
-    color: Colors.light.primary,
+    fontFamily: "Montserrat_700Bold",
   },
-  statUnit: {
-    opacity: 0.5,
-    marginTop: Spacing.xs,
+  secondaryStatsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "#2D2D2D",
   },
-  controlsRow: {
+  secondaryStat: {
+    flex: 1,
+    alignItems: "center",
+  },
+  mediumStatValue: {
+    color: "#FFFFFF",
+    fontSize: 28,
+    fontWeight: "600",
+    fontFamily: "Montserrat_600SemiBold",
+  },
+  splitsContainer: {
+    marginTop: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: "#2D2D2D",
+  },
+  splitsLabel: {
+    color: "#888888",
+    fontSize: 11,
+    letterSpacing: 1,
+    marginBottom: Spacing.sm,
+  },
+  splitsRow: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+  },
+  splitItem: {
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "#2D2D2D",
+    borderRadius: BorderRadius.md,
+  },
+  splitMile: {
+    color: ACCENT_GREEN,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  splitTime: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  controlsContainer: {
+    padding: Spacing.xl,
     alignItems: "center",
   },
   startButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: ACCENT_GREEN,
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing["2xl"],
     borderRadius: BorderRadius.full,
     gap: Spacing.md,
     width: "100%",
+    maxWidth: 300,
   },
-  buttonLabel: {
-    color: "#FFFFFF",
+  startButtonText: {
+    color: "#1A1A1A",
+    fontSize: 16,
     fontWeight: "700",
   },
   activeControls: {
     flexDirection: "row",
-    gap: Spacing.lg,
+    gap: Spacing.xl,
   },
   controlButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     alignItems: "center",
     justifyContent: "center",
   },
+  resumeButton: {
+    backgroundColor: ACCENT_GREEN,
+  },
+  pauseButton: {
+    backgroundColor: "#F59E0B",
+  },
+  stopButton: {
+    backgroundColor: "#EF4444",
+  },
+  historySection: {
+    padding: Spacing.lg,
+  },
   historyTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "600",
     marginBottom: Spacing.md,
   },
   historyCard: {
+    backgroundColor: "#2D2D2D",
+    borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   historyHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: Spacing.md,
   },
+  historyDate: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
   historyTime: {
-    opacity: 0.5,
+    color: "#888888",
+    fontSize: 12,
   },
   historyStats: {
     flexDirection: "row",
     justifyContent: "space-between",
   },
   historyStat: {
-    alignItems: "center",
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  historyValue: {
+    color: ACCENT_GREEN,
+    fontSize: 18,
+    fontWeight: "600",
   },
   historyLabel: {
-    opacity: 0.5,
-    marginTop: Spacing.xs,
-  },
-  emptyCard: {
-    padding: Spacing.xl,
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  emptyText: {
-    textAlign: "center",
-    opacity: 0.6,
+    color: "#888888",
+    fontSize: 12,
   },
 });
