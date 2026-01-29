@@ -83,7 +83,7 @@ export default function MainTabNavigator() {
         options={{
           title: "Home",
           headerShown: true,
-          headerTitle: "FitLog",
+          headerTitle: "NextRep",
           headerTransparent: true,
           headerBlurEffect: isDark ? "dark" : "light",
           headerTintColor: theme.text,
