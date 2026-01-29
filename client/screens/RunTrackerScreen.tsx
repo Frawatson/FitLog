@@ -7,8 +7,6 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
@@ -27,8 +25,6 @@ const ACCENT_COLOR = "#FF4500";
 
 export default function RunTrackerScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
-  const tabBarHeight = useBottomTabBarHeight();
   const { theme } = useTheme();
   
   const [permission, setPermission] = useState<Location.PermissionStatus | null>(null);
@@ -45,7 +41,7 @@ export default function RunTrackerScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLocation = useRef<Location.LocationObject | null>(null);
   const startTimeRef = useRef<string>("");
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<any>(null);
   const lastSplitDistance = useRef<number>(0);
   
   useEffect(() => {
@@ -272,7 +268,7 @@ export default function RunTrackerScreen() {
   
   if (permission === null && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, styles.lightBg, { paddingTop: headerHeight }]}>
+      <View style={[styles.container, styles.lightBg, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
           <ThemedText type="body" style={styles.darkText}>Checking location access...</ThemedText>
         </View>
@@ -282,7 +278,7 @@ export default function RunTrackerScreen() {
   
   if (permission !== "granted" && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, styles.lightBg, { paddingTop: headerHeight }]}>
+      <View style={[styles.container, styles.lightBg, { paddingTop: insets.top }]}>
         <View style={styles.centered}>
           <Feather name="map-pin" size={48} color={ACCENT_COLOR} />
           <ThemedText type="h3" style={[styles.darkText, styles.permissionTitle]}>
@@ -304,8 +300,8 @@ export default function RunTrackerScreen() {
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: headerHeight,
-          paddingBottom: tabBarHeight + Spacing.xl,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom + Spacing.xl + 80,
         }}
         showsVerticalScrollIndicator={false}
       >

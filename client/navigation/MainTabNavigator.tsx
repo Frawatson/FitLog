@@ -107,11 +107,7 @@ export default function MainTabNavigator() {
         component={RunTrackerScreen}
         options={{
           title: "Run",
-          headerShown: true,
-          headerTitle: "Run Tracker",
-          headerTransparent: true,
-          headerBlurEffect: isDark ? "dark" : "light",
-          headerTintColor: theme.text,
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Feather name="navigation" size={size} color={color} />
           ),

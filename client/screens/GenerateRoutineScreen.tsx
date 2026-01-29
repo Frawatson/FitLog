@@ -23,7 +23,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
-import type { WorkoutRoutine, Exercise } from "@/types";
+import type { Routine, RoutineExercise } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -107,26 +107,20 @@ export default function GenerateRoutineScreen() {
 
       const data = await response.json();
       
-      const exercises: Exercise[] = data.exercises.map((ex: any) => ({
-        id: ex.id || uuidv4(),
-        name: ex.name,
-        muscleGroup: ex.muscleGroup || ex.muscle,
-        equipment: ex.equipment || "bodyweight",
-        defaultSets: ex.sets || 3,
-        defaultReps: ex.reps || 10,
-        defaultRestSeconds: ex.restSeconds || 60,
+      const exercises: RoutineExercise[] = data.exercises.map((ex: any, index: number) => ({
+        exerciseId: ex.id || uuidv4(),
+        exerciseName: ex.name,
+        order: index,
       }));
 
-      const newRoutine: WorkoutRoutine = {
+      const newRoutine: Routine = {
         id: uuidv4(),
         name: routineName || data.name || "Generated Workout",
         exercises,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       };
 
-      const routines = await storage.getRoutines();
-      await storage.saveRoutines([...routines, newRoutine]);
+      await storage.saveRoutine(newRoutine);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.navigate("Main", { screen: "Routines" });
