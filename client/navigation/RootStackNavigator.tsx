@@ -8,6 +8,7 @@ import ActiveWorkoutScreen from "@/screens/ActiveWorkoutScreen";
 import WorkoutCompleteScreen from "@/screens/WorkoutCompleteScreen";
 import AddFoodScreen from "@/screens/AddFoodScreen";
 import WorkoutHistoryScreen from "@/screens/WorkoutHistoryScreen";
+import WorkoutDetailScreen from "@/screens/WorkoutDetailScreen";
 import EditMacrosScreen from "@/screens/EditMacrosScreen";
 import RoutineTemplatesScreen from "@/screens/RoutineTemplatesScreen";
 import RunTrackerScreen from "@/screens/RunTrackerScreen";
@@ -24,6 +25,7 @@ export type RootStackParamList = {
   WorkoutComplete: { workoutId: string };
   AddFood: undefined;
   WorkoutHistory: undefined;
+  WorkoutDetail: { workoutId: string };
   EditMacros: undefined;
   RoutineTemplates: undefined;
   RunTracker: undefined;
@@ -109,6 +111,11 @@ export default function RootStackNavigator() {
         name="WorkoutHistory"
         component={WorkoutHistoryScreen}
         options={{ headerTitle: "Workout History" }}
+      />
+      <Stack.Screen
+        name="WorkoutDetail"
+        component={WorkoutDetailScreen}
+        options={{ headerTitle: "Workout Details" }}
       />
       <Stack.Screen
         name="EditMacros"

@@ -53,7 +53,10 @@ export default function WorkoutHistoryScreen() {
     );
     
     return (
-      <Card style={styles.workoutCard}>
+      <Card 
+        style={styles.workoutCard}
+        onPress={() => navigation.navigate("WorkoutDetail", { workoutId: item.id })}
+      >
         <View style={styles.workoutHeader}>
           <View style={styles.workoutInfo}>
             <ThemedText type="h4">{item.routineName}</ThemedText>
