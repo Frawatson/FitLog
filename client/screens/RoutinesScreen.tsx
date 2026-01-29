@@ -81,16 +81,23 @@ export default function RoutinesScreen() {
         </View>
         <View style={styles.routineActions}>
           <Pressable
-            onPress={() => navigation.navigate("EditRoutine", { routineId: item.id })}
+            onPress={() => handleDelete(item)}
             style={[styles.actionButton, { backgroundColor: theme.backgroundElevated }]}
-            hitSlop={8}
+          >
+            <Feather name="trash-2" size={18} color={Colors.light.error} />
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync();
+              navigation.navigate("EditRoutine", { routineId: item.id });
+            }}
+            style={[styles.actionButton, { backgroundColor: theme.backgroundElevated }]}
           >
             <Feather name="edit-2" size={18} color={theme.textSecondary} />
           </Pressable>
           <Pressable
             onPress={() => handleStartWorkout(item)}
             style={[styles.actionButton, styles.playButton]}
-            hitSlop={8}
           >
             <Feather name="play" size={18} color="#FFFFFF" />
           </Pressable>

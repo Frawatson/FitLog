@@ -6,6 +6,8 @@ export type ActivityLevel = "3-4" | "5-6";
 
 export interface UserProfile {
   id: string;
+  name: string;
+  email: string;
   age: number;
   sex: Sex;
   heightCm: number;

@@ -33,6 +33,8 @@ export default function OnboardingScreen() {
   const { theme } = useTheme();
   
   const [step, setStep] = useState(1);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<Sex>("male");
   const [heightCm, setHeightCm] = useState("");
@@ -44,10 +46,12 @@ export default function OnboardingScreen() {
   
   const handleNext = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (step === 3) {
+    if (step === 4) {
       // Calculate macros
       const profile: UserProfile = {
         id: uuidv4(),
+        name: name.trim() || "User",
+        email: email.trim(),
         age: parseInt(age) || 25,
         sex,
         heightCm: parseInt(heightCm) || 170,
@@ -68,6 +72,8 @@ export default function OnboardingScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const profile: UserProfile = {
       id: uuidv4(),
+      name: name.trim() || "User",
+      email: email.trim(),
       age: parseInt(age) || 25,
       sex,
       heightCm: parseInt(heightCm) || 170,
@@ -91,7 +97,35 @@ export default function OnboardingScreen() {
   const renderStep1 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
-        Let's get to know you
+        Create Your Account
+      </ThemedText>
+      <ThemedText type="body" style={styles.stepDescription}>
+        Let's start with the basics
+      </ThemedText>
+      
+      <Input
+        label="Name"
+        placeholder="John Doe"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
+      />
+      
+      <Input
+        label="Email"
+        placeholder="john@example.com"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+    </View>
+  );
+  
+  const renderStep2 = () => (
+    <View style={styles.stepContent}>
+      <ThemedText type="h1" style={styles.stepTitle}>
+        Tell us about yourself
       </ThemedText>
       <ThemedText type="body" style={styles.stepDescription}>
         This helps us calculate your targets
@@ -147,7 +181,7 @@ export default function OnboardingScreen() {
     </View>
   );
   
-  const renderStep2 = () => (
+  const renderStep3 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
         What's your goal?
@@ -197,7 +231,7 @@ export default function OnboardingScreen() {
     </View>
   );
   
-  const renderStep3 = () => (
+  const renderStep4 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
         How often do you train?
@@ -276,7 +310,7 @@ export default function OnboardingScreen() {
     </View>
   );
   
-  const renderStep4 = () => (
+  const renderStep5 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
         Your Targets
@@ -323,7 +357,7 @@ export default function OnboardingScreen() {
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing["2xl"] }]}>
       <View style={styles.progressContainer}>
-        {[1, 2, 3, 4].map((s) => (
+        {[1, 2, 3, 4, 5].map((s) => (
           <View
             key={s}
             style={[
@@ -345,10 +379,11 @@ export default function OnboardingScreen() {
         {step === 2 && renderStep2()}
         {step === 3 && renderStep3()}
         {step === 4 && renderStep4()}
+        {step === 5 && renderStep5()}
       </ScrollView>
       
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        {step < 4 ? (
+        {step < 5 ? (
           <Button onPress={handleNext} style={styles.button}>
             Next
           </Button>
