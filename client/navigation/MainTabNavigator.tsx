@@ -60,6 +60,8 @@ export default function MainTabNavigator() {
           backgroundColor: Platform.select({
             ios: "transparent",
             android: theme.backgroundRoot,
+            web: theme.backgroundRoot,
+            default: theme.backgroundRoot,
           }),
           borderTopWidth: 0,
           elevation: 0,
