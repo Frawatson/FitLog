@@ -140,22 +140,40 @@ export default function RoutinesScreen() {
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       ListHeaderComponent={
-        <Card 
-          style={styles.templateButton}
-          onPress={() => navigation.navigate("RoutineTemplates")}
-        >
-          <View style={styles.templateButtonContent}>
-            <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
-              <Feather name="grid" size={16} color="#FFFFFF" />
+        <View style={styles.headerButtons}>
+          <Card 
+            style={styles.templateButton}
+            onPress={() => navigation.navigate("RoutineTemplates")}
+          >
+            <View style={styles.templateButtonContent}>
+              <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
+                <Feather name="grid" size={16} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  Browse Templates
+                </ThemedText>
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="body" style={{ fontWeight: "600" }}>
-                Browse Workout Templates
-              </ThemedText>
+          </Card>
+          <Card 
+            style={styles.templateButton}
+            onPress={() => navigation.navigate("GenerateRoutine")}
+          >
+            <View style={styles.templateButtonContent}>
+              <View style={[styles.templateIcon, { backgroundColor: "#9333EA" }]}>
+                <Feather name="zap" size={16} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  Generate Custom Routine
+                </ThemedText>
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </View>
-            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-          </View>
-        </Card>
+          </Card>
+        </View>
       }
       data={routines}
       keyExtractor={(item) => item.id}
@@ -201,7 +219,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary,
   },
   templateButton: {
-    marginBottom: Spacing.lg,
     padding: Spacing.lg,
   },
   templateButtonContent: {
@@ -215,6 +232,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerButtons: {
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   createButton: {
     alignItems: "center",

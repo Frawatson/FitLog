@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing } from "@/constants/theme";
 
-const ACCENT_GREEN = "#00FF7F";
+const ACCENT_COLOR = "#FF4500";
 
 interface MapDisplayProps {
   currentLocation: { latitude: number; longitude: number } | null;
@@ -15,7 +15,7 @@ interface MapDisplayProps {
 export function MapDisplay({ currentLocation, route, mapRef }: MapDisplayProps) {
   return (
     <View style={styles.mapPlaceholder}>
-      <Feather name="navigation" size={40} color={ACCENT_GREEN} />
+      <Feather name="navigation" size={40} color={ACCENT_COLOR} />
       <ThemedText type="small" style={styles.mapPlaceholderText}>
         {Platform.OS === "web" ? "Run in Expo Go to see the map" : "Getting your location..."}
       </ThemedText>

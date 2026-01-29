@@ -11,6 +11,7 @@ import WorkoutHistoryScreen from "@/screens/WorkoutHistoryScreen";
 import EditMacrosScreen from "@/screens/EditMacrosScreen";
 import RoutineTemplatesScreen from "@/screens/RoutineTemplatesScreen";
 import RunTrackerScreen from "@/screens/RunTrackerScreen";
+import GenerateRoutineScreen from "@/screens/GenerateRoutineScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import * as storage from "@/lib/storage";
 
@@ -26,6 +27,7 @@ export type RootStackParamList = {
   EditMacros: undefined;
   RoutineTemplates: undefined;
   RunTracker: undefined;
+  GenerateRoutine: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -122,6 +124,11 @@ export default function RootStackNavigator() {
         name="RunTracker"
         component={RunTrackerScreen}
         options={{ headerTitle: "Run Tracker" }}
+      />
+      <Stack.Screen
+        name="GenerateRoutine"
+        component={GenerateRoutineScreen}
+        options={{ headerTitle: "Generate Routine" }}
       />
     </Stack.Navigator>
   );
