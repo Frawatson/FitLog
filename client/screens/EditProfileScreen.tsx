@@ -119,10 +119,11 @@ export default function EditProfileScreen() {
                 selectedValue={sex}
                 onValueChange={setSex}
                 style={[styles.picker, { color: theme.text }]}
+                itemStyle={{ color: theme.text }}
               >
-                <Picker.Item label="Select..." value="" />
-                <Picker.Item label="Male" value="male" />
-                <Picker.Item label="Female" value="female" />
+                <Picker.Item label="Select..." value="" color={theme.textSecondary} />
+                <Picker.Item label="Male" value="male" color={theme.text} />
+                <Picker.Item label="Female" value="female" color={theme.text} />
               </Picker>
             </View>
           </View>
@@ -163,11 +164,12 @@ export default function EditProfileScreen() {
             selectedValue={experience}
             onValueChange={setExperience}
             style={[styles.picker, { color: theme.text }]}
+            itemStyle={{ color: theme.text }}
           >
-            <Picker.Item label="Select..." value="" />
-            <Picker.Item label="Beginner" value="beginner" />
-            <Picker.Item label="Intermediate" value="intermediate" />
-            <Picker.Item label="Advanced" value="advanced" />
+            <Picker.Item label="Select..." value="" color={theme.textSecondary} />
+            <Picker.Item label="Beginner" value="beginner" color={theme.text} />
+            <Picker.Item label="Intermediate" value="intermediate" color={theme.text} />
+            <Picker.Item label="Advanced" value="advanced" color={theme.text} />
           </Picker>
         </View>
 
@@ -177,12 +179,13 @@ export default function EditProfileScreen() {
             selectedValue={goal}
             onValueChange={setGoal}
             style={[styles.picker, { color: theme.text }]}
+            itemStyle={{ color: theme.text }}
           >
-            <Picker.Item label="Select..." value="" />
-            <Picker.Item label="Lose Fat" value="lose_fat" />
-            <Picker.Item label="Gain Muscle" value="gain_muscle" />
-            <Picker.Item label="Recomposition" value="recomposition" />
-            <Picker.Item label="Maintain" value="maintain" />
+            <Picker.Item label="Select..." value="" color={theme.textSecondary} />
+            <Picker.Item label="Lose Fat" value="lose_fat" color={theme.text} />
+            <Picker.Item label="Gain Muscle" value="gain_muscle" color={theme.text} />
+            <Picker.Item label="Recomposition" value="recomposition" color={theme.text} />
+            <Picker.Item label="Maintain" value="maintain" color={theme.text} />
           </Picker>
         </View>
 
@@ -192,11 +195,12 @@ export default function EditProfileScreen() {
             selectedValue={activityLevel}
             onValueChange={setActivityLevel}
             style={[styles.picker, { color: theme.text }]}
+            itemStyle={{ color: theme.text }}
           >
-            <Picker.Item label="Select..." value="" />
-            <Picker.Item label="1-2 days/week" value="1-2" />
-            <Picker.Item label="3-4 days/week" value="3-4" />
-            <Picker.Item label="5-6 days/week" value="5-6" />
+            <Picker.Item label="Select..." value="" color={theme.textSecondary} />
+            <Picker.Item label="1-2 days/week" value="1-2" color={theme.text} />
+            <Picker.Item label="3-4 days/week" value="3-4" color={theme.text} />
+            <Picker.Item label="5-6 days/week" value="5-6" color={theme.text} />
           </Picker>
         </View>
       </Card>
