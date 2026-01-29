@@ -478,15 +478,29 @@ export default function OnboardingScreen() {
       </ScrollView>
       
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        {step < 5 ? (
-          <Button onPress={handleNext} disabled={loading} style={styles.button}>
-            {loading ? "Creating Account..." : (step === 1 && needsAccountCreation ? "Create Account & Continue" : "Next")}
-          </Button>
-        ) : (
-          <Button onPress={handleFinish} disabled={loading} style={styles.button}>
-            {loading ? "Saving..." : "Start Training"}
-          </Button>
-        )}
+        <View style={styles.footerButtons}>
+          {step > 1 ? (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setStep(step - 1);
+              }}
+              style={[styles.backButton, { borderColor: theme.border }]}
+            >
+              <Feather name="arrow-left" size={24} color={theme.text} />
+            </Pressable>
+          ) : null}
+          
+          {step < 5 ? (
+            <Button onPress={handleNext} disabled={loading} style={[styles.button, step > 1 ? styles.buttonWithBack : null]}>
+              {loading ? "Creating Account..." : (step === 1 && needsAccountCreation ? "Create Account & Continue" : "Next")}
+            </Button>
+          ) : (
+            <Button onPress={handleFinish} disabled={loading} style={[styles.button, step > 1 ? styles.buttonWithBack : null]}>
+              {loading ? "Saving..." : "Start Training"}
+            </Button>
+          )}
+        </View>
       </View>
     </ThemedView>
   );
@@ -571,8 +585,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
   },
+  footerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  backButton: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   button: {
-    width: "100%",
+    flex: 1,
+  },
+  buttonWithBack: {
+    flex: 1,
   },
   errorBox: {
     padding: Spacing.md,

@@ -10,6 +10,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
+import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, MacroTargets, Routine, Workout, BodyWeightEntry } from "@/types";
 import * as storage from "@/lib/storage";
@@ -23,6 +24,7 @@ export default function DashboardScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const { user } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [macros, setMacros] = useState<MacroTargets | null>(null);
@@ -85,8 +87,10 @@ export default function DashboardScreen() {
   }).length;
   
   const getName = () => {
-    if (!profile) return "Athlete";
-    return profile.sex === "male" ? "King" : "Queen";
+    // Use the authenticated user's name first, then fall back to local profile
+    if (user?.name) return user.name;
+    if (profile?.name) return profile.name;
+    return "Athlete";
   };
   
   return (
