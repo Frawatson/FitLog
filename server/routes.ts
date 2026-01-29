@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "node:http";
+import { exerciseDatabase, getExercisesByMuscle, getExercisesByDifficulty, type LocalExercise } from "./exerciseDatabase";
 
 interface CalorieNinjaFood {
   name: string;
@@ -179,47 +180,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Generate routine - creates a balanced workout from exercises
+  // Uses WorkoutAPI as primary source, falls back to local database for variety
   app.post("/api/generate-routine", async (req, res) => {
     try {
       const { muscleGroups, difficulty, name } = req.body;
-      
-      const apiKey = process.env.WORKOUT_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ error: "Workout API key not configured" });
-      }
       
       if (!muscleGroups || !Array.isArray(muscleGroups) || muscleGroups.length === 0) {
         return res.status(400).json({ error: "At least one muscle group is required" });
       }
 
-      const allExercises = await fetchAllExercises(apiKey);
+      const difficultyLevel: "beginner" | "intermediate" | "expert" = 
+        difficulty === "beginner" ? "beginner" : 
+        difficulty === "advanced" || difficulty === "expert" ? "expert" : "intermediate";
+
+      // Try to fetch from API first
+      let apiExercises: WorkoutAPIExercise[] = [];
+      const apiKey = process.env.WORKOUT_API_KEY;
+      
+      if (apiKey) {
+        try {
+          apiExercises = await fetchAllExercises(apiKey);
+        } catch (err) {
+          console.log("WorkoutAPI unavailable, using local database only");
+        }
+      }
+
       const routineExercises: any[] = [];
+      const usedExerciseNames = new Set<string>();
+      const exercisesPerMuscle = muscleGroups.length <= 2 ? 3 : 2;
 
       // Get exercises for each muscle group
       for (const muscle of muscleGroups) {
         const muscleCode = MUSCLE_MAP[String(muscle).toLowerCase()] || String(muscle).toUpperCase();
+        let muscleExercisesCount = 0;
         
-        const muscleExercises = allExercises.filter(ex => 
-          ex.primaryMuscles.some(m => m.code === muscleCode || m.code.includes(muscleCode) || muscleCode.includes(m.code))
-        );
+        // First, try to get exercises from API
+        if (apiExercises.length > 0) {
+          const apiMuscleExercises = apiExercises.filter(ex => 
+            ex.primaryMuscles.some(m => 
+              m.code === muscleCode || 
+              m.code.includes(muscleCode) || 
+              muscleCode.includes(m.code)
+            )
+          );
 
-        console.log(`Found ${muscleExercises.length} exercises for ${muscle} (code: ${muscleCode})`);
-
-        // Take up to 2 exercises per muscle group
-        const selected = muscleExercises.slice(0, 2);
-        
-        for (const ex of selected) {
-          routineExercises.push({
-            id: ex.id,
-            name: ex.name,
-            muscleGroup: ex.primaryMuscles[0]?.name || muscle,
-            equipment: ex.categories[0]?.name || "Bodyweight",
-            sets: difficulty === "beginner" ? 3 : difficulty === "intermediate" ? 4 : 5,
-            reps: 10,
-            restSeconds: difficulty === "beginner" ? 90 : difficulty === "intermediate" ? 60 : 45,
-            instructions: ex.description,
-          });
+          for (const ex of apiMuscleExercises) {
+            if (muscleExercisesCount >= exercisesPerMuscle) break;
+            if (usedExerciseNames.has(ex.name.toLowerCase())) continue;
+            
+            usedExerciseNames.add(ex.name.toLowerCase());
+            routineExercises.push({
+              id: ex.id,
+              name: ex.name,
+              muscleGroup: ex.primaryMuscles[0]?.name || muscle,
+              equipment: ex.categories[0]?.name || "Bodyweight",
+              sets: difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5,
+              reps: 10,
+              restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
+              instructions: ex.description,
+            });
+            muscleExercisesCount++;
+          }
         }
+
+        // Supplement with local database if we need more exercises
+        if (muscleExercisesCount < exercisesPerMuscle) {
+          const localExercises = getExercisesByMuscle(muscle);
+          const filteredLocal = getExercisesByDifficulty(localExercises, difficultyLevel);
+          
+          // Shuffle for variety
+          const shuffled = filteredLocal.sort(() => Math.random() - 0.5);
+          
+          for (const ex of shuffled) {
+            if (muscleExercisesCount >= exercisesPerMuscle) break;
+            if (usedExerciseNames.has(ex.name.toLowerCase())) continue;
+            
+            usedExerciseNames.add(ex.name.toLowerCase());
+            routineExercises.push({
+              id: ex.id,
+              name: ex.name,
+              muscleGroup: muscle.charAt(0).toUpperCase() + muscle.slice(1).replace('_', ' '),
+              equipment: ex.equipment,
+              sets: difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5,
+              reps: 10,
+              restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
+              instructions: ex.instructions,
+            });
+            muscleExercisesCount++;
+          }
+        }
+
+        console.log(`Added ${muscleExercisesCount} exercises for ${muscle}`);
       }
 
       console.log(`Total exercises in routine: ${routineExercises.length}`);
@@ -228,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: `routine-${Date.now()}`,
         name: name || `${muscleGroups.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1).replace('_', ' ')).join(" & ")} Workout`,
         exercises: routineExercises,
-        difficulty: difficulty || "intermediate",
+        difficulty: difficultyLevel,
         muscleGroups,
       });
     } catch (error) {
