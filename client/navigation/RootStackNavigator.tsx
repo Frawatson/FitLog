@@ -57,7 +57,19 @@ export default function RootStackNavigator() {
       return;
     }
     const profile = await storage.getUserProfile();
-    setOnboardingComplete(profile?.onboardingCompleted ?? false);
+    // Check if local profile exists and matches the current user
+    // Also verify that the database user has completed their profile (has goal and activityLevel)
+    const localProfileMatchesUser = profile?.email === user.email;
+    const dbProfileComplete = user.goal && user.activityLevel;
+    
+    if (localProfileMatchesUser && profile?.onboardingCompleted) {
+      setOnboardingComplete(true);
+    } else if (dbProfileComplete) {
+      // DB profile is complete but local storage doesn't match - user may have logged in on new device
+      setOnboardingComplete(true);
+    } else {
+      setOnboardingComplete(false);
+    }
   };
   
   if (loading) {

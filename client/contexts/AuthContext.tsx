@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { getApiUrl } from "@/lib/query-client";
+import * as storage from "@/lib/storage";
 
 export interface User {
   id: number;
@@ -68,6 +69,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, name: string) => {
+    // Clear any existing local data from previous users
+    await storage.clearAllData();
+    
     const response = await fetch(new URL("/api/auth/register", getApiUrl()).toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
