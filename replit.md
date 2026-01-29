@@ -8,6 +8,7 @@ MVP completed with the following features:
 - User onboarding with profile setup and goal selection
 - Workout routine builder with exercise library
 - **10 pre-built workout routine templates** (Push/Pull/Legs, Upper/Lower, Full Body, Beginner, etc.) with browse and customize functionality
+- **Generate Custom Routine** - AI-powered routine generator using API Ninjas (3,000+ exercises database) with muscle group and difficulty selection
 - Workout logging with rest timer and set tracking
 - Rule-based progression engine (suggests weight increases/decreases)
 - **GPS Run Tracker** - track runs with distance, pace, duration, and route history
@@ -27,7 +28,10 @@ MVP completed with the following features:
 ### Backend (Express.js)
 - **Location**: `server/`
 - **Port**: 5000
-- **Purpose**: Currently serves landing page and static Expo builds
+- **Purpose**: Serves landing page, static Expo builds, and workout API endpoints
+- **API Endpoints**:
+  - `GET /api/exercises` - Fetches exercises from API Ninjas by muscle, type, difficulty
+  - `POST /api/generate-routine` - Generates a complete workout routine from selected muscle groups
 
 ### Shared
 - **Location**: `shared/`
@@ -53,6 +57,7 @@ MVP completed with the following features:
 - `ActiveWorkoutScreen` - Workout logging with sets, weight, reps
 - `WorkoutCompleteScreen` - Post-workout summary with progression suggestions
 - `RunTrackerScreen` - GPS run tracking with distance, pace, duration, and history
+- `GenerateRoutineScreen` - AI-powered routine generator with muscle group and difficulty selection
 - `NutritionScreen` - Daily macro tracking with progress rings
 - `AddFoodScreen` - Log food entries with food database search and auto-populate
 - `ProfileScreen` - User settings, body weight, history
@@ -86,6 +91,11 @@ All data is stored locally using AsyncStorage:
 3. Scan QR code in Expo Go app to test on device
 
 ## Recent Changes
+- January 2026: Workout API Integration
+  - Integrated API Ninjas Exercises API (3,000+ exercises database)
+  - Added Generate Custom Routine feature with muscle group and difficulty selection
+  - Backend endpoints for fetching exercises and generating routines
+  - Updated Run Tracker theme to match app's flame orange color scheme
 - January 2026: UI/UX Improvements
   - Fixed routine cards to start workouts directly with play button
   - Added Run tab to main navigation (between Routines and Nutrition)
