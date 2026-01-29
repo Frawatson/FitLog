@@ -55,7 +55,7 @@ export default function GenerateRoutineScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { theme, colorScheme } = useTheme();
+  const { theme, isDark } = useTheme();
   
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("intermediate");
@@ -186,8 +186,8 @@ export default function GenerateRoutineScreen() {
                   style={[
                     styles.muscleChip,
                     {
-                      backgroundColor: isSelected ? Colors[colorScheme].primary : theme.backgroundSecondary,
-                      borderColor: isSelected ? Colors[colorScheme].primary : theme.border,
+                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      borderColor: isSelected ? theme.primary : theme.border,
                     },
                   ]}
                   onPress={() => toggleMuscle(muscle.id)}
@@ -225,8 +225,8 @@ export default function GenerateRoutineScreen() {
                   style={[
                     styles.difficultyCard,
                     {
-                      backgroundColor: isSelected ? Colors[colorScheme].primary : theme.backgroundSecondary,
-                      borderColor: isSelected ? Colors[colorScheme].primary : theme.border,
+                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      borderColor: isSelected ? theme.primary : theme.border,
                     },
                   ]}
                   onPress={() => selectDifficulty(level.id)}
@@ -255,8 +255,8 @@ export default function GenerateRoutineScreen() {
 
         {error ? (
           <View style={styles.errorContainer}>
-            <Feather name="alert-circle" size={20} color={Colors[colorScheme].error} />
-            <ThemedText style={{ color: Colors[colorScheme].error, marginLeft: Spacing.sm }}>
+            <Feather name="alert-circle" size={20} color={theme.error} />
+            <ThemedText style={{ color: theme.error, marginLeft: Spacing.sm }}>
               {error}
             </ThemedText>
           </View>

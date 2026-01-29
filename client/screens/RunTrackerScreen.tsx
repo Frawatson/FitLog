@@ -272,9 +272,9 @@ export default function RunTrackerScreen() {
   
   if (permission === null && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, styles.darkBg, { paddingTop: headerHeight }]}>
+      <View style={[styles.container, styles.lightBg, { paddingTop: headerHeight }]}>
         <View style={styles.centered}>
-          <ThemedText type="body" style={styles.lightText}>Checking location access...</ThemedText>
+          <ThemedText type="body" style={styles.darkText}>Checking location access...</ThemedText>
         </View>
       </View>
     );
@@ -282,13 +282,13 @@ export default function RunTrackerScreen() {
   
   if (permission !== "granted" && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, styles.darkBg, { paddingTop: headerHeight }]}>
+      <View style={[styles.container, styles.lightBg, { paddingTop: headerHeight }]}>
         <View style={styles.centered}>
           <Feather name="map-pin" size={48} color={ACCENT_COLOR} />
-          <ThemedText type="h3" style={[styles.lightText, styles.permissionTitle]}>
+          <ThemedText type="h3" style={[styles.darkText, styles.permissionTitle]}>
             Track Your Runs
           </ThemedText>
-          <ThemedText type="body" style={[styles.lightText, styles.permissionText]}>
+          <ThemedText type="body" style={[styles.darkText, styles.permissionText]}>
             Allow location access to track distance, pace, and route.
           </ThemedText>
           <Button onPress={requestPermission} style={styles.permissionButton}>
@@ -300,7 +300,7 @@ export default function RunTrackerScreen() {
   }
   
   return (
-    <View style={[styles.container, styles.darkBg]}>
+    <View style={[styles.container, styles.lightBg]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -365,14 +365,14 @@ export default function RunTrackerScreen() {
         <View style={styles.controlsContainer}>
           {!isRunning ? (
             <Pressable onPress={startRun} style={styles.startButton}>
-              <Feather name="play" size={32} color="#1A1A1A" />
+              <Feather name="play" size={32} color="#FFFFFF" />
               <ThemedText style={styles.startButtonText}>START RUN</ThemedText>
             </Pressable>
           ) : (
             <View style={styles.activeControls}>
               {isPaused ? (
                 <Pressable onPress={resumeRun} style={[styles.controlButton, styles.resumeButton]}>
-                  <Feather name="play" size={28} color="#1A1A1A" />
+                  <Feather name="play" size={28} color="#FFFFFF" />
                 </Pressable>
               ) : (
                 <Pressable onPress={pauseRun} style={[styles.controlButton, styles.pauseButton]}>
@@ -435,8 +435,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  darkBg: {
-    backgroundColor: "#1A1A1A",
+  lightBg: {
+    backgroundColor: "#FFFFFF",
   },
   centered: {
     flex: 1,
@@ -445,8 +445,8 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     gap: Spacing.md,
   },
-  lightText: {
-    color: "#FFFFFF",
+  darkText: {
+    color: "#1A1A1A",
   },
   permissionTitle: {
     marginTop: Spacing.lg,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   statsContainer: {
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#2D2D2D",
+    borderBottomColor: "#E0E0E0",
   },
   mainStatsRow: {
     flexDirection: "row",
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 50,
-    backgroundColor: "#3D3D3D",
+    backgroundColor: "#E0E0E0",
   },
   statLabel: {
     color: "#888888",
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   bigStatValue: {
-    color: "#FFFFFF",
+    color: "#1A1A1A",
     fontSize: 42,
     fontWeight: "700",
     fontFamily: "Montserrat_700Bold",
@@ -531,14 +531,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: "#2D2D2D",
+    borderTopColor: "#E0E0E0",
   },
   secondaryStat: {
     flex: 1,
     alignItems: "center",
   },
   mediumStatValue: {
-    color: "#FFFFFF",
+    color: "#1A1A1A",
     fontSize: 28,
     fontWeight: "600",
     fontFamily: "Montserrat_600SemiBold",
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: "#2D2D2D",
+    borderTopColor: "#E0E0E0",
   },
   splitsLabel: {
     color: "#888888",
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: "#2D2D2D",
+    backgroundColor: "#F5F5F5",
     borderRadius: BorderRadius.md,
   },
   splitMile: {
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   splitTime: {
-    color: "#FFFFFF",
+    color: "#1A1A1A",
     fontSize: 14,
     fontWeight: "500",
     marginTop: 2,
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     maxWidth: 300,
   },
   startButtonText: {
-    color: "#1A1A1A",
+    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
   },
@@ -622,13 +622,13 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   historyTitle: {
-    color: "#FFFFFF",
+    color: "#1A1A1A",
     fontSize: 18,
     fontWeight: "600",
     marginBottom: Spacing.md,
   },
   historyCard: {
-    backgroundColor: "#2D2D2D",
+    backgroundColor: "#F5F5F5",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   historyDate: {
-    color: "#FFFFFF",
+    color: "#1A1A1A",
     fontSize: 14,
     fontWeight: "600",
   },
