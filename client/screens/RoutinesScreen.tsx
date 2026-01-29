@@ -160,7 +160,7 @@ export default function RoutinesScreen() {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={cancelDelete}
               >
-                <ThemedText type="body" style={{ fontWeight: "600" }}>Cancel</ThemedText>
+                <ThemedText type="body" style={{ fontWeight: "600", color: "#1F2937" }}>Cancel</ThemedText>
               </Pressable>
               <Pressable
                 style={[styles.modalButton, styles.deleteButton]}
