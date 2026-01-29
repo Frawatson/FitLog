@@ -42,16 +42,36 @@ export default function EditRoutineScreen() {
     loadData();
   }, []);
   
+  const handleCancel = () => {
+    if (name || exercises.length > 0) {
+      Alert.alert(
+        "Discard Changes?",
+        "You have unsaved changes. Are you sure you want to leave?",
+        [
+          { text: "Stay", style: "cancel" },
+          { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
+        ]
+      );
+    } else {
+      navigation.goBack();
+    }
+  };
+
   useEffect(() => {
     navigation.setOptions({
       headerTitle: isNew ? "New Routine" : "Edit Routine",
+      headerLeft: () => (
+        <HeaderButton onPress={handleCancel}>
+          <Feather name="x" size={24} color={theme.text} />
+        </HeaderButton>
+      ),
       headerRight: () => (
         <HeaderButton onPress={handleSave}>
           <ThemedText type="link" style={{ fontWeight: "600" }}>Save</ThemedText>
         </HeaderButton>
       ),
     });
-  }, [name, exercises]);
+  }, [name, exercises, theme]);
   
   const loadData = async () => {
     const exerciseData = await storage.getExercises();
