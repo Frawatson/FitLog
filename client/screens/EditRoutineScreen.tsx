@@ -129,9 +129,9 @@ export default function EditRoutineScreen() {
               <ThemedText type="h4" style={styles.groupTitle}>
                 {group}
               </ThemedText>
-              {exs.map((ex) => (
+              {exs.map((ex, idx) => (
                 <Pressable
-                  key={ex.id}
+                  key={`${ex.id}-${idx}`}
                   onPress={() => addExercise(ex)}
                   style={({ pressed }) => [
                     styles.exerciseOption,
