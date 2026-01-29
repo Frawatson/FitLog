@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -51,18 +51,9 @@ export default function NutritionScreen() {
   );
   
   const handleDeleteEntry = async (entryId: string) => {
-    Alert.alert("Delete Entry", "Remove this food from your log?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await storage.deleteFoodLogEntry(entryId);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          loadData();
-        },
-      },
-    ]);
+    await storage.deleteFoodLogEntry(entryId);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    loadData();
   };
   
   const formatDate = (dateStr: string) => {
@@ -154,12 +145,8 @@ export default function NutritionScreen() {
       {foodLog.length > 0 ? (
         <View style={styles.foodList}>
           {foodLog.map((entry) => (
-            <Pressable
-              key={entry.id}
-              onLongPress={() => handleDeleteEntry(entry.id)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-            >
-              <Card style={styles.foodCard}>
+            <Card key={entry.id} style={styles.foodCard}>
+              <View style={styles.foodRow}>
                 <View style={styles.foodInfo}>
                   <ThemedText type="body" style={{ fontWeight: "600" }}>
                     {entry.food.name}
@@ -168,8 +155,15 @@ export default function NutritionScreen() {
                     {entry.food.calories} cal | P: {entry.food.protein}g | C: {entry.food.carbs}g | F: {entry.food.fat}g
                   </ThemedText>
                 </View>
-              </Card>
-            </Pressable>
+                <Pressable
+                  onPress={() => handleDeleteEntry(entry.id)}
+                  hitSlop={8}
+                  style={styles.deleteButton}
+                >
+                  <Feather name="trash-2" size={18} color="#EF4444" />
+                </Pressable>
+              </View>
+            </Card>
           ))}
         </View>
       ) : (
@@ -220,12 +214,19 @@ const styles = StyleSheet.create({
   foodCard: {
     padding: Spacing.lg,
   },
+  foodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   foodInfo: {
     flex: 1,
   },
   foodMacros: {
     opacity: 0.6,
     marginTop: Spacing.xs,
+  },
+  deleteButton: {
+    padding: Spacing.sm,
   },
   addButton: {
     marginTop: Spacing.lg,

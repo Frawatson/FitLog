@@ -191,25 +191,23 @@ export default function DashboardScreen() {
         </Card>
       ) : null}
       
-      <Pressable
+      <Card 
+        style={styles.runTrackerCard}
         onPress={() => navigation.navigate("RunTracker")}
-        style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
       >
-        <Card style={styles.runTrackerCard}>
-          <View style={styles.runTrackerContent}>
-            <View style={[styles.runIcon, { backgroundColor: "#22C55E" }]}>
-              <Feather name="navigation" size={20} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText type="h4">Run Tracker</ThemedText>
-              <ThemedText type="small" style={{ opacity: 0.6 }}>
-                Track your runs with GPS
-              </ThemedText>
-            </View>
-            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+        <View style={styles.runTrackerContent}>
+          <View style={[styles.runIcon, { backgroundColor: "#22C55E" }]}>
+            <Feather name="navigation" size={20} color="#FFFFFF" />
           </View>
-        </Card>
-      </Pressable>
+          <View style={{ flex: 1 }}>
+            <ThemedText type="h4">Run Tracker</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              Track your runs with GPS
+            </ThemedText>
+          </View>
+          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+        </View>
+      </Card>
       
       {macros ? (
         <Card style={styles.macrosCard}>

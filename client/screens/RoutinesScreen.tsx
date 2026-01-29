@@ -102,14 +102,14 @@ export default function RoutinesScreen() {
           actionLabel="Browse Templates"
           onAction={() => navigation.navigate("RoutineTemplates")}
         />
-        <Pressable
+        <Card
           onPress={() => navigation.navigate("EditRoutine", {})}
-          style={[styles.createButton, { backgroundColor: theme.backgroundElevated }]}
+          style={styles.createButton}
         >
-          <ThemedText type="body" style={{ fontWeight: "600" }}>
+          <ThemedText type="body" style={{ fontWeight: "600", textAlign: "center" }}>
             Or create from scratch
           </ThemedText>
-        </Pressable>
+        </Card>
       </View>
     );
   }
@@ -124,21 +124,22 @@ export default function RoutinesScreen() {
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
       ListHeaderComponent={
-        <Pressable
+        <Card 
+          style={styles.templateButton}
           onPress={() => navigation.navigate("RoutineTemplates")}
-          style={({ pressed }) => [
-            styles.templateButton,
-            { backgroundColor: theme.backgroundElevated, opacity: pressed ? 0.8 : 1 },
-          ]}
         >
-          <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
-            <Feather name="grid" size={16} color="#FFFFFF" />
+          <View style={styles.templateButtonContent}>
+            <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
+              <Feather name="grid" size={16} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="body" style={{ fontWeight: "600" }}>
+                Browse Workout Templates
+              </ThemedText>
+            </View>
+            <Feather name="chevron-right" size={20} color={theme.textSecondary} />
           </View>
-          <ThemedText type="body" style={{ fontWeight: "600" }}>
-            Browse Workout Templates
-          </ThemedText>
-          <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-        </Pressable>
+        </Card>
       }
       data={routines}
       keyExtractor={(item) => item.id}
@@ -169,12 +170,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   templateButton: {
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  templateButtonContent: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.md,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.lg,
   },
   templateIcon: {
     width: 32,
