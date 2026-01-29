@@ -129,14 +129,40 @@ export default function RoutinesScreen() {
           actionLabel="Browse Templates"
           onAction={() => navigation.navigate("RoutineTemplates")}
         />
-        <Card
-          onPress={() => navigation.navigate("EditRoutine", {})}
-          style={styles.createButton}
-        >
-          <ThemedText type="body" style={{ fontWeight: "600", textAlign: "center" }}>
-            Or create from scratch
-          </ThemedText>
-        </Card>
+        <View style={styles.emptyStateButtons}>
+          <Card 
+            style={styles.emptyStateCard}
+            onPress={() => navigation.navigate("GenerateRoutine")}
+          >
+            <View style={styles.templateButtonContent}>
+              <View style={[styles.templateIcon, { backgroundColor: "#9333EA" }]}>
+                <Feather name="zap" size={16} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  Generate Custom Routine
+                </ThemedText>
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            </View>
+          </Card>
+          <Card
+            onPress={() => navigation.navigate("EditRoutine", {})}
+            style={styles.emptyStateCard}
+          >
+            <View style={styles.templateButtonContent}>
+              <View style={[styles.templateIcon, { backgroundColor: theme.textSecondary }]}>
+                <Feather name="plus" size={16} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  Create from Scratch
+                </ThemedText>
+              </View>
+              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            </View>
+          </Card>
+        </View>
       </View>
     );
   }
@@ -291,6 +317,13 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.md,
+  },
+  emptyStateButtons: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  emptyStateCard: {
+    padding: Spacing.lg,
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,
