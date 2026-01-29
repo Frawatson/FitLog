@@ -28,7 +28,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, authToken } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [bodyWeights, setBodyWeights] = useState<BodyWeightEntry[]>([]);
@@ -76,12 +76,11 @@ export default function ProfileScreen() {
     setIsDeleting(true);
     try {
       const apiUrl = getApiUrl();
-      const token = await storage.getAuthToken();
       
       const response = await fetch(new URL("/api/auth/account", apiUrl).toString(), {
         method: "DELETE",
         headers: {
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${authToken}`,
           "Content-Type": "application/json",
         },
       });
