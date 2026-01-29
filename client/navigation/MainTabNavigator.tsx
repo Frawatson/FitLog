@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 
 import DashboardScreen from "@/screens/DashboardScreen";
 import RoutinesStackNavigator from "@/navigation/RoutinesStackNavigator";
+import RunTrackerScreen from "@/screens/RunTrackerScreen";
 import NutritionStackNavigator from "@/navigation/NutritionStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
@@ -19,6 +20,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 export type MainTabParamList = {
   HomeTab: undefined;
   RoutinesTab: undefined;
+  RunTab: undefined;
   NutritionTab: undefined;
   ProfileTab: undefined;
 };
@@ -97,6 +99,21 @@ export default function MainTabNavigator() {
           title: "Routines",
           tabBarIcon: ({ color, size }) => (
             <Feather name="list" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="RunTab"
+        component={RunTrackerScreen}
+        options={{
+          title: "Run",
+          headerShown: true,
+          headerTitle: "Run Tracker",
+          headerTransparent: true,
+          headerBlurEffect: isDark ? "dark" : "light",
+          headerTintColor: theme.text,
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="navigation" size={size} color={color} />
           ),
         }}
       />
