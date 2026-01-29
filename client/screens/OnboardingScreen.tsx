@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -52,6 +52,13 @@ export default function OnboardingScreen() {
   
   const needsAccountCreation = !user;
   
+  // Skip step 1 entirely if user is already logged in - go directly to step 2
+  useEffect(() => {
+    if (user && step === 1) {
+      setStep(2);
+    }
+  }, [user, step]);
+  
   const handleNext = async () => {
     setError("");
     
@@ -76,12 +83,15 @@ export default function OnboardingScreen() {
       setLoading(true);
       try {
         await register(email.trim(), password, name.trim());
+        // The useEffect will handle skipping to step 2 when user updates
+        setLoading(false);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        return;
       } catch (err: any) {
         setError(err.message || "Failed to create account");
         setLoading(false);
         return;
       }
-      setLoading(false);
     }
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -339,6 +349,40 @@ export default function OnboardingScreen() {
       <ThemedText type="body" style={styles.stepDescription}>
         This affects your calorie targets
       </ThemedText>
+      
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          setActivityLevel("1-2");
+        }}
+        style={[
+          styles.activityCard,
+          {
+            backgroundColor:
+              activityLevel === "1-2" ? Colors.light.primary : theme.backgroundDefault,
+            borderColor:
+              activityLevel === "1-2" ? Colors.light.primary : theme.border,
+          },
+        ]}
+      >
+        <ThemedText
+          type="h3"
+          style={{
+            color: activityLevel === "1-2" ? "#FFFFFF" : theme.text,
+          }}
+        >
+          1-2 days / week
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={{
+            color: activityLevel === "1-2" ? "#FFFFFF" : theme.textSecondary,
+            marginTop: Spacing.xs,
+          }}
+        >
+          Light training volume
+        </ThemedText>
+      </Pressable>
       
       <Pressable
         onPress={() => {

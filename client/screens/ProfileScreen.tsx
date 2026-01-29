@@ -129,7 +129,11 @@ export default function ProfileScreen() {
                 Goal: {getGoalLabel(profile?.goal || user?.goal || "")}
               </ThemedText>
               <ThemedText type="small" style={{ opacity: 0.6 }}>
-                {(profile?.activityLevel || user?.activityLevel) === "5-6" ? "5-6 days/week" : "3-4 days/week"}
+                {(profile?.activityLevel || user?.activityLevel) === "5-6" 
+                  ? "5-6 days/week" 
+                  : (profile?.activityLevel || user?.activityLevel) === "1-2"
+                    ? "1-2 days/week"
+                    : "3-4 days/week"}
               </ThemedText>
             </>
           ) : null}

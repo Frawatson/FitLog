@@ -2,7 +2,7 @@
 export type Sex = "male" | "female";
 export type TrainingExperience = "beginner" | "intermediate" | "advanced";
 export type FitnessGoal = "lose_fat" | "gain_muscle" | "recomposition" | "maintain";
-export type ActivityLevel = "3-4" | "5-6";
+export type ActivityLevel = "1-2" | "3-4" | "5-6";
 
 export interface UserProfile {
   id: string;
