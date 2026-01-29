@@ -98,12 +98,14 @@ export default function RoutineTemplatesScreen() {
   );
   
   const renderTemplate = ({ item }: { item: RoutineTemplate }) => (
-    <Pressable
-      onPress={() => setSelectedTemplate(selectedTemplate?.id === item.id ? null : item)}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+    <Card 
+      style={styles.templateCard}
+      onPress={() => {
+        Haptics.selectionAsync();
+        setSelectedTemplate(selectedTemplate?.id === item.id ? null : item);
+      }}
     >
-      <Card style={styles.templateCard}>
-        <View style={styles.templateHeader}>
+      <View style={styles.templateHeader}>
           <View style={styles.templateTitleRow}>
             <ThemedText type="h3">{item.name}</ThemedText>
             <View
@@ -163,8 +165,7 @@ export default function RoutineTemplatesScreen() {
             </Button>
           </View>
         ) : null}
-      </Card>
-    </Pressable>
+    </Card>
   );
   
   return (
