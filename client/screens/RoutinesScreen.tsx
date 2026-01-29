@@ -146,22 +146,6 @@ export default function RoutinesScreen() {
               <Feather name="chevron-right" size={20} color={theme.textSecondary} />
             </View>
           </Card>
-          <Card
-            onPress={() => navigation.navigate("EditRoutine", {})}
-            style={styles.emptyStateCard}
-          >
-            <View style={styles.templateButtonContent}>
-              <View style={[styles.templateIcon, { backgroundColor: theme.textSecondary }]}>
-                <Feather name="plus" size={16} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={{ fontWeight: "600" }}>
-                  Create from Scratch
-                </ThemedText>
-              </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-            </View>
-          </Card>
         </View>
       </View>
     );
