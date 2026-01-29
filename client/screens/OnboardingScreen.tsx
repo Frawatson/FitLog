@@ -142,6 +142,11 @@ export default function OnboardingScreen() {
     if (macros) {
       await storage.saveMacroTargets(macros);
     }
+    // Save initial body weight to weight tracking history
+    const initialWeight = parseInt(weightKg);
+    if (initialWeight > 0) {
+      await storage.addBodyWeight(initialWeight);
+    }
     setLoading(false);
     navigation.reset({
       index: 0,

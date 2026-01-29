@@ -119,17 +119,17 @@ export default function ProfileScreen() {
           </View>
         </View>
         <View style={styles.profileInfo}>
-          <ThemedText type="h4">{user?.name || "User"}</ThemedText>
+          <ThemedText type="h4">{user?.name || profile?.name || "User"}</ThemedText>
           <ThemedText type="small" style={{ opacity: 0.6 }}>
-            {user?.email || ""}
+            {user?.email || profile?.email || ""}
           </ThemedText>
-          {profile ? (
+          {(profile?.goal || user?.goal) ? (
             <>
               <ThemedText type="small" style={[styles.profileLabel, { marginTop: Spacing.md }]}>
-                Goal: {getGoalLabel(profile.goal)}
+                Goal: {getGoalLabel(profile?.goal || user?.goal || "")}
               </ThemedText>
               <ThemedText type="small" style={{ opacity: 0.6 }}>
-                {profile.activityLevel === "5-6" ? "5-6 days/week" : "3-4 days/week"}
+                {(profile?.activityLevel || user?.activityLevel) === "5-6" ? "5-6 days/week" : "3-4 days/week"}
               </ThemedText>
             </>
           ) : null}
