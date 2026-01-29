@@ -68,3 +68,8 @@ task = "shell.exec"
 args = "npm run expo:dev"
 waitForPort = 8081
 ensurePreviewReachable = "/status"
+
+[userenv]
+
+[userenv.shared]
+WORKOUT_API_KEY = "c78c9147d51b7e24629eed6c651385fa9ee3836b198165f1c1561d551e575ea1"

@@ -23,7 +23,7 @@ import type { RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
 
 const MAP_HEIGHT = 220;
-const ACCENT_GREEN = "#00FF7F";
+const ACCENT_COLOR = "#FF4500";
 
 export default function RunTrackerScreen() {
   const insets = useSafeAreaInsets();
@@ -284,7 +284,7 @@ export default function RunTrackerScreen() {
     return (
       <View style={[styles.container, styles.darkBg, { paddingTop: headerHeight }]}>
         <View style={styles.centered}>
-          <Feather name="map-pin" size={48} color={ACCENT_GREEN} />
+          <Feather name="map-pin" size={48} color={ACCENT_COLOR} />
           <ThemedText type="h3" style={[styles.lightText, styles.permissionTitle]}>
             Track Your Runs
           </ThemedText>
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   splitMile: {
-    color: ACCENT_GREEN,
+    color: ACCENT_COLOR,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -585,7 +585,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: ACCENT_GREEN,
+    backgroundColor: ACCENT_COLOR,
     paddingVertical: Spacing.lg,
     paddingHorizontal: Spacing["2xl"],
     borderRadius: BorderRadius.full,
@@ -610,7 +610,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resumeButton: {
-    backgroundColor: ACCENT_GREEN,
+    backgroundColor: ACCENT_COLOR,
   },
   pauseButton: {
     backgroundColor: "#F59E0B",
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   historyValue: {
-    color: ACCENT_GREEN,
+    color: ACCENT_COLOR,
     fontSize: 18,
     fontWeight: "600",
   },
