@@ -72,3 +72,4 @@ ensurePreviewReachable = "/status"
 [userenv]
 
 [userenv.shared]
+WORKOUT_API_KEY = "03f36d3c4b8e90c3ba87e5c4251acfc293e796dc15a04956ea985da67da6a84e"
