@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Pressable, Alert } from "react-native";
+import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -59,20 +59,7 @@ export default function RoutineTemplatesScreen() {
     await storage.saveRoutine(routine);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
-    Alert.alert(
-      "Routine Added",
-      `"${template.name}" has been added to your routines. Would you like to customize it?`,
-      [
-        { text: "Done", style: "cancel", onPress: () => navigation.goBack() },
-        {
-          text: "Customize",
-          onPress: () => {
-            navigation.goBack();
-            navigation.navigate("EditRoutine", { routineId: routine.id });
-          },
-        },
-      ]
-    );
+    navigation.goBack();
   };
   
   const renderFilter = (category: FilterCategory, label: string) => (
