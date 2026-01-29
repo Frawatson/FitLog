@@ -53,50 +53,50 @@ export default function WorkoutHistoryScreen() {
     );
     
     return (
-      <Card 
-        style={styles.workoutCard}
+      <Pressable 
         onPress={() => navigation.navigate("WorkoutDetail", { workoutId: item.id })}
       >
-        <View style={styles.workoutHeader}>
-          <View style={styles.workoutInfo}>
-            <ThemedText type="h4">{item.routineName}</ThemedText>
-            <ThemedText type="small" style={styles.workoutDate}>
-              {formatDate(item.completedAt!)}
-            </ThemedText>
-          </View>
-          <View style={styles.workoutStats}>
-            <View style={styles.stat}>
-              <Feather name="clock" size={14} color={theme.textSecondary} />
-              <ThemedText type="small" style={styles.statText}>
-                {item.durationMinutes}m
+        <Card style={styles.workoutCard}>
+          <View style={styles.workoutHeader}>
+            <View style={styles.workoutInfo}>
+              <ThemedText type="h4">{item.routineName}</ThemedText>
+              <ThemedText type="small" style={styles.workoutDate}>
+                {formatDate(item.completedAt!)}
               </ThemedText>
             </View>
-            <View style={styles.stat}>
-              <Feather name="check-circle" size={14} color={Colors.light.success} />
-              <ThemedText type="small" style={styles.statText}>
-                {totalSets} sets
-              </ThemedText>
+            <View style={styles.workoutStats}>
+              <View style={styles.stat}>
+                <Feather name="clock" size={14} color={theme.textSecondary} />
+                <ThemedText type="small" style={styles.statText}>
+                  {item.durationMinutes}m
+                </ThemedText>
+              </View>
+              <View style={styles.stat}>
+                <Feather name="check-circle" size={14} color={Colors.light.success} />
+                <ThemedText type="small" style={styles.statText}>
+                  {totalSets} sets
+                </ThemedText>
+              </View>
             </View>
           </View>
-        </View>
-        
-        <View style={styles.exerciseList}>
-          {item.exercises.slice(0, 3).map((ex, index) => (
-            <ThemedText
-              key={`${ex.exerciseId}-${index}`}
-              type="small"
-              style={styles.exerciseName}
-            >
-              {ex.exerciseName}
-            </ThemedText>
-          ))}
-          {item.exercises.length > 3 ? (
-            <ThemedText type="small" style={styles.moreExercises}>
-              +{item.exercises.length - 3} more
-            </ThemedText>
-          ) : null}
-        </View>
-      </Card>
+          <View style={styles.exerciseList}>
+            {item.exercises.slice(0, 3).map((ex, index) => (
+              <ThemedText
+                key={`${ex.exerciseId}-${index}`}
+                type="small"
+                style={styles.exerciseName}
+              >
+                {ex.exerciseName}
+              </ThemedText>
+            ))}
+            {item.exercises.length > 3 ? (
+              <ThemedText type="small" style={styles.moreExercises}>
+                +{item.exercises.length - 3} more
+              </ThemedText>
+            ) : null}
+          </View>
+        </Card>
+      </Pressable>
     );
   };
   

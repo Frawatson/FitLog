@@ -268,9 +268,9 @@ export default function RunTrackerScreen() {
   
   if (permission === null && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, styles.lightBg, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
         <View style={styles.centered}>
-          <ThemedText type="body" style={styles.darkText}>Checking location access...</ThemedText>
+          <ThemedText type="body">Checking location access...</ThemedText>
         </View>
       </View>
     );
@@ -278,13 +278,13 @@ export default function RunTrackerScreen() {
   
   if (permission !== "granted" && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, styles.lightBg, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
         <View style={styles.centered}>
           <Feather name="map-pin" size={48} color={ACCENT_COLOR} />
-          <ThemedText type="h3" style={[styles.darkText, styles.permissionTitle]}>
+          <ThemedText type="h3" style={styles.permissionTitle}>
             Track Your Runs
           </ThemedText>
-          <ThemedText type="body" style={[styles.darkText, styles.permissionText]}>
+          <ThemedText type="body" style={styles.permissionText}>
             Allow location access to track distance, pace, and route.
           </ThemedText>
           <Button onPress={requestPermission} style={styles.permissionButton}>
@@ -296,7 +296,7 @@ export default function RunTrackerScreen() {
   }
   
   return (
-    <View style={[styles.container, styles.lightBg]}>
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -318,39 +318,39 @@ export default function RunTrackerScreen() {
           </View>
         </View>
         
-        <View style={styles.statsContainer}>
+        <View style={[styles.statsContainer, { borderBottomColor: theme.border }]}>
           <View style={styles.mainStatsRow}>
             <View style={styles.mainStat}>
-              <ThemedText type="small" style={styles.statLabel}>Mil</ThemedText>
-              <ThemedText style={styles.bigStatValue}>{distanceMiles.toFixed(2)}</ThemedText>
+              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Mil</ThemedText>
+              <ThemedText style={[styles.bigStatValue, { color: theme.text }]}>{distanceMiles.toFixed(2)}</ThemedText>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.mainStat}>
-              <ThemedText type="small" style={styles.statLabel}>Min : Sec</ThemedText>
-              <ThemedText style={styles.bigStatValue}>{formatDuration(duration)}</ThemedText>
+              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Min : Sec</ThemedText>
+              <ThemedText style={[styles.bigStatValue, { color: theme.text }]}>{formatDuration(duration)}</ThemedText>
             </View>
           </View>
           
-          <View style={styles.secondaryStatsRow}>
+          <View style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}>
             <View style={styles.secondaryStat}>
-              <ThemedText type="small" style={styles.statLabel}>Current Speed</ThemedText>
-              <ThemedText style={styles.mediumStatValue}>{speedMph.toFixed(2)}</ThemedText>
+              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Current Speed</ThemedText>
+              <ThemedText style={[styles.mediumStatValue, { color: theme.text }]}>{speedMph.toFixed(2)}</ThemedText>
             </View>
-            <View style={styles.statDivider} />
+            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.secondaryStat}>
-              <ThemedText type="small" style={styles.statLabel}>Calories</ThemedText>
-              <ThemedText style={styles.mediumStatValue}>{calories}</ThemedText>
+              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Calories</ThemedText>
+              <ThemedText style={[styles.mediumStatValue, { color: theme.text }]}>{calories}</ThemedText>
             </View>
           </View>
           
           {splits.length > 0 ? (
-            <View style={styles.splitsContainer}>
-              <ThemedText type="small" style={styles.splitsLabel}>Splits:</ThemedText>
+            <View style={[styles.splitsContainer, { borderTopColor: theme.border }]}>
+              <ThemedText type="small" style={[styles.splitsLabel, { color: theme.textSecondary }]}>Splits:</ThemedText>
               <View style={styles.splitsRow}>
                 {splits.map((splitTime, index) => (
-                  <View key={index} style={styles.splitItem}>
+                  <View key={index} style={[styles.splitItem, { backgroundColor: theme.backgroundSecondary }]}>
                     <ThemedText style={styles.splitMile}>{index + 1} Mi</ThemedText>
-                    <ThemedText style={styles.splitTime}>{formatDuration(splitTime)}</ThemedText>
+                    <ThemedText style={[styles.splitTime, { color: theme.text }]}>{formatDuration(splitTime)}</ThemedText>
                   </View>
                 ))}
               </View>
@@ -384,14 +384,14 @@ export default function RunTrackerScreen() {
         
         {runHistory.length > 0 ? (
           <View style={styles.historySection}>
-            <ThemedText style={styles.historyTitle}>Run History</ThemedText>
+            <ThemedText style={[styles.historyTitle, { color: theme.text }]}>Run History</ThemedText>
             {runHistory.slice(0, 5).map((run) => (
-              <View key={run.id} style={styles.historyCard}>
+              <View key={run.id} style={[styles.historyCard, { backgroundColor: theme.backgroundSecondary }]}>
                 <View style={styles.historyHeader}>
-                  <ThemedText style={styles.historyDate}>
+                  <ThemedText style={[styles.historyDate, { color: theme.text }]}>
                     {new Date(run.completedAt).toLocaleDateString()}
                   </ThemedText>
-                  <ThemedText style={styles.historyTime}>
+                  <ThemedText style={[styles.historyTime, { color: theme.textSecondary }]}>
                     {new Date(run.completedAt).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -403,19 +403,19 @@ export default function RunTrackerScreen() {
                     <ThemedText style={styles.historyValue}>
                       {(run.distanceKm * 0.621371).toFixed(2)}
                     </ThemedText>
-                    <ThemedText style={styles.historyLabel}>mi</ThemedText>
+                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>mi</ThemedText>
                   </View>
                   <View style={styles.historyStat}>
                     <ThemedText style={styles.historyValue}>
                       {formatDuration(run.durationSeconds)}
                     </ThemedText>
-                    <ThemedText style={styles.historyLabel}>time</ThemedText>
+                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>time</ThemedText>
                   </View>
                   <View style={styles.historyStat}>
                     <ThemedText style={styles.historyValue}>
                       {formatPace(run.paceMinPerKm)}
                     </ThemedText>
-                    <ThemedText style={styles.historyLabel}>/km</ThemedText>
+                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>km</ThemedText>
                   </View>
                 </View>
               </View>
@@ -431,18 +431,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  lightBg: {
-    backgroundColor: "#FFFFFF",
-  },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: Spacing.xl,
     gap: Spacing.md,
-  },
-  darkText: {
-    color: "#1A1A1A",
   },
   permissionTitle: {
     marginTop: Spacing.lg,
@@ -492,7 +486,6 @@ const styles = StyleSheet.create({
   statsContainer: {
     padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#E0E0E0",
   },
   mainStatsRow: {
     flexDirection: "row",
@@ -508,16 +501,13 @@ const styles = StyleSheet.create({
   statDivider: {
     width: 1,
     height: 50,
-    backgroundColor: "#E0E0E0",
   },
   statLabel: {
-    color: "#888888",
     fontSize: 11,
     letterSpacing: 1,
     marginBottom: Spacing.xs,
   },
   bigStatValue: {
-    color: "#1A1A1A",
     fontSize: 42,
     fontWeight: "700",
     fontFamily: "Montserrat_700Bold",
@@ -529,7 +519,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
   },
   secondaryStat: {
     flex: 1,
@@ -537,7 +526,6 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm,
   },
   mediumStatValue: {
-    color: "#1A1A1A",
     fontSize: 28,
     fontWeight: "600",
     fontFamily: "Montserrat_600SemiBold",
@@ -547,10 +535,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
   },
   splitsLabel: {
-    color: "#888888",
     fontSize: 11,
     letterSpacing: 1,
     marginBottom: Spacing.sm,
@@ -563,7 +549,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: "#F5F5F5",
     borderRadius: BorderRadius.md,
   },
   splitMile: {
@@ -572,7 +557,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   splitTime: {
-    color: "#1A1A1A",
     fontSize: 14,
     fontWeight: "500",
     marginTop: 2,
@@ -622,13 +606,11 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   historyTitle: {
-    color: "#1A1A1A",
     fontSize: 18,
     fontWeight: "600",
     marginBottom: Spacing.md,
   },
   historyCard: {
-    backgroundColor: "#F5F5F5",
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
@@ -639,12 +621,10 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   historyDate: {
-    color: "#1A1A1A",
     fontSize: 14,
     fontWeight: "600",
   },
   historyTime: {
-    color: "#888888",
     fontSize: 12,
   },
   historyStats: {
@@ -662,7 +642,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   historyLabel: {
-    color: "#888888",
     fontSize: 12,
   },
 });
