@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Pressable, Alert } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
+import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine } from "@/types";
@@ -28,6 +29,8 @@ export default function RoutinesScreen() {
   
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [routineToDelete, setRoutineToDelete] = useState<Routine | null>(null);
   
   const loadRoutines = async () => {
     const data = await storage.getRoutines();
@@ -42,22 +45,24 @@ export default function RoutinesScreen() {
   );
   
   const handleDelete = (routine: Routine) => {
-    Alert.alert(
-      "Delete Routine",
-      `Are you sure you want to delete "${routine.name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            await storage.deleteRoutine(routine.id);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            loadRoutines();
-          },
-        },
-      ]
-    );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setRoutineToDelete(routine);
+    setDeleteModalVisible(true);
+  };
+  
+  const confirmDelete = async () => {
+    if (routineToDelete) {
+      await storage.deleteRoutine(routineToDelete.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setDeleteModalVisible(false);
+      setRoutineToDelete(null);
+      loadRoutines();
+    }
+  };
+  
+  const cancelDelete = () => {
+    setDeleteModalVisible(false);
+    setRoutineToDelete(null);
   };
   
   const handleStartWorkout = (routine: Routine) => {
@@ -137,56 +142,94 @@ export default function RoutinesScreen() {
     );
   }
   
-  return (
-    <FlatList
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.xl,
-        paddingBottom: tabBarHeight + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      ListHeaderComponent={
-        <View style={styles.headerButtons}>
-          <Card 
-            style={styles.templateButton}
-            onPress={() => navigation.navigate("RoutineTemplates")}
-          >
-            <View style={styles.templateButtonContent}>
-              <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
-                <Feather name="grid" size={16} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={{ fontWeight: "600" }}>
-                  Browse Templates
-                </ThemedText>
-              </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-            </View>
-          </Card>
-          <Card 
-            style={styles.templateButton}
-            onPress={() => navigation.navigate("GenerateRoutine")}
-          >
-            <View style={styles.templateButtonContent}>
-              <View style={[styles.templateIcon, { backgroundColor: "#9333EA" }]}>
-                <Feather name="zap" size={16} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={{ fontWeight: "600" }}>
-                  Generate Custom Routine
-                </ThemedText>
-              </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-            </View>
-          </Card>
+  const renderDeleteModal = () => (
+    <Modal
+      visible={deleteModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={cancelDelete}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.backgroundElevated }]}>
+          <View style={styles.modalIconContainer}>
+            <Feather name="trash-2" size={32} color={Colors.light.error} />
+          </View>
+          <ThemedText type="h3" style={styles.modalTitle}>Delete Routine</ThemedText>
+          <ThemedText type="body" style={styles.modalMessage}>
+            Are you sure you want to delete "{routineToDelete?.name}"? This action cannot be undone.
+          </ThemedText>
+          <View style={styles.modalButtons}>
+            <Button
+              title="Cancel"
+              variant="secondary"
+              onPress={cancelDelete}
+              style={{ flex: 1 }}
+            />
+            <Button
+              title="Delete"
+              variant="primary"
+              onPress={confirmDelete}
+              style={{ flex: 1, backgroundColor: Colors.light.error }}
+            />
+          </View>
         </View>
-      }
-      data={routines}
-      keyExtractor={(item) => item.id}
-      renderItem={renderRoutine}
-      ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
-    />
+      </View>
+    </Modal>
+  );
+
+  return (
+    <>
+      <FlatList
+        style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.xl,
+          paddingBottom: tabBarHeight + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        ListHeaderComponent={
+          <View style={styles.headerButtons}>
+            <Card 
+              style={styles.templateButton}
+              onPress={() => navigation.navigate("RoutineTemplates")}
+            >
+              <View style={styles.templateButtonContent}>
+                <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
+                  <Feather name="grid" size={16} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>
+                    Browse Templates
+                  </ThemedText>
+                </View>
+                <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              </View>
+            </Card>
+            <Card 
+              style={styles.templateButton}
+              onPress={() => navigation.navigate("GenerateRoutine")}
+            >
+              <View style={styles.templateButtonContent}>
+                <View style={[styles.templateIcon, { backgroundColor: "#9333EA" }]}>
+                  <Feather name="zap" size={16} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>
+                    Generate Custom Routine
+                  </ThemedText>
+                </View>
+                <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              </View>
+            </Card>
+          </View>
+        }
+        data={routines}
+        keyExtractor={(item) => item.id}
+        renderItem={renderRoutine}
+        ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
+      />
+      {renderDeleteModal()}
+    </>
   );
 }
 
@@ -250,5 +293,42 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    alignItems: "center",
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    marginBottom: Spacing.sm,
+    textAlign: "center",
+  },
+  modalMessage: {
+    textAlign: "center",
+    opacity: 0.7,
+    marginBottom: Spacing.xl,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    width: "100%",
   },
 });

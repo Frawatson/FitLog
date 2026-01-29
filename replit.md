@@ -93,13 +93,14 @@ All data is stored locally using AsyncStorage:
 
 ## API Integrations
 - **WorkoutAPI** (exercises): Uses WORKOUT_API_KEY secret, 30-min cache
-- **FatSecret** (nutrition): Uses FATSECRET_CLIENT_ID and FATSECRET_CLIENT_SECRET secrets for OAuth 2.0
-  - Note: FatSecret requires IP whitelisting in developer portal. Falls back to local food database (85+ foods) when API is unavailable.
+- **CalorieNinjas** (nutrition): Uses CALORIENINJA_API_KEY secret for food nutrition data
+  - Simple API key authentication, no IP restrictions
+  - Falls back to local food database (85+ foods) when API is unavailable
 
 ## Recent Changes
-- January 2026: FatSecret Food API Integration
-  - Integrated FatSecret OAuth 2.0 API for food search
-  - Backend endpoint with token caching
+- January 2026: CalorieNinjas Food API Integration
+  - Integrated CalorieNinjas API for food nutrition data
+  - Simple API key authentication
   - Automatic fallback to local food database when API unavailable
 - January 2026: Workout API Integration
   - Integrated API Ninjas Exercises API (3,000+ exercises database)
