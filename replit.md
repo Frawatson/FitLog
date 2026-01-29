@@ -9,7 +9,7 @@ MVP completed with the following features:
 - User onboarding with profile setup and goal selection
 - Workout routine builder with exercise library
 - **10 pre-built workout routine templates** (Push/Pull/Legs, Upper/Lower, Full Body, Beginner, etc.) with browse and customize functionality
-- **Generate Custom Routine** - AI-powered routine generator using API Ninjas (3,000+ exercises database) with muscle group and difficulty selection
+- **Generate Custom Routine** - Routine generator using WorkoutAPI + comprehensive local database (165+ exercises) with muscle group and difficulty selection
 - Workout logging with rest timer and set tracking
 - Rule-based progression engine (suggests weight increases/decreases)
 - **GPS Run Tracker** - track runs with distance, pace, duration, and route history
@@ -62,6 +62,7 @@ MVP completed with the following features:
 - `server/db.ts` - PostgreSQL database connection and user queries
 - `server/auth.ts` - Authentication routes (register, login, logout, profile)
 - `server/index.ts` - Express app setup with session middleware
+- `server/exerciseDatabase.ts` - Comprehensive local exercise database (165+ exercises across all muscle groups and difficulty levels)
 
 ### Screens
 - `LoginScreen` - User login with email/password
