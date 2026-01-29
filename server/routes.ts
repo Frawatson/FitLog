@@ -69,25 +69,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Fetch exercises for each muscle group
       for (const muscle of muscleGroups) {
-        const params = new URLSearchParams();
-        params.append("muscle", muscle);
-        if (difficulty) params.append("difficulty", difficulty);
+        let exercises: ExerciseFromAPI[] = [];
         
-        const response = await fetch(
-          `https://api.api-ninjas.com/v1/exercises?${params.toString()}`,
-          {
-            headers: {
-              "X-Api-Key": apiKey,
-            },
+        // First try with difficulty filter
+        if (difficulty) {
+          const params = new URLSearchParams();
+          params.append("muscle", muscle);
+          params.append("difficulty", difficulty);
+          
+          const response = await fetch(
+            `https://api.api-ninjas.com/v1/exercises?${params.toString()}`,
+            {
+              headers: {
+                "X-Api-Key": apiKey,
+              },
+            }
+          );
+          
+          if (response.ok) {
+            exercises = await response.json();
+            console.log(`API response for ${muscle} (${difficulty}): ${exercises.length} exercises`);
+          } else {
+            const errorText = await response.text();
+            console.log(`API error for ${muscle} (${difficulty}): ${response.status} - ${errorText}`);
           }
-        );
-        
-        if (response.ok) {
-          const exercises: ExerciseFromAPI[] = await response.json();
-          // Take up to 3 exercises per muscle group
-          allExercises.push(...exercises.slice(0, 3));
         }
+        
+        // If no results with difficulty, try without it
+        if (exercises.length === 0) {
+          const params = new URLSearchParams();
+          params.append("muscle", muscle);
+          
+          const response = await fetch(
+            `https://api.api-ninjas.com/v1/exercises?${params.toString()}`,
+            {
+              headers: {
+                "X-Api-Key": apiKey,
+              },
+            }
+          );
+          
+          if (response.ok) {
+            exercises = await response.json();
+            console.log(`API response for ${muscle} (no difficulty): ${exercises.length} exercises`);
+          } else {
+            const errorText = await response.text();
+            console.log(`API error for ${muscle} (no difficulty): ${response.status} - ${errorText}`);
+          }
+        }
+        
+        // Take up to 3 exercises per muscle group
+        allExercises.push(...exercises.slice(0, 3));
       }
+      
+      console.log(`Total exercises collected: ${allExercises.length}`);
       
       // Transform to routine format
       const routineExercises = allExercises.map((ex, index) => ({
