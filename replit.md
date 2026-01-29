@@ -20,7 +20,7 @@ MVP completed with the following features:
 
 ### Frontend (React Native / Expo)
 - **Location**: `client/`
-- **Navigation**: Tab-based with 4 tabs (Home, Routines, Nutrition, Profile)
+- **Navigation**: Tab-based with 5 tabs (Home, Routines, Run, Nutrition, Profile)
 - **State**: Local storage with AsyncStorage (no backend database in MVP)
 - **Design**: Bold athletic theme with orange (#FF4500) primary color
 
@@ -62,6 +62,7 @@ MVP completed with the following features:
 - `ProgressRing` - Animated circular progress indicator
 - `EmptyState` - Illustrated empty state component
 - `ErrorBoundary` - App crash recovery
+- `MapDisplay` - Platform-specific map component (native: react-native-maps, web: placeholder)
 
 ## Data Storage
 All data is stored locally using AsyncStorage:
@@ -85,6 +86,11 @@ All data is stored locally using AsyncStorage:
 3. Scan QR code in Expo Go app to test on device
 
 ## Recent Changes
+- January 2026: UI/UX Improvements
+  - Fixed routine cards to start workouts directly with play button
+  - Added Run tab to main navigation (between Routines and Nutrition)
+  - Redesigned Run Tracker with dark theme, map display, and stats (distance, time, speed, calories, splits)
+  - Platform-specific map component (react-native-maps on native, placeholder on web)
 - January 2026: Feature Update
   - Added 10 pre-built workout routine templates with browse/customize functionality
   - Added GPS Run Tracker with distance, pace, duration, and run history

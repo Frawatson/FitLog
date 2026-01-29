@@ -4,9 +4,7 @@ import {
   StyleSheet,
   Pressable,
   Platform,
-  Linking,
   ScrollView,
-  Dimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -15,27 +13,16 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import { v4 as uuidv4 } from "uuid";
-import MapView, { Polyline, PROVIDER_DEFAULT } from "react-native-maps";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { MapDisplay } from "@/components/MapDisplay";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import type { RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const MAP_HEIGHT = 220;
-
-const DARK_MAP_STYLE = [
-  { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
-  { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
-  { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
-  { featureType: "road", elementType: "geometry", stylers: [{ color: "#304a7d" }] },
-  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#255763" }] },
-  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
-];
-
 const ACCENT_GREEN = "#00FF7F";
 
 export default function RunTrackerScreen() {
@@ -283,7 +270,7 @@ export default function RunTrackerScreen() {
   const speedMph = duration > 0 && distance > 0 ? (distance * 0.621371) / (duration / 3600) : 0;
   const calories = Math.round(distanceMiles * 100);
   
-  if (permission === null) {
+  if (permission === null && Platform.OS !== "web") {
     return (
       <View style={[styles.container, styles.darkBg, { paddingTop: headerHeight }]}>
         <View style={styles.centered}>
@@ -293,7 +280,7 @@ export default function RunTrackerScreen() {
     );
   }
   
-  if (permission !== "granted") {
+  if (permission !== "granted" && Platform.OS !== "web") {
     return (
       <View style={[styles.container, styles.darkBg, { paddingTop: headerHeight }]}>
         <View style={styles.centered}>
@@ -304,15 +291,9 @@ export default function RunTrackerScreen() {
           <ThemedText type="body" style={[styles.lightText, styles.permissionText]}>
             Allow location access to track distance, pace, and route.
           </ThemedText>
-          {Platform.OS !== "web" ? (
-            <Button onPress={requestPermission} style={styles.permissionButton}>
-              Enable Location
-            </Button>
-          ) : (
-            <ThemedText type="small" style={styles.webMessage}>
-              Run in Expo Go to use GPS tracking
-            </ThemedText>
-          )}
+          <Button onPress={requestPermission} style={styles.permissionButton}>
+            Enable Location
+          </Button>
         </View>
       </View>
     );
@@ -329,46 +310,11 @@ export default function RunTrackerScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mapContainer}>
-          {currentLocation ? (
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              provider={PROVIDER_DEFAULT}
-              customMapStyle={DARK_MAP_STYLE}
-              initialRegion={{
-                latitude: currentLocation.latitude,
-                longitude: currentLocation.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-              region={currentLocation ? {
-                latitude: currentLocation.latitude,
-                longitude: currentLocation.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              } : undefined}
-              showsUserLocation
-              showsMyLocationButton={false}
-              showsCompass={false}
-              pitchEnabled={false}
-              rotateEnabled={false}
-            >
-              {route.length > 1 ? (
-                <Polyline
-                  coordinates={route}
-                  strokeColor={ACCENT_GREEN}
-                  strokeWidth={4}
-                />
-              ) : null}
-            </MapView>
-          ) : (
-            <View style={[styles.map, styles.mapPlaceholder]}>
-              <Feather name="map" size={40} color="#4A5568" />
-              <ThemedText type="small" style={styles.mapPlaceholderText}>
-                Getting your location...
-              </ThemedText>
-            </View>
-          )}
+          <MapDisplay
+            currentLocation={currentLocation}
+            route={route}
+            mapRef={mapRef}
+          />
           <View style={styles.mapOverlay}>
             <ThemedText type="small" style={styles.dateText}>
               {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
