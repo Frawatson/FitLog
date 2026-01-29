@@ -20,7 +20,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-type FilterCategory = "all" | "strength" | "hypertrophy" | "full_body" | "split";
+type FilterCategory = "all" | "full_body" | "upper_lower" | "ppl" | "bro_split";
 
 export default function RoutineTemplatesScreen() {
   const insets = useSafeAreaInsets();
@@ -167,9 +167,9 @@ export default function RoutineTemplatesScreen() {
         <View style={styles.filtersContainer}>
           {renderFilter("all", "All")}
           {renderFilter("full_body", "Full Body")}
-          {renderFilter("split", "Split")}
-          {renderFilter("strength", "Strength")}
-          {renderFilter("hypertrophy", "Hypertrophy")}
+          {renderFilter("upper_lower", "Upper/Lower")}
+          {renderFilter("ppl", "Push/Pull/Legs")}
+          {renderFilter("bro_split", "Bro Split")}
         </View>
       }
       data={filteredTemplates}
