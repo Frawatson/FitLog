@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { getUserByEmail, getUserById, createUser, updateUserProfile } from "./db";
 
 declare module "express-session" {
@@ -10,10 +11,56 @@ declare module "express-session" {
 
 const router = Router();
 
+// Simple in-memory token store (in production, use Redis or database)
+const tokenStore = new Map<string, { userId: number; expires: number }>();
+
+function generateToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function storeToken(userId: number): string {
+  const token = generateToken();
+  const expires = Date.now() + 30 * 24 * 60 * 60 * 1000; // 30 days
+  tokenStore.set(token, { userId, expires });
+  return token;
+}
+
+function getUserIdFromToken(token: string): number | null {
+  const data = tokenStore.get(token);
+  if (!data) return null;
+  if (Date.now() > data.expires) {
+    tokenStore.delete(token);
+    return null;
+  }
+  return data.userId;
+}
+
+function removeToken(token: string): void {
+  tokenStore.delete(token);
+}
+
+// Get user ID from session or Bearer token
+function getUserIdFromRequest(req: Request): number | null {
+  // First check session
+  if (req.session.userId) {
+    return req.session.userId;
+  }
+  // Then check Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    return getUserIdFromToken(token);
+  }
+  return null;
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!req.session.userId) {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
     return res.status(401).json({ error: "Authentication required" });
   }
+  // Store userId on request for later use
+  (req as any).userId = userId;
   next();
 }
 
@@ -38,11 +85,13 @@ router.post("/register", async (req: Request, res: Response) => {
     const user = await createUser({ email, passwordHash, name });
 
     req.session.userId = user.id;
+    const token = storeToken(user.id);
 
     res.status(201).json({
       id: user.id,
       email: user.email,
       name: user.name,
+      token, // Return token for mobile clients
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -69,6 +118,7 @@ router.post("/login", async (req: Request, res: Response) => {
     }
 
     req.session.userId = user.id;
+    const token = storeToken(user.id);
 
     res.json({
       id: user.id,
@@ -81,6 +131,7 @@ router.post("/login", async (req: Request, res: Response) => {
       experience: user.experience,
       goal: user.goal,
       activityLevel: user.activity_level,
+      token, // Return token for mobile clients
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -100,12 +151,13 @@ router.post("/logout", (req: Request, res: Response) => {
 });
 
 router.get("/me", async (req: Request, res: Response) => {
-  if (!req.session.userId) {
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
     return res.status(401).json({ error: "Not authenticated" });
   }
 
   try {
-    const user = await getUserById(req.session.userId);
+    const user = await getUserById(userId);
     if (!user) {
       req.session.destroy(() => {});
       return res.status(401).json({ error: "User not found" });
@@ -132,8 +184,9 @@ router.get("/me", async (req: Request, res: Response) => {
 router.put("/profile", requireAuth, async (req: Request, res: Response) => {
   try {
     const { name, age, sex, heightCm, weightKg, experience, goal, activityLevel } = req.body;
+    const userId = (req as any).userId;
 
-    const updated = await updateUserProfile(req.session.userId!, {
+    const updated = await updateUserProfile(userId, {
       name,
       age,
       sex,

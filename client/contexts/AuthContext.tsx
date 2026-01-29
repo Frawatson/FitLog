@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
+
+const AUTH_TOKEN_KEY = "@fitlog_auth_token";
 
 export interface User {
   id: number;
@@ -30,24 +33,50 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authToken, setAuthToken] = useState<string | null>(null);
 
   useEffect(() => {
-    checkAuth();
+    loadTokenAndCheckAuth();
   }, []);
 
-  const checkAuth = async () => {
+  const loadTokenAndCheckAuth = async () => {
     try {
+      // Load stored token
+      const storedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      if (storedToken) {
+        setAuthToken(storedToken);
+      }
+      // Check auth using token or session
+      await checkAuth(storedToken);
+    } catch (error) {
+      console.log("Error loading auth:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const checkAuth = async (token?: string | null) => {
+    try {
+      const headers: HeadersInit = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
       const response = await fetch(new URL("/api/auth/me", getApiUrl()).toString(), {
         credentials: "include",
+        headers,
       });
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
+      } else {
+        // Clear invalid token
+        if (token) {
+          await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+          setAuthToken(null);
+        }
       }
     } catch (error) {
       console.log("Not authenticated");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -65,6 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const userData = await response.json();
+    // Store token for mobile clients
+    if (userData.token) {
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, userData.token);
+      setAuthToken(userData.token);
+    }
     setUser(userData);
   };
 
@@ -85,25 +119,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const userData = await response.json();
+    // Store token for mobile clients
+    if (userData.token) {
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, userData.token);
+      setAuthToken(userData.token);
+    }
     setUser(userData);
   };
 
   const logout = async () => {
     try {
+      const headers: HeadersInit = {};
+      if (authToken) {
+        headers["Authorization"] = `Bearer ${authToken}`;
+      }
       await fetch(new URL("/api/auth/logout", getApiUrl()).toString(), {
         method: "POST",
         credentials: "include",
+        headers,
       });
     } catch (error) {
       console.error("Logout error:", error);
     }
+    // Clear stored token
+    await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+    setAuthToken(null);
     setUser(null);
   };
 
   const updateProfile = async (data: Partial<User>) => {
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
     const response = await fetch(new URL("/api/auth/profile", getApiUrl()).toString(), {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers,
       credentials: "include",
       body: JSON.stringify(data),
     });
@@ -118,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = async () => {
-    await checkAuth();
+    await checkAuth(authToken);
   };
 
   return (
