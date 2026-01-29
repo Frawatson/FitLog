@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { getUserByEmail, getUserById, createUser, updateUserProfile } from "./db";
+import { getUserByEmail, getUserById, createUser, updateUserProfile, deleteUser } from "./db";
 
 declare module "express-session" {
   interface SessionData {
@@ -205,6 +205,26 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+router.delete("/account", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).userId;
+    
+    const deleted = await deleteUser(userId);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    req.session.destroy(() => {});
+    res.clearCookie("connect.sid");
+    
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    res.status(500).json({ error: "Failed to delete account" });
   }
 });
 

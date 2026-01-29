@@ -18,6 +18,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, BodyWeightEntry, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -68,22 +69,53 @@ export default function ProfileScreen() {
     await logout();
   };
   
-  const handleClearData = () => {
+  const handleDeleteAccount = () => {
     Alert.alert(
-      "Clear Data",
-      "This will delete all your local data including workouts, routines, and progress. Are you sure?",
+      "Delete Account",
+      "This will permanently delete your account and all associated data. This action cannot be undone. Are you sure?",
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Clear All Data",
+          text: "Delete Account",
           style: "destructive",
-          onPress: async () => {
-            await storage.clearAllData();
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            navigation.reset({
-              index: 0,
-              routes: [{ name: "Onboarding" }],
-            });
+          onPress: () => {
+            Alert.alert(
+              "Confirm Deletion",
+              "Please confirm that you want to permanently delete your account.",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Yes, Delete My Account",
+                  style: "destructive",
+                  onPress: async () => {
+                    try {
+                      const apiUrl = getApiUrl();
+                      const token = await storage.getAuthToken();
+                      
+                      const response = await fetch(new URL("/api/auth/account", apiUrl).toString(), {
+                        method: "DELETE",
+                        headers: {
+                          "Authorization": `Bearer ${token}`,
+                          "Content-Type": "application/json",
+                        },
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error("Failed to delete account");
+                      }
+                      
+                      await storage.clearAllData();
+                      await logout();
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    } catch (error) {
+                      console.error("Delete account error:", error);
+                      Alert.alert("Error", "Failed to delete account. Please try again.");
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                    }
+                  },
+                },
+              ]
+            );
           },
         },
       ]
@@ -247,7 +279,7 @@ export default function ProfileScreen() {
       </Pressable>
       
       <Pressable
-        onPress={handleClearData}
+        onPress={handleDeleteAccount}
         style={({ pressed }) => [
           styles.menuItem,
           { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.7 : 1 },
@@ -255,9 +287,9 @@ export default function ProfileScreen() {
       >
         <Feather name="trash-2" size={20} color={Colors.light.error} />
         <ThemedText type="body" style={[styles.menuLabel, { color: Colors.light.error }]}>
-          Clear Local Data
+          Delete Account
         </ThemedText>
-        <View style={{ width: 20 }} />
+        <Feather name="chevron-right" size={20} color={Colors.light.error} />
       </Pressable>
       
       <Pressable

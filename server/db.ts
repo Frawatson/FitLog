@@ -130,3 +130,11 @@ export async function updateUserProfile(id: number, data: {
   );
   return result.rows[0];
 }
+
+export async function deleteUser(id: number): Promise<boolean> {
+  const result = await pool.query(
+    "DELETE FROM users WHERE id = $1 RETURNING id",
+    [id]
+  );
+  return result.rowCount !== null && result.rowCount > 0;
+}
