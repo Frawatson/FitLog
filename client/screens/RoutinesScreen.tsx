@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Pressable, Modal, Dimensions } from "react-native";
+import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -141,41 +141,39 @@ export default function RoutinesScreen() {
     );
   }
   
-  const renderDeleteModal = () => (
-    <Modal
-      visible={deleteModalVisible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={cancelDelete}
-      statusBarTranslucent={true}
-    >
-      <Pressable style={styles.modalOverlay} onPress={cancelDelete}>
-        <Pressable style={[styles.modalContent, { backgroundColor: theme.backgroundElevated }]} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.modalIconContainer}>
-            <Feather name="trash-2" size={32} color={Colors.light.error} />
-          </View>
-          <ThemedText type="h3" style={styles.modalTitle}>Delete Routine</ThemedText>
-          <ThemedText type="body" style={styles.modalMessage}>
-            Are you sure you want to delete "{routineToDelete?.name}"? This action cannot be undone.
-          </ThemedText>
-          <View style={styles.modalButtons}>
-            <Pressable
-              style={[styles.modalButton, styles.cancelButton, { backgroundColor: theme.background, borderColor: theme.textSecondary }]}
-              onPress={cancelDelete}
-            >
-              <ThemedText type="body" style={{ fontWeight: "600" }}>Cancel</ThemedText>
-            </Pressable>
-            <Pressable
-              style={[styles.modalButton, styles.deleteButton]}
-              onPress={confirmDelete}
-            >
-              <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Delete</ThemedText>
-            </Pressable>
-          </View>
+  const renderDeleteModal = () => {
+    if (!deleteModalVisible) return null;
+    
+    return (
+      <View style={StyleSheet.absoluteFill}>
+        <Pressable style={styles.modalOverlay} onPress={cancelDelete}>
+          <Pressable style={[styles.modalContent, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalIconContainer}>
+              <Feather name="trash-2" size={32} color={Colors.light.error} />
+            </View>
+            <ThemedText type="h3" style={styles.modalTitle}>Delete Routine</ThemedText>
+            <ThemedText type="body" style={styles.modalMessage}>
+              Are you sure you want to delete "{routineToDelete?.name}"? This action cannot be undone.
+            </ThemedText>
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={cancelDelete}
+              >
+                <ThemedText type="body" style={{ fontWeight: "600" }}>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={confirmDelete}
+              >
+                <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Delete</ThemedText>
+              </Pressable>
+            </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
-    </Modal>
-  );
+      </View>
+    );
+  };
 
   return (
     <>
@@ -295,17 +293,12 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   modalOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: Dimensions.get("window").width,
-    height: Dimensions.get("window").height,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
+    zIndex: 1000,
   },
   modalContent: {
     width: "100%",
@@ -351,6 +344,8 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     borderWidth: 1,
+    borderColor: "#D1D5DB",
+    backgroundColor: "#F3F4F6",
   },
   deleteButton: {
     backgroundColor: Colors.light.error,
