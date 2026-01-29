@@ -1,18 +1,42 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, ActivityIndicator, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
-import { Picker } from "@react-native-picker/picker";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Card } from "@/components/Card";
+import { SelectField } from "@/components/SelectField";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+
+const SEX_OPTIONS = [
+  { label: "Male", value: "male" },
+  { label: "Female", value: "female" },
+];
+
+const EXPERIENCE_OPTIONS = [
+  { label: "Beginner", value: "beginner" },
+  { label: "Intermediate", value: "intermediate" },
+  { label: "Advanced", value: "advanced" },
+];
+
+const GOAL_OPTIONS = [
+  { label: "Lose Fat", value: "lose_fat" },
+  { label: "Gain Muscle", value: "gain_muscle" },
+  { label: "Recomposition", value: "recomposition" },
+  { label: "Maintain", value: "maintain" },
+];
+
+const ACTIVITY_OPTIONS = [
+  { label: "1-2 days/week", value: "1-2" },
+  { label: "3-4 days/week", value: "3-4" },
+  { label: "5-6 days/week", value: "5-6" },
+];
 
 export default function EditProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -113,19 +137,13 @@ export default function EditProfileScreen() {
             />
           </View>
           <View style={styles.halfInput}>
-            <ThemedText type="small" style={styles.pickerLabel}>Sex</ThemedText>
-            <View style={[styles.pickerContainer, { backgroundColor: theme.backgroundSecondary }]}>
-              <Picker
-                selectedValue={sex}
-                onValueChange={setSex}
-                style={[styles.picker, { color: theme.text }]}
-                itemStyle={{ color: theme.text }}
-              >
-                <Picker.Item label="Select..." value="" color={theme.textSecondary} />
-                <Picker.Item label="Male" value="male" color={theme.text} />
-                <Picker.Item label="Female" value="female" color={theme.text} />
-              </Picker>
-            </View>
+            <SelectField
+              label="Sex"
+              value={sex}
+              options={SEX_OPTIONS}
+              onValueChange={setSex}
+              placeholder="Select..."
+            />
           </View>
         </View>
       </Card>
@@ -158,50 +176,32 @@ export default function EditProfileScreen() {
       <Card style={styles.section}>
         <ThemedText type="h4" style={styles.sectionTitle}>Fitness Profile</ThemedText>
         
-        <ThemedText type="small" style={styles.pickerLabel}>Experience Level</ThemedText>
-        <View style={[styles.pickerContainer, { backgroundColor: theme.backgroundSecondary }]}>
-          <Picker
-            selectedValue={experience}
-            onValueChange={setExperience}
-            style={[styles.picker, { color: theme.text }]}
-            itemStyle={{ color: theme.text }}
-          >
-            <Picker.Item label="Select..." value="" color={theme.textSecondary} />
-            <Picker.Item label="Beginner" value="beginner" color={theme.text} />
-            <Picker.Item label="Intermediate" value="intermediate" color={theme.text} />
-            <Picker.Item label="Advanced" value="advanced" color={theme.text} />
-          </Picker>
-        </View>
+        <SelectField
+          label="Experience Level"
+          value={experience}
+          options={EXPERIENCE_OPTIONS}
+          onValueChange={setExperience}
+          placeholder="Select..."
+        />
 
-        <ThemedText type="small" style={[styles.pickerLabel, { marginTop: Spacing.md }]}>Goal</ThemedText>
-        <View style={[styles.pickerContainer, { backgroundColor: theme.backgroundSecondary }]}>
-          <Picker
-            selectedValue={goal}
+        <View style={{ marginTop: Spacing.md }}>
+          <SelectField
+            label="Goal"
+            value={goal}
+            options={GOAL_OPTIONS}
             onValueChange={setGoal}
-            style={[styles.picker, { color: theme.text }]}
-            itemStyle={{ color: theme.text }}
-          >
-            <Picker.Item label="Select..." value="" color={theme.textSecondary} />
-            <Picker.Item label="Lose Fat" value="lose_fat" color={theme.text} />
-            <Picker.Item label="Gain Muscle" value="gain_muscle" color={theme.text} />
-            <Picker.Item label="Recomposition" value="recomposition" color={theme.text} />
-            <Picker.Item label="Maintain" value="maintain" color={theme.text} />
-          </Picker>
+            placeholder="Select..."
+          />
         </View>
 
-        <ThemedText type="small" style={[styles.pickerLabel, { marginTop: Spacing.md }]}>Activity Level</ThemedText>
-        <View style={[styles.pickerContainer, { backgroundColor: theme.backgroundSecondary }]}>
-          <Picker
-            selectedValue={activityLevel}
+        <View style={{ marginTop: Spacing.md }}>
+          <SelectField
+            label="Activity Level"
+            value={activityLevel}
+            options={ACTIVITY_OPTIONS}
             onValueChange={setActivityLevel}
-            style={[styles.picker, { color: theme.text }]}
-            itemStyle={{ color: theme.text }}
-          >
-            <Picker.Item label="Select..." value="" color={theme.textSecondary} />
-            <Picker.Item label="1-2 days/week" value="1-2" color={theme.text} />
-            <Picker.Item label="3-4 days/week" value="3-4" color={theme.text} />
-            <Picker.Item label="5-6 days/week" value="5-6" color={theme.text} />
-          </Picker>
+            placeholder="Select..."
+          />
         </View>
       </Card>
 
@@ -234,17 +234,6 @@ const styles = StyleSheet.create({
   },
   halfInput: {
     flex: 1,
-  },
-  pickerLabel: {
-    marginBottom: Spacing.xs,
-    opacity: 0.7,
-  },
-  pickerContainer: {
-    borderRadius: BorderRadius.md,
-    overflow: "hidden",
-  },
-  picker: {
-    height: 50,
   },
   saveButton: {
     marginTop: Spacing.md,
