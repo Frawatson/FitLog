@@ -503,6 +503,7 @@ const styles = StyleSheet.create({
   mainStat: {
     flex: 1,
     alignItems: "center",
+    paddingVertical: Spacing.sm,
   },
   statDivider: {
     width: 1,
@@ -520,6 +521,7 @@ const styles = StyleSheet.create({
     fontSize: 42,
     fontWeight: "700",
     fontFamily: "Montserrat_700Bold",
+    lineHeight: 52,
   },
   secondaryStatsRow: {
     flexDirection: "row",
@@ -532,12 +534,14 @@ const styles = StyleSheet.create({
   secondaryStat: {
     flex: 1,
     alignItems: "center",
+    paddingVertical: Spacing.sm,
   },
   mediumStatValue: {
     color: "#1A1A1A",
     fontSize: 28,
     fontWeight: "600",
     fontFamily: "Montserrat_600SemiBold",
+    lineHeight: 36,
   },
   splitsContainer: {
     marginTop: Spacing.lg,
