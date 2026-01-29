@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Pressable, Modal } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, Modal, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -11,7 +11,6 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
-import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine } from "@/types";
@@ -145,12 +144,13 @@ export default function RoutinesScreen() {
   const renderDeleteModal = () => (
     <Modal
       visible={deleteModalVisible}
-      transparent
+      transparent={true}
       animationType="fade"
       onRequestClose={cancelDelete}
+      statusBarTranslucent={true}
     >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: theme.backgroundElevated }]}>
+      <Pressable style={styles.modalOverlay} onPress={cancelDelete}>
+        <Pressable style={[styles.modalContent, { backgroundColor: theme.backgroundElevated }]} onPress={(e) => e.stopPropagation()}>
           <View style={styles.modalIconContainer}>
             <Feather name="trash-2" size={32} color={Colors.light.error} />
           </View>
@@ -159,21 +159,21 @@ export default function RoutinesScreen() {
             Are you sure you want to delete "{routineToDelete?.name}"? This action cannot be undone.
           </ThemedText>
           <View style={styles.modalButtons}>
-            <Button
-              title="Cancel"
-              variant="secondary"
+            <Pressable
+              style={[styles.modalButton, styles.cancelButton, { backgroundColor: theme.backgroundElevated, borderColor: theme.border }]}
               onPress={cancelDelete}
-              style={{ flex: 1 }}
-            />
-            <Button
-              title="Delete"
-              variant="primary"
+            >
+              <ThemedText type="body" style={{ fontWeight: "600" }}>Cancel</ThemedText>
+            </Pressable>
+            <Pressable
+              style={[styles.modalButton, styles.deleteButton]}
               onPress={confirmDelete}
-              style={{ flex: 1, backgroundColor: Colors.light.error }}
-            />
+            >
+              <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Delete</ThemedText>
+            </Pressable>
           </View>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 
@@ -295,8 +295,14 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: Dimensions.get("window").width,
+    height: Dimensions.get("window").height,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing.xl,
@@ -307,6 +313,11 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     padding: Spacing.xl,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   modalIconContainer: {
     width: 64,
@@ -330,5 +341,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.md,
     width: "100%",
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  deleteButton: {
+    backgroundColor: Colors.light.error,
   },
 });
