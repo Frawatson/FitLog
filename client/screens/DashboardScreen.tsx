@@ -162,16 +162,6 @@ export default function DashboardScreen() {
       
       <View style={styles.statsGrid}>
         <Card style={styles.statCard}>
-          <Feather name="calendar" size={24} color={Colors.light.primary} />
-          <ThemedText type="h2" style={styles.statValue}>
-            {weeklyWorkouts}
-          </ThemedText>
-          <ThemedText type="small" style={styles.statLabel}>
-            Workouts this week
-          </ThemedText>
-        </Card>
-        
-        <Card style={styles.statCard}>
           <Feather name="activity" size={24} color={Colors.light.success} />
           <ThemedText type="h2" style={styles.statValue}>
             {latestWeight ? `${latestWeight.weightKg}kg` : "--"}
