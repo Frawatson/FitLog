@@ -3,6 +3,7 @@ export type Sex = "male" | "female";
 export type TrainingExperience = "beginner" | "intermediate" | "advanced";
 export type FitnessGoal = "lose_fat" | "gain_muscle" | "recomposition" | "maintain";
 export type ActivityLevel = "1-2" | "3-4" | "5-6";
+export type UnitSystem = "metric" | "imperial";
 
 export interface UserProfile {
   id: string;
@@ -16,6 +17,7 @@ export interface UserProfile {
   experience: TrainingExperience;
   goal: FitnessGoal;
   activityLevel: ActivityLevel;
+  unitSystem: UnitSystem;
   onboardingCompleted: boolean;
   createdAt: string;
 }

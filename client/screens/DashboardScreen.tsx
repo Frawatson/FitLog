@@ -16,6 +16,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, MacroTargets, Routine, Workout, BodyWeightEntry, RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { formatWeight } from "@/lib/units";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -164,7 +165,7 @@ export default function DashboardScreen() {
         <Card style={styles.statCard}>
           <Feather name="activity" size={24} color={Colors.light.success} />
           <ThemedText type="h2" style={styles.statValue}>
-            {latestWeight ? `${latestWeight.weightKg}kg` : "--"}
+            {latestWeight ? formatWeight(latestWeight.weightKg, profile?.unitSystem || "imperial") : "--"}
           </ThemedText>
           <ThemedText type="small" style={styles.statLabel}>
             Current weight
@@ -174,7 +175,7 @@ export default function DashboardScreen() {
         <Card style={styles.statCard}>
           <Feather name="target" size={24} color={Colors.light.primary} />
           <ThemedText type="h2" style={styles.statValue}>
-            {profile?.weightGoalKg ? `${profile.weightGoalKg}kg` : "--"}
+            {profile?.weightGoalKg ? formatWeight(profile.weightGoalKg, profile?.unitSystem || "imperial") : "--"}
           </ThemedText>
           <ThemedText type="small" style={styles.statLabel}>
             Weight goal

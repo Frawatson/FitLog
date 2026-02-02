@@ -15,9 +15,10 @@ import { SegmentedControl } from "@/components/SegmentedControl";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { UserProfile, Sex, TrainingExperience, FitnessGoal, ActivityLevel, MacroTargets } from "@/types";
+import type { UserProfile, Sex, TrainingExperience, FitnessGoal, ActivityLevel, MacroTargets, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { lbsToKg, feetInchesToCm, kgToLbs, cmToFeetInches } from "@/lib/units";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -41,9 +42,14 @@ export default function OnboardingScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [age, setAge] = useState("");
   const [sex, setSex] = useState<Sex>("male");
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [heightCm, setHeightCm] = useState("");
+  const [heightFeet, setHeightFeet] = useState("");
+  const [heightInches, setHeightInches] = useState("");
   const [weightKg, setWeightKg] = useState("");
+  const [weightLbs, setWeightLbs] = useState("");
   const [weightGoalKg, setWeightGoalKg] = useState("");
+  const [weightGoalLbs, setWeightGoalLbs] = useState("");
   const [experience, setExperience] = useState<TrainingExperience>("beginner");
   const [goal, setGoal] = useState<FitnessGoal>("gain_muscle");
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>("3-4");
@@ -97,18 +103,29 @@ export default function OnboardingScreen() {
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === 4) {
+      const computedHeightCm = unitSystem === "imperial" 
+        ? feetInchesToCm(parseInt(heightFeet) || 0, parseInt(heightInches) || 0)
+        : parseInt(heightCm) || 170;
+      const computedWeightKg = unitSystem === "imperial"
+        ? lbsToKg(parseFloat(weightLbs) || 0)
+        : parseFloat(weightKg) || 70;
+      const computedWeightGoalKg = unitSystem === "imperial"
+        ? (weightGoalLbs ? lbsToKg(parseFloat(weightGoalLbs)) : undefined)
+        : (weightGoalKg ? parseFloat(weightGoalKg) : undefined);
+      
       const profile: UserProfile = {
         id: uuidv4(),
         name: name.trim() || user?.name || "User",
         email: email.trim() || user?.email || "",
         age: parseInt(age) || 25,
         sex,
-        heightCm: parseInt(heightCm) || 170,
-        weightKg: parseInt(weightKg) || 70,
-        weightGoalKg: parseInt(weightGoalKg) || undefined,
+        heightCm: computedHeightCm,
+        weightKg: computedWeightKg,
+        weightGoalKg: computedWeightGoalKg,
         experience,
         goal,
         activityLevel,
+        unitSystem,
         onboardingCompleted: false,
         createdAt: new Date().toISOString(),
       };
@@ -120,14 +137,25 @@ export default function OnboardingScreen() {
   
   const handleFinish = async () => {
     setLoading(true);
+    
+    const computedHeightCm = unitSystem === "imperial" 
+      ? feetInchesToCm(parseInt(heightFeet) || 0, parseInt(heightInches) || 0)
+      : parseInt(heightCm) || 170;
+    const computedWeightKg = unitSystem === "imperial"
+      ? lbsToKg(parseFloat(weightLbs) || 0)
+      : parseFloat(weightKg) || 70;
+    const computedWeightGoalKg = unitSystem === "imperial"
+      ? (weightGoalLbs ? lbsToKg(parseFloat(weightGoalLbs)) : undefined)
+      : (weightGoalKg ? parseFloat(weightGoalKg) : undefined);
+    
     try {
       await updateProfile({
         name: name.trim() || user?.name,
         age: parseInt(age) || undefined,
         sex,
-        heightCm: parseInt(heightCm) || undefined,
-        weightKg: parseInt(weightKg) || undefined,
-        weightGoalKg: parseInt(weightGoalKg) || undefined,
+        heightCm: computedHeightCm,
+        weightKg: computedWeightKg,
+        weightGoalKg: computedWeightGoalKg,
         experience,
         goal,
         activityLevel,
@@ -143,12 +171,13 @@ export default function OnboardingScreen() {
       email: email.trim() || user?.email || "",
       age: parseInt(age) || 25,
       sex,
-      heightCm: parseInt(heightCm) || 170,
-      weightKg: parseInt(weightKg) || 70,
-      weightGoalKg: parseInt(weightGoalKg) || undefined,
+      heightCm: computedHeightCm,
+      weightKg: computedWeightKg,
+      weightGoalKg: computedWeightGoalKg,
       experience,
       goal,
       activityLevel,
+      unitSystem,
       onboardingCompleted: true,
       createdAt: new Date().toISOString(),
     };
@@ -157,9 +186,8 @@ export default function OnboardingScreen() {
       await storage.saveMacroTargets(macros);
     }
     // Save initial body weight to weight tracking history
-    const initialWeight = parseInt(weightKg);
-    if (initialWeight > 0) {
-      await storage.addBodyWeight(initialWeight);
+    if (computedWeightKg > 0) {
+      await storage.addBodyWeight(computedWeightKg);
     }
     setLoading(false);
     navigation.reset({
@@ -245,6 +273,17 @@ export default function OnboardingScreen() {
         This helps us calculate your targets
       </ThemedText>
       
+      <ThemedText type="small" style={styles.fieldLabel}>
+        Unit System
+      </ThemedText>
+      <SegmentedControl
+        options={["US (lbs, ft)", "Metric (kg, cm)"]}
+        selectedIndex={unitSystem === "imperial" ? 0 : 1}
+        onChange={(index) => setUnitSystem(index === 0 ? "imperial" : "metric")}
+      />
+      
+      <View style={styles.spacer} />
+      
       <Input
         label="Age"
         placeholder="25"
@@ -264,29 +303,74 @@ export default function OnboardingScreen() {
       
       <View style={styles.spacer} />
       
-      <Input
-        label="Height (cm)"
-        placeholder="170"
-        keyboardType="number-pad"
-        value={heightCm}
-        onChangeText={setHeightCm}
-      />
+      {unitSystem === "imperial" ? (
+        <View style={styles.heightRow}>
+          <View style={styles.heightInput}>
+            <Input
+              label="Height (ft)"
+              placeholder="5"
+              keyboardType="number-pad"
+              value={heightFeet}
+              onChangeText={setHeightFeet}
+            />
+          </View>
+          <View style={styles.heightInput}>
+            <Input
+              label="Height (in)"
+              placeholder="10"
+              keyboardType="number-pad"
+              value={heightInches}
+              onChangeText={setHeightInches}
+            />
+          </View>
+        </View>
+      ) : (
+        <Input
+          label="Height (cm)"
+          placeholder="170"
+          keyboardType="number-pad"
+          value={heightCm}
+          onChangeText={setHeightCm}
+        />
+      )}
       
-      <Input
-        label="Current Weight (kg)"
-        placeholder="70"
-        keyboardType="number-pad"
-        value={weightKg}
-        onChangeText={setWeightKg}
-      />
-      
-      <Input
-        label="Goal Weight (kg)"
-        placeholder="65"
-        keyboardType="number-pad"
-        value={weightGoalKg}
-        onChangeText={setWeightGoalKg}
-      />
+      {unitSystem === "imperial" ? (
+        <>
+          <Input
+            label="Current Weight (lbs)"
+            placeholder="154"
+            keyboardType="decimal-pad"
+            value={weightLbs}
+            onChangeText={setWeightLbs}
+          />
+          
+          <Input
+            label="Goal Weight (lbs)"
+            placeholder="143"
+            keyboardType="decimal-pad"
+            value={weightGoalLbs}
+            onChangeText={setWeightGoalLbs}
+          />
+        </>
+      ) : (
+        <>
+          <Input
+            label="Current Weight (kg)"
+            placeholder="70"
+            keyboardType="decimal-pad"
+            value={weightKg}
+            onChangeText={setWeightKg}
+          />
+          
+          <Input
+            label="Goal Weight (kg)"
+            placeholder="65"
+            keyboardType="decimal-pad"
+            value={weightGoalKg}
+            onChangeText={setWeightGoalKg}
+          />
+        </>
+      )}
       
       <ThemedText type="small" style={styles.fieldLabel}>
         Training Experience
@@ -602,6 +686,13 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: Spacing.lg,
+  },
+  heightRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  heightInput: {
+    flex: 1,
   },
   goalGrid: {
     flexDirection: "row",
