@@ -182,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const visionResponse = await openai.chat.completions.create({
-        model: "gpt-5-mini",
+        model: "gpt-4.5-preview",
         messages: [
           {
             role: "user",
