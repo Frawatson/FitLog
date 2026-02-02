@@ -247,11 +247,14 @@ export default function RunTrackerScreen() {
     
     if (finalDuration > 0 && finalDistance > 0) {
       const pace = finalDuration / 60 / finalDistance;
+      const distanceMiles = finalDistance * 0.621371;
+      const runCalories = Math.round(distanceMiles * 100);
       const runEntry: RunEntry = {
         id: uuidv4(),
         distanceKm: finalDistance,
         durationSeconds: finalDuration,
         paceMinPerKm: pace,
+        calories: runCalories,
         startedAt: startTimeRef.current,
         completedAt: new Date().toISOString(),
         route,
@@ -521,9 +524,9 @@ export default function RunTrackerScreen() {
                   </View>
                   <View style={styles.historyStat}>
                     <ThemedText style={styles.historyValue}>
-                      {formatPace(run.paceMinPerKm)}
+                      {run.calories || Math.round(run.distanceKm * 60)}
                     </ThemedText>
-                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>km</ThemedText>
+                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>kcal</ThemedText>
                   </View>
                 </View>
               </View>

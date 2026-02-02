@@ -20,16 +20,16 @@ export default function RunStackNavigator() {
   const screenOptions = useScreenOptions();
 
   return (
-    <Stack.Navigator screenOptions={screenOptions}>
-      <Stack.Screen
-        name="RunGoal"
-        component={RunGoalScreen}
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator screenOptions={screenOptions} initialRouteName="RunTracker">
       <Stack.Screen
         name="RunTracker"
         component={RunTrackerScreen}
         options={{ headerShown: false, gestureEnabled: false }}
+      />
+      <Stack.Screen
+        name="RunGoal"
+        component={RunGoalScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );

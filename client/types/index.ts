@@ -117,6 +117,7 @@ export interface RunEntry {
   distanceKm: number;
   durationSeconds: number;
   paceMinPerKm: number;
+  calories?: number;
   startedAt: string;
   completedAt: string;
   route?: {
