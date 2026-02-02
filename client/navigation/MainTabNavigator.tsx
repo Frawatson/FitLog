@@ -10,7 +10,7 @@ import * as Haptics from "expo-haptics";
 
 import DashboardScreen from "@/screens/DashboardScreen";
 import RoutinesStackNavigator from "@/navigation/RoutinesStackNavigator";
-import RunTrackerScreen from "@/screens/RunTrackerScreen";
+import RunStackNavigator from "@/navigation/RunStackNavigator";
 import NutritionStackNavigator from "@/navigation/NutritionStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
@@ -87,7 +87,6 @@ export default function MainTabNavigator() {
           headerShown: true,
           headerTitle: "FitLog",
           headerTransparent: true,
-          headerBlurEffect: isDark ? "dark" : "light",
           headerTintColor: theme.text,
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
@@ -106,7 +105,7 @@ export default function MainTabNavigator() {
       />
       <Tab.Screen
         name="RunTab"
-        component={RunTrackerScreen}
+        component={RunStackNavigator}
         options={{
           title: "Run",
           headerShown: false,

@@ -22,10 +22,10 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import type { RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
-import { RootStackParamList, RunGoal } from "@/navigation/RootStackNavigator";
+import { RunStackParamList, RunGoal } from "@/navigation/RunStackNavigator";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-type RunTrackerRouteProp = RouteProp<RootStackParamList, "RunTracker">;
+type NavigationProp = NativeStackNavigationProp<RunStackParamList>;
+type RunTrackerRouteProp = RouteProp<RunStackParamList, "RunTracker">;
 
 const MAP_HEIGHT = 220;
 const ACCENT_COLOR = "#FF4500";
