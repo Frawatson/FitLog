@@ -757,6 +757,7 @@ const styles = StyleSheet.create({
   },
   resumeButton: {
     backgroundColor: ACCENT_COLOR,
+    paddingLeft: 4,
   },
   pauseButton: {
     backgroundColor: "#F59E0B",
