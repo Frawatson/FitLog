@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -32,6 +33,7 @@ const ACCENT_COLOR = "#FF4500";
 
 export default function RunTrackerScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const route_ = useRoute<RunTrackerRouteProp>();
   const { theme } = useTheme();
@@ -328,7 +330,7 @@ export default function RunTrackerScreen() {
   
   if (permission === null && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top, paddingBottom: tabBarHeight }]}>
         <View style={styles.centered}>
           <ThemedText type="body">Checking location access...</ThemedText>
         </View>
@@ -338,7 +340,7 @@ export default function RunTrackerScreen() {
   
   if (permission !== "granted" && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top }]}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top, paddingBottom: tabBarHeight }]}>
         <View style={styles.centered}>
           <Feather name="map-pin" size={48} color={ACCENT_COLOR} />
           <ThemedText type="h3" style={styles.permissionTitle}>
@@ -375,8 +377,9 @@ export default function RunTrackerScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: insets.top,
-          paddingBottom: insets.bottom + Spacing.xl + 80,
+          paddingBottom: tabBarHeight + Spacing["3xl"],
         }}
+        scrollIndicatorInsets={{ bottom: tabBarHeight }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mapContainer}>
