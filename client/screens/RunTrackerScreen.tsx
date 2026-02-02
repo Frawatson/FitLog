@@ -65,7 +65,11 @@ export default function RunTrackerScreen() {
     loadRunHistory();
     return () => {
       if (locationSubscription.current) {
-        locationSubscription.current.remove();
+        try {
+          locationSubscription.current.remove();
+        } catch {
+          // Ignore errors on subscription removal (web compatibility)
+        }
       }
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -172,7 +176,12 @@ export default function RunTrackerScreen() {
       clearInterval(timerRef.current);
     }
     if (locationSubscription.current) {
-      locationSubscription.current.remove();
+      try {
+        locationSubscription.current.remove();
+      } catch {
+        // Ignore errors on subscription removal (web compatibility)
+      }
+      locationSubscription.current = null;
     }
   };
   
@@ -239,7 +248,12 @@ export default function RunTrackerScreen() {
       clearInterval(timerRef.current);
     }
     if (locationSubscription.current) {
-      locationSubscription.current.remove();
+      try {
+        locationSubscription.current.remove();
+      } catch {
+        // Ignore errors on subscription removal (web compatibility)
+      }
+      locationSubscription.current = null;
     }
     
     const finalDistance = distance;

@@ -13,6 +13,9 @@ import { SelectField } from "@/components/SelectField";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import * as storage from "@/lib/storage";
+import { kgToLbs, lbsToKg, cmToFeetInches, feetInchesToCm } from "@/lib/units";
+import type { UnitSystem } from "@/types";
 
 const SEX_OPTIONS = [
   { label: "Male", value: "male" },
@@ -45,12 +48,15 @@ export default function EditProfileScreen() {
   const { theme } = useTheme();
   const { user, updateProfile } = useAuth();
 
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [name, setName] = useState(user?.name || "");
   const [age, setAge] = useState(user?.age?.toString() || "");
   const [sex, setSex] = useState(user?.sex || "");
-  const [heightCm, setHeightCm] = useState(user?.heightCm?.toString() || "");
-  const [weightKg, setWeightKg] = useState(user?.weightKg?.toString() || "");
-  const [weightGoalKg, setWeightGoalKg] = useState(user?.weightGoalKg?.toString() || "");
+  const [heightFeet, setHeightFeet] = useState("");
+  const [heightInches, setHeightInches] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [weight, setWeight] = useState("");
+  const [weightGoal, setWeightGoal] = useState("");
   const [experience, setExperience] = useState(user?.experience || "");
   const [goal, setGoal] = useState(user?.goal || "");
   const [activityLevel, setActivityLevel] = useState(user?.activityLevel || "");
@@ -58,20 +64,54 @@ export default function EditProfileScreen() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const loadProfile = async () => {
+      const profile = await storage.getUserProfile();
+      if (profile?.unitSystem) {
+        setUnitSystem(profile.unitSystem);
+      }
+    };
+    loadProfile();
+  }, []);
+
+  useEffect(() => {
     console.log("[EditProfile] User data:", JSON.stringify(user, null, 2));
     if (user) {
       setName(user.name || "");
       setAge(user.age?.toString() || "");
       setSex(user.sex || "");
-      setHeightCm(user.heightCm?.toString() || "");
-      setWeightKg(user.weightKg?.toString() || "");
-      setWeightGoalKg(user.weightGoalKg?.toString() || "");
+      
+      if (user.heightCm) {
+        if (unitSystem === "imperial") {
+          const { feet, inches } = cmToFeetInches(user.heightCm);
+          setHeightFeet(feet.toString());
+          setHeightInches(inches.toString());
+        } else {
+          setHeightCm(user.heightCm.toString());
+        }
+      }
+      
+      if (user.weightKg) {
+        if (unitSystem === "imperial") {
+          setWeight(kgToLbs(user.weightKg).toString());
+        } else {
+          setWeight(user.weightKg.toString());
+        }
+      }
+      
+      if (user.weightGoalKg) {
+        if (unitSystem === "imperial") {
+          setWeightGoal(kgToLbs(user.weightGoalKg).toString());
+        } else {
+          setWeightGoal(user.weightGoalKg.toString());
+        }
+      }
+      
       setExperience(user.experience || "");
       setGoal(user.goal || "");
       setActivityLevel(user.activityLevel || "");
       console.log("[EditProfile] Setting sex:", user.sex, "experience:", user.experience, "goal:", user.goal, "activityLevel:", user.activityLevel);
     }
-  }, [user]);
+  }, [user, unitSystem]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -83,13 +123,42 @@ export default function EditProfileScreen() {
     setError("");
 
     try {
+      let finalHeightCm: number | undefined;
+      let finalWeightKg: number | undefined;
+      let finalWeightGoalKg: number | undefined;
+
+      if (unitSystem === "imperial") {
+        if (heightFeet || heightInches) {
+          finalHeightCm = feetInchesToCm(
+            parseFloat(heightFeet) || 0,
+            parseFloat(heightInches) || 0
+          );
+        }
+        if (weight) {
+          finalWeightKg = lbsToKg(parseFloat(weight));
+        }
+        if (weightGoal) {
+          finalWeightGoalKg = lbsToKg(parseFloat(weightGoal));
+        }
+      } else {
+        if (heightCm) {
+          finalHeightCm = parseFloat(heightCm);
+        }
+        if (weight) {
+          finalWeightKg = parseFloat(weight);
+        }
+        if (weightGoal) {
+          finalWeightGoalKg = parseFloat(weightGoal);
+        }
+      }
+
       await updateProfile({
         name: name.trim(),
         age: age ? parseInt(age) : undefined,
         sex: sex || undefined,
-        heightCm: heightCm ? parseFloat(heightCm) : undefined,
-        weightKg: weightKg ? parseFloat(weightKg) : undefined,
-        weightGoalKg: weightGoalKg ? parseFloat(weightGoalKg) : undefined,
+        heightCm: finalHeightCm,
+        weightKg: finalWeightKg,
+        weightGoalKg: finalWeightGoalKg,
         experience: experience || undefined,
         goal: goal || undefined,
         activityLevel: activityLevel || undefined,
@@ -154,36 +223,84 @@ export default function EditProfileScreen() {
       <Card style={styles.section}>
         <ThemedText type="h4" style={styles.sectionTitle}>Body Metrics</ThemedText>
         
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <Input
-              label="Height (cm)"
-              value={heightCm}
-              onChangeText={setHeightCm}
-              placeholder="175"
-              keyboardType="decimal-pad"
-            />
-          </View>
-          <View style={styles.halfInput}>
-            <Input
-              label="Weight (kg)"
-              value={weightKg}
-              onChangeText={setWeightKg}
-              placeholder="70"
-              keyboardType="decimal-pad"
-            />
-          </View>
-        </View>
-        
-        <View style={{ marginTop: Spacing.md }}>
-          <Input
-            label="Weight Goal (kg)"
-            value={weightGoalKg}
-            onChangeText={setWeightGoalKg}
-            placeholder="65"
-            keyboardType="decimal-pad"
-          />
-        </View>
+        {unitSystem === "imperial" ? (
+          <>
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <Input
+                  label="Height (ft)"
+                  value={heightFeet}
+                  onChangeText={setHeightFeet}
+                  placeholder="5"
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Input
+                  label="Height (in)"
+                  value={heightInches}
+                  onChangeText={setHeightInches}
+                  placeholder="10"
+                  keyboardType="number-pad"
+                />
+              </View>
+            </View>
+            
+            <View style={[styles.row, { marginTop: Spacing.md }]}>
+              <View style={styles.halfInput}>
+                <Input
+                  label="Weight (lbs)"
+                  value={weight}
+                  onChangeText={setWeight}
+                  placeholder="160"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Input
+                  label="Goal Weight (lbs)"
+                  value={weightGoal}
+                  onChangeText={setWeightGoal}
+                  placeholder="150"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.row}>
+              <View style={styles.halfInput}>
+                <Input
+                  label="Height (cm)"
+                  value={heightCm}
+                  onChangeText={setHeightCm}
+                  placeholder="175"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <View style={styles.halfInput}>
+                <Input
+                  label="Weight (kg)"
+                  value={weight}
+                  onChangeText={setWeight}
+                  placeholder="70"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </View>
+            
+            <View style={{ marginTop: Spacing.md }}>
+              <Input
+                label="Weight Goal (kg)"
+                value={weightGoal}
+                onChangeText={setWeightGoal}
+                placeholder="65"
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </>
+        )}
       </Card>
 
       <Card style={styles.section}>
