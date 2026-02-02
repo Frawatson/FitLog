@@ -182,23 +182,7 @@ export default function DashboardScreen() {
         </Card>
       </View>
       
-      {lastWorkout ? (
-        <Card style={styles.lastWorkoutCard}>
-          <View style={styles.lastWorkoutHeader}>
-            <ThemedText type="h4">Last Workout</ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>
-              {new Date(lastWorkout.completedAt!).toLocaleDateString()}
-            </ThemedText>
-          </View>
-          <ThemedText type="body" style={{ marginTop: Spacing.sm }}>
-            {lastWorkout.routineName}
-          </ThemedText>
-          <ThemedText type="small" style={{ opacity: 0.6 }}>
-            {lastWorkout.durationMinutes ? `${lastWorkout.durationMinutes} minutes` : "Completed"}
-          </ThemedText>
-        </Card>
-      ) : null}
-      
+            
       <View style={styles.calendarSection}>
         <ThemedText type="h4" style={styles.sectionTitle}>Your Activity</ThemedText>
         <WorkoutCalendar 
