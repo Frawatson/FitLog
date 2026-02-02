@@ -7,6 +7,8 @@ import {
   ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
@@ -15,17 +17,26 @@ import { v4 as uuidv4 } from "uuid";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { MapDisplay } from "@/components/MapDisplay";
+import { RunCompleteAnimation } from "@/components/RunCompleteAnimation";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import type { RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
+import { RootStackParamList, RunGoal } from "@/navigation/RootStackNavigator";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type RunTrackerRouteProp = RouteProp<RootStackParamList, "RunTracker">;
 
 const MAP_HEIGHT = 220;
 const ACCENT_COLOR = "#FF4500";
 
 export default function RunTrackerScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NavigationProp>();
+  const route_ = useRoute<RunTrackerRouteProp>();
   const { theme } = useTheme();
+  
+  const goal = route_.params?.goal;
   
   const [permission, setPermission] = useState<Location.PermissionStatus | null>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -36,6 +47,8 @@ export default function RunTrackerScreen() {
   const [runHistory, setRunHistory] = useState<RunEntry[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [splits, setSplits] = useState<number[]>([]);
+  const [showCompleteAnimation, setShowCompleteAnimation] = useState(false);
+  const [completedRunData, setCompletedRunData] = useState<{ distance: number; duration: number; goalReached: boolean } | null>(null);
   
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -43,6 +56,7 @@ export default function RunTrackerScreen() {
   const startTimeRef = useRef<string>("");
   const mapRef = useRef<any>(null);
   const lastSplitDistance = useRef<number>(0);
+  const goalReachedRef = useRef(false);
   
   useEffect(() => {
     checkPermission();
@@ -195,7 +209,28 @@ export default function RunTrackerScreen() {
     );
   };
   
-  const stopRun = async () => {
+  const checkGoalReached = (currentDistance: number, currentDuration: number) => {
+    if (!goal || goalReachedRef.current) return;
+    
+    const distanceMiles = currentDistance * 0.621371;
+    const durationMinutes = currentDuration / 60;
+    
+    if (goal.type === "distance" && distanceMiles >= goal.value) {
+      goalReachedRef.current = true;
+      completeRun(true);
+    } else if (goal.type === "time" && durationMinutes >= goal.value) {
+      goalReachedRef.current = true;
+      completeRun(true);
+    }
+  };
+  
+  useEffect(() => {
+    if (isRunning && !isPaused) {
+      checkGoalReached(distance, duration);
+    }
+  }, [distance, duration, isRunning, isPaused]);
+  
+  const completeRun = async (goalReached: boolean) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
     if (timerRef.current) {
@@ -205,12 +240,15 @@ export default function RunTrackerScreen() {
       locationSubscription.current.remove();
     }
     
-    if (duration > 0 && distance > 0) {
-      const pace = duration / 60 / distance;
+    const finalDistance = distance;
+    const finalDuration = duration;
+    
+    if (finalDuration > 0 && finalDistance > 0) {
+      const pace = finalDuration / 60 / finalDistance;
       const runEntry: RunEntry = {
         id: uuidv4(),
-        distanceKm: distance,
-        durationSeconds: duration,
+        distanceKm: finalDistance,
+        durationSeconds: finalDuration,
         paceMinPerKm: pace,
         startedAt: startTimeRef.current,
         completedAt: new Date().toISOString(),
@@ -221,12 +259,34 @@ export default function RunTrackerScreen() {
       loadRunHistory();
     }
     
+    setCompletedRunData({
+      distance: finalDistance * 0.621371,
+      duration: finalDuration,
+      goalReached,
+    });
+    setShowCompleteAnimation(true);
+    
     setIsRunning(false);
     setIsPaused(false);
+  };
+  
+  const stopRun = async () => {
+    const goalReached = goal ? (
+      goal.type === "distance" 
+        ? distance * 0.621371 >= goal.value 
+        : duration / 60 >= goal.value
+    ) : false;
+    completeRun(goalReached);
+  };
+  
+  const handleAnimationDismiss = () => {
+    setShowCompleteAnimation(false);
+    setCompletedRunData(null);
     setDuration(0);
     setDistance(0);
     setRoute([]);
     setSplits([]);
+    goalReachedRef.current = false;
   };
   
   const calculateDistance = (
@@ -295,8 +355,22 @@ export default function RunTrackerScreen() {
     );
   }
   
+  const goalProgress = goal ? (
+    goal.type === "distance" 
+      ? (distanceMiles / goal.value) * 100
+      : ((duration / 60) / goal.value) * 100
+  ) : 0;
+  
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <RunCompleteAnimation
+        visible={showCompleteAnimation}
+        distanceMiles={completedRunData?.distance ?? 0}
+        durationSeconds={completedRunData?.duration ?? 0}
+        goalReached={completedRunData?.goalReached ?? false}
+        onDismiss={handleAnimationDismiss}
+      />
+      
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -316,7 +390,30 @@ export default function RunTrackerScreen() {
               {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </ThemedText>
           </View>
+          {goal && isRunning ? (
+            <View style={styles.goalBadge}>
+              <ThemedText style={styles.goalBadgeText}>
+                {goal.type === "distance" ? `${goal.value} mi goal` : `${goal.value} min goal`}
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
+        
+        {goal && isRunning ? (
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${Math.min(goalProgress, 100)}%` }
+                ]} 
+              />
+            </View>
+            <ThemedText type="small" style={[styles.progressText, { color: theme.textSecondary }]}>
+              {Math.min(Math.round(goalProgress), 100)}% complete
+            </ThemedText>
+          </View>
+        ) : null}
         
         <View style={[styles.statsContainer, { borderBottomColor: theme.border }]}>
           <View style={styles.mainStatsRow}>
@@ -360,10 +457,18 @@ export default function RunTrackerScreen() {
         
         <View style={styles.controlsContainer}>
           {!isRunning ? (
-            <Pressable onPress={startRun} style={styles.startButton}>
-              <Feather name="play" size={32} color="#FFFFFF" />
-              <ThemedText style={styles.startButtonText}>START RUN</ThemedText>
-            </Pressable>
+            <View style={styles.startControls}>
+              <Pressable onPress={() => navigation.navigate("RunGoal")} style={[styles.goalButton, { backgroundColor: theme.backgroundSecondary }]}>
+                <Feather name="target" size={20} color={ACCENT_COLOR} />
+                <ThemedText style={[styles.goalButtonText, { color: theme.text }]}>Set Goal</ThemedText>
+              </Pressable>
+              <Pressable onPress={startRun} style={styles.startButton}>
+                <Feather name="play" size={32} color="#FFFFFF" />
+                <ThemedText style={styles.startButtonText}>
+                  {goal ? `START ${goal.type === "distance" ? `${goal.value} MI` : `${goal.value} MIN`} RUN` : "FREE RUN"}
+                </ThemedText>
+              </Pressable>
+            </View>
           ) : (
             <View style={styles.activeControls}>
               {isPaused ? (
@@ -565,6 +670,24 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     alignItems: "center",
   },
+  startControls: {
+    width: "100%",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  goalButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xl,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.sm,
+  },
+  goalButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
   startButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -581,6 +704,39 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "700",
+  },
+  goalBadge: {
+    position: "absolute",
+    bottom: Spacing.md,
+    left: Spacing.md,
+    backgroundColor: "rgba(255, 69, 0, 0.9)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.md,
+  },
+  goalBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  progressContainer: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.md,
+  },
+  progressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: ACCENT_COLOR,
+    borderRadius: 4,
+  },
+  progressText: {
+    textAlign: "center",
+    marginTop: Spacing.xs,
+    fontSize: 12,
   },
   activeControls: {
     flexDirection: "row",

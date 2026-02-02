@@ -13,6 +13,7 @@ import WorkoutDetailScreen from "@/screens/WorkoutDetailScreen";
 import EditMacrosScreen from "@/screens/EditMacrosScreen";
 import RoutineTemplatesScreen from "@/screens/RoutineTemplatesScreen";
 import RunTrackerScreen from "@/screens/RunTrackerScreen";
+import RunGoalScreen from "@/screens/RunGoalScreen";
 import GenerateRoutineScreen from "@/screens/GenerateRoutineScreen";
 import LoginScreen from "@/screens/LoginScreen";
 import RegisterScreen from "@/screens/RegisterScreen";
@@ -20,6 +21,11 @@ import EditProfileScreen from "@/screens/EditProfileScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import * as storage from "@/lib/storage";
+
+export type RunGoal = {
+  type: "distance" | "time";
+  value: number;
+};
 
 export type RootStackParamList = {
   Login: undefined;
@@ -35,7 +41,8 @@ export type RootStackParamList = {
   WorkoutDetail: { workoutId: string };
   EditMacros: undefined;
   RoutineTemplates: undefined;
-  RunTracker: undefined;
+  RunGoal: undefined;
+  RunTracker: { goal?: RunGoal };
   GenerateRoutine: undefined;
   EditProfile: undefined;
 };
@@ -181,6 +188,11 @@ export default function RootStackNavigator() {
         name="RoutineTemplates"
         component={RoutineTemplatesScreen}
         options={{ headerTitle: "Workout Templates" }}
+      />
+      <Stack.Screen
+        name="RunGoal"
+        component={RunGoalScreen}
+        options={{ headerShown: false, presentation: "modal" }}
       />
       <Stack.Screen
         name="RunTracker"
