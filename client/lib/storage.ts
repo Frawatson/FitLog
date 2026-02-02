@@ -11,6 +11,7 @@ import type {
   FoodLogEntry,
   RunEntry,
 } from "@/types";
+import { getApiUrl } from "@/lib/query-client";
 
 const STORAGE_KEYS = {
   USER_PROFILE: "@fitlog_user_profile",
@@ -207,9 +208,39 @@ export async function getLastWorkoutForExercise(
   return null;
 }
 
+const AUTH_TOKEN_KEY = "@fitlog_auth_token";
+
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  return token ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+}
+
 // Body Weight
 export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
   try {
+    const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    
+    if (token) {
+      try {
+        const response = await fetch(new URL("/api/body-weights", getApiUrl()).toString(), {
+          headers: await getAuthHeaders(),
+        });
+        
+        if (response.ok) {
+          const serverData = await response.json();
+          const entries: BodyWeightEntry[] = serverData.map((item: any) => ({
+            id: String(item.id),
+            weightKg: item.weightKg,
+            date: item.date.split("T")[0],
+          }));
+          await AsyncStorage.setItem(STORAGE_KEYS.BODY_WEIGHTS, JSON.stringify(entries));
+          return entries;
+        }
+      } catch (e) {
+        console.log("Failed to fetch body weights from server, using local data");
+      }
+    }
+    
     const data = await AsyncStorage.getItem(STORAGE_KEYS.BODY_WEIGHTS);
     return data ? JSON.parse(data) : [];
   } catch {
@@ -218,16 +249,38 @@ export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
 }
 
 export async function addBodyWeight(weightKg: number): Promise<BodyWeightEntry> {
-  const entries = await getBodyWeights();
+  const entries = await getBodyWeightsLocal();
   const today = new Date().toISOString().split("T")[0];
   
-  // Check if entry for today exists
   const existingIndex = entries.findIndex((e) => e.date === today);
-  const entry: BodyWeightEntry = {
+  let entry: BodyWeightEntry = {
     id: existingIndex >= 0 ? entries[existingIndex].id : uuidv4(),
     weightKg,
     date: today,
   };
+  
+  const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  
+  if (token) {
+    try {
+      const response = await fetch(new URL("/api/body-weights", getApiUrl()).toString(), {
+        method: "POST",
+        headers: await getAuthHeaders(),
+        body: JSON.stringify({ weightKg, date: new Date().toISOString() }),
+      });
+      
+      if (response.ok) {
+        const serverEntry = await response.json();
+        entry = {
+          id: String(serverEntry.id),
+          weightKg: serverEntry.weightKg,
+          date: serverEntry.date.split("T")[0],
+        };
+      }
+    } catch (e) {
+      console.log("Failed to sync body weight to server, saving locally");
+    }
+  }
   
   if (existingIndex >= 0) {
     entries[existingIndex] = entry;
@@ -237,6 +290,15 @@ export async function addBodyWeight(weightKg: number): Promise<BodyWeightEntry> 
   
   await AsyncStorage.setItem(STORAGE_KEYS.BODY_WEIGHTS, JSON.stringify(entries));
   return entry;
+}
+
+async function getBodyWeightsLocal(): Promise<BodyWeightEntry[]> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.BODY_WEIGHTS);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
 }
 
 // Saved Foods

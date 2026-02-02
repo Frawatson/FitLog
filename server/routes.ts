@@ -1,6 +1,8 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { exerciseDatabase, getExercisesByMuscle, getExercisesByDifficulty, type LocalExercise } from "./exerciseDatabase";
+import { getBodyWeights, addBodyWeight, deleteBodyWeight } from "./db";
+import { requireAuth } from "./auth";
 
 interface CalorieNinjaFood {
   name: string;
@@ -435,6 +437,60 @@ Respond ONLY with valid JSON, no markdown or additional text.`
     } catch (error) {
       console.error("Error generating routine:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/body-weights", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const weights = await getBodyWeights(userId);
+      res.json(weights);
+    } catch (error) {
+      console.error("Error fetching body weights:", error);
+      res.status(500).json({ error: "Failed to fetch body weights" });
+    }
+  });
+
+  app.post("/api/body-weights", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { weightKg, date } = req.body;
+      
+      if (typeof weightKg !== "number" || weightKg <= 0) {
+        return res.status(400).json({ error: "Invalid weight value" });
+      }
+      
+      const entryDate = date ? new Date(date) : new Date();
+      if (isNaN(entryDate.getTime())) {
+        return res.status(400).json({ error: "Invalid date" });
+      }
+      
+      const entry = await addBodyWeight(userId, weightKg, entryDate);
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error adding body weight:", error);
+      res.status(500).json({ error: "Failed to add body weight" });
+    }
+  });
+
+  app.delete("/api/body-weights/:id", requireAuth, async (req: Request<{ id: string }>, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const id = parseInt(req.params.id, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "Invalid weight entry ID" });
+      }
+      
+      const deleted = await deleteBodyWeight(userId, id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Weight entry not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting body weight:", error);
+      res.status(500).json({ error: "Failed to delete body weight" });
     }
   });
 

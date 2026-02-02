@@ -41,6 +41,17 @@ export async function initializeDatabase(): Promise<void> {
       );
 
       CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
+      
+      CREATE TABLE IF NOT EXISTS body_weights (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        weight_kg REAL NOT NULL,
+        date TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE INDEX IF NOT EXISTS IDX_body_weights_user_id ON body_weights (user_id);
+      CREATE INDEX IF NOT EXISTS IDX_body_weights_date ON body_weights (user_id, date DESC);
     `);
     console.log("Database tables initialized");
   } finally {
@@ -149,6 +160,57 @@ export async function deleteUser(id: number): Promise<boolean> {
   const result = await pool.query(
     "DELETE FROM users WHERE id = $1 RETURNING id",
     [id]
+  );
+  return result.rowCount !== null && result.rowCount > 0;
+}
+
+export interface BodyWeightEntry {
+  id: number;
+  userId: number;
+  weightKg: number;
+  date: string;
+  createdAt: string;
+}
+
+export async function getBodyWeights(userId: number): Promise<BodyWeightEntry[]> {
+  const result = await pool.query(
+    `SELECT id, user_id, weight_kg, date, created_at 
+     FROM body_weights 
+     WHERE user_id = $1 
+     ORDER BY date DESC 
+     LIMIT 100`,
+    [userId]
+  );
+  return result.rows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    weightKg: row.weight_kg,
+    date: row.date.toISOString(),
+    createdAt: row.created_at.toISOString(),
+  }));
+}
+
+export async function addBodyWeight(userId: number, weightKg: number, date: Date): Promise<BodyWeightEntry> {
+  const result = await pool.query(
+    `INSERT INTO body_weights (user_id, weight_kg, date) 
+     VALUES ($1, $2, $3) 
+     RETURNING id, user_id, weight_kg, date, created_at`,
+    [userId, weightKg, date]
+  );
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    userId: row.user_id,
+    weightKg: row.weight_kg,
+    date: row.date.toISOString(),
+    createdAt: row.created_at.toISOString(),
+  };
+}
+
+export async function deleteBodyWeight(userId: number, id: number): Promise<boolean> {
+  const result = await pool.query(
+    "DELETE FROM body_weights WHERE id = $1 AND user_id = $2 RETURNING id",
+    [id, userId]
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
