@@ -12,6 +12,9 @@ import type {
   RunEntry,
 } from "@/types";
 import { getApiUrl } from "@/lib/query-client";
+import { syncToServer, syncWithRetry, isAuthenticated, initSyncService } from "@/lib/syncService";
+
+export { initSyncService };
 
 const STORAGE_KEYS = {
   USER_PROFILE: "@fitlog_user_profile",
@@ -64,6 +67,13 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 // Macro Targets
 export async function getMacroTargets(): Promise<MacroTargets | null> {
   try {
+    if (await isAuthenticated()) {
+      const result = await syncToServer<MacroTargets>("/api/macro-targets", "GET");
+      if (result.success && result.data) {
+        await AsyncStorage.setItem(STORAGE_KEYS.MACRO_TARGETS, JSON.stringify(result.data));
+        return result.data;
+      }
+    }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.MACRO_TARGETS);
     return data ? JSON.parse(data) : null;
   } catch {
@@ -73,6 +83,10 @@ export async function getMacroTargets(): Promise<MacroTargets | null> {
 
 export async function saveMacroTargets(targets: MacroTargets): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.MACRO_TARGETS, JSON.stringify(targets));
+  
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/macro-targets", "POST", targets);
+  }
 }
 
 // Calculate macros based on profile
@@ -145,6 +159,29 @@ export async function addExercise(name: string, muscleGroup: string): Promise<Ex
 // Routines
 export async function getRoutines(): Promise<Routine[]> {
   try {
+    if (await isAuthenticated()) {
+      const result = await syncToServer<any[]>("/api/routines", "GET");
+      if (result.success && result.data) {
+        const routines: Routine[] = result.data.map(r => ({
+          id: r.clientId,
+          name: r.name,
+          exercises: r.exercises,
+          createdAt: r.createdAt,
+          lastCompletedAt: r.lastCompletedAt,
+        }));
+        await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+        return routines;
+      }
+    }
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.ROUTINES);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function getRoutinesLocal(): Promise<Routine[]> {
+  try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.ROUTINES);
     return data ? JSON.parse(data) : [];
   } catch {
@@ -153,7 +190,7 @@ export async function getRoutines(): Promise<Routine[]> {
 }
 
 export async function saveRoutine(routine: Routine): Promise<void> {
-  const routines = await getRoutines();
+  const routines = await getRoutinesLocal();
   const existingIndex = routines.findIndex((r) => r.id === routine.id);
   if (existingIndex >= 0) {
     routines[existingIndex] = routine;
@@ -161,16 +198,55 @@ export async function saveRoutine(routine: Routine): Promise<void> {
     routines.push(routine);
   }
   await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+  
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/routines", "POST", {
+      clientId: routine.id,
+      name: routine.name,
+      exercises: routine.exercises,
+      createdAt: routine.createdAt,
+      lastCompletedAt: routine.lastCompletedAt,
+    });
+  }
 }
 
 export async function deleteRoutine(routineId: string): Promise<void> {
-  const routines = await getRoutines();
+  const routines = await getRoutinesLocal();
   const filtered = routines.filter((r) => r.id !== routineId);
   await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(filtered));
+  
+  if (await isAuthenticated()) {
+    await syncWithRetry(`/api/routines/${routineId}`, "DELETE", {});
+  }
 }
 
 // Workouts
 export async function getWorkouts(): Promise<Workout[]> {
+  try {
+    if (await isAuthenticated()) {
+      const result = await syncToServer<any[]>("/api/workouts", "GET");
+      if (result.success && result.data) {
+        const workouts: Workout[] = result.data.map(w => ({
+          id: w.clientId,
+          routineId: w.routineId,
+          routineName: w.routineName,
+          exercises: w.exercises,
+          startedAt: w.startedAt,
+          completedAt: w.completedAt,
+          durationMinutes: w.durationMinutes,
+        }));
+        await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(workouts));
+        return workouts;
+      }
+    }
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.WORKOUTS);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function getWorkoutsLocal(): Promise<Workout[]> {
   try {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.WORKOUTS);
     return data ? JSON.parse(data) : [];
@@ -180,7 +256,7 @@ export async function getWorkouts(): Promise<Workout[]> {
 }
 
 export async function saveWorkout(workout: Workout): Promise<void> {
-  const workouts = await getWorkouts();
+  const workouts = await getWorkoutsLocal();
   const existingIndex = workouts.findIndex((w) => w.id === workout.id);
   if (existingIndex >= 0) {
     workouts[existingIndex] = workout;
@@ -188,6 +264,18 @@ export async function saveWorkout(workout: Workout): Promise<void> {
     workouts.push(workout);
   }
   await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(workouts));
+  
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/workouts", "POST", {
+      clientId: workout.id,
+      routineId: workout.routineId,
+      routineName: workout.routineName,
+      exercises: workout.exercises,
+      startedAt: workout.startedAt,
+      completedAt: workout.completedAt,
+      durationMinutes: workout.durationMinutes,
+    });
+  }
 }
 
 export async function getLastWorkoutForExercise(
@@ -332,6 +420,23 @@ export async function deleteSavedFood(foodId: string): Promise<void> {
 // Food Log
 export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
   try {
+    if (await isAuthenticated()) {
+      const endpoint = date ? `/api/food-logs?date=${date}` : "/api/food-logs";
+      const result = await syncToServer<any[]>(endpoint, "GET");
+      if (result.success && result.data) {
+        const entries: FoodLogEntry[] = result.data.map(log => ({
+          id: log.clientId,
+          foodId: log.foodData.id,
+          food: log.foodData,
+          date: log.date,
+          createdAt: log.createdAt,
+        }));
+        if (!date) {
+          await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(entries));
+        }
+        return entries;
+      }
+    }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.FOOD_LOG);
     const entries: FoodLogEntry[] = data ? JSON.parse(data) : [];
     if (date) {
@@ -343,8 +448,17 @@ export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
   }
 }
 
+async function getFoodLogLocal(): Promise<FoodLogEntry[]> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.FOOD_LOG);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function addFoodLogEntry(food: Food, date: string): Promise<FoodLogEntry> {
-  const entries = await getFoodLog();
+  const entries = await getFoodLogLocal();
   const entry: FoodLogEntry = {
     id: uuidv4(),
     foodId: food.id,
@@ -354,13 +468,27 @@ export async function addFoodLogEntry(food: Food, date: string): Promise<FoodLog
   };
   entries.push(entry);
   await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(entries));
+  
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/food-logs", "POST", {
+      clientId: entry.id,
+      foodData: food,
+      date,
+      createdAt: entry.createdAt,
+    });
+  }
+  
   return entry;
 }
 
 export async function deleteFoodLogEntry(entryId: string): Promise<void> {
-  const entries = await getFoodLog();
+  const entries = await getFoodLogLocal();
   const filtered = entries.filter((e) => e.id !== entryId);
   await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(filtered));
+  
+  if (await isAuthenticated()) {
+    await syncWithRetry(`/api/food-logs/${entryId}`, "DELETE", {});
+  }
 }
 
 // Get daily totals
@@ -420,6 +548,23 @@ export function calculateProgression(
 // Run History
 export async function getRunHistory(): Promise<RunEntry[]> {
   try {
+    if (await isAuthenticated()) {
+      const result = await syncToServer<any[]>("/api/runs", "GET");
+      if (result.success && result.data) {
+        const runs: RunEntry[] = result.data.map(r => ({
+          id: r.clientId,
+          distanceKm: r.distanceKm,
+          durationSeconds: r.durationSeconds,
+          paceMinPerKm: r.paceMinPerKm,
+          calories: r.calories,
+          startedAt: r.startedAt,
+          completedAt: r.completedAt,
+          route: r.route,
+        }));
+        await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
+        return runs;
+      }
+    }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.RUN_HISTORY);
     const runs: RunEntry[] = data ? JSON.parse(data) : [];
     return runs.sort(
@@ -430,10 +575,32 @@ export async function getRunHistory(): Promise<RunEntry[]> {
   }
 }
 
+async function getRunHistoryLocal(): Promise<RunEntry[]> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.RUN_HISTORY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function saveRunEntry(run: RunEntry): Promise<void> {
-  const runs = await getRunHistory();
+  const runs = await getRunHistoryLocal();
   runs.push(run);
   await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
+  
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/runs", "POST", {
+      clientId: run.id,
+      distanceKm: run.distanceKm,
+      durationSeconds: run.durationSeconds,
+      paceMinPerKm: run.paceMinPerKm,
+      calories: run.calories,
+      startedAt: run.startedAt,
+      completedAt: run.completedAt,
+      route: run.route,
+    });
+  }
 }
 
 // Clear all data (for logout)
