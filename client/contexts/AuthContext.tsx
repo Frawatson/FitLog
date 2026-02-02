@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
+import { initSyncService } from "@/lib/storage";
 
 const AUTH_TOKEN_KEY = "@fitlog_auth_token";
 
@@ -71,6 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await response.json();
         console.log("[AuthContext] Received user data:", JSON.stringify(userData, null, 2));
         setUser(userData);
+        // Initialize sync service for authenticated user
+        initSyncService();
       } else {
         console.log("[AuthContext] Auth check failed, status:", response.status);
         // Clear invalid token
@@ -104,6 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(userData.token);
     }
     setUser(userData);
+    // Initialize sync service for authenticated user
+    initSyncService();
   };
 
   const register = async (email: string, password: string, name: string) => {
@@ -129,6 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(userData.token);
     }
     setUser(userData);
+    // Initialize sync service for authenticated user
+    initSyncService();
   };
 
   const logout = async () => {
