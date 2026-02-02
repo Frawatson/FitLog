@@ -175,7 +175,7 @@ export default function DashboardScreen() {
         <Card style={styles.statCard}>
           <Feather name="target" size={24} color={Colors.light.primary} />
           <ThemedText type="h2" style={styles.statValue}>
-            {profile?.weightGoalKg ? formatWeight(profile.weightGoalKg, profile?.unitSystem || "imperial") : "--"}
+            {(user?.weightGoalKg || profile?.weightGoalKg) ? formatWeight(user?.weightGoalKg || profile?.weightGoalKg || 0, profile?.unitSystem || "imperial") : "--"}
           </ThemedText>
           <ThemedText type="small" style={styles.statLabel}>
             Weight goal

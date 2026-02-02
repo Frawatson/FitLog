@@ -177,6 +177,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const userData = await response.json();
     setUser(userData);
+    
+    // Also update AsyncStorage so profile data persists across app restarts
+    const existingProfile = await storage.getUserProfile();
+    await storage.saveUserProfile({
+      ...existingProfile,
+      id: existingProfile?.id || `user-${userData.id}`,
+      name: userData.name,
+      email: userData.email,
+      age: userData.age,
+      sex: userData.sex,
+      heightCm: userData.heightCm,
+      weightKg: userData.weightKg,
+      weightGoalKg: userData.weightGoalKg,
+      experience: userData.experience,
+      goal: userData.goal,
+      activityLevel: userData.activityLevel,
+      unitSystem: existingProfile?.unitSystem || "imperial",
+      onboardingCompleted: existingProfile?.onboardingCompleted ?? true,
+      createdAt: existingProfile?.createdAt || new Date().toISOString(),
+    });
   };
 
   const refreshUser = async () => {
