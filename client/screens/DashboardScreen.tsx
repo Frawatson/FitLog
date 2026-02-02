@@ -9,10 +9,11 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { WorkoutCalendar } from "@/components/WorkoutCalendar";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { UserProfile, MacroTargets, Routine, Workout, BodyWeightEntry } from "@/types";
+import type { UserProfile, MacroTargets, Routine, Workout, BodyWeightEntry, RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -30,16 +31,18 @@ export default function DashboardScreen() {
   const [macros, setMacros] = useState<MacroTargets | null>(null);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [runs, setRuns] = useState<RunEntry[]>([]);
   const [todayMacros, setTodayMacros] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [latestWeight, setLatestWeight] = useState<BodyWeightEntry | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   
   const loadData = async () => {
-    const [profileData, macroData, routineData, workoutData, weightData] = await Promise.all([
+    const [profileData, macroData, routineData, workoutData, runData, weightData] = await Promise.all([
       storage.getUserProfile(),
       storage.getMacroTargets(),
       storage.getRoutines(),
       storage.getWorkouts(),
+      storage.getRunHistory(),
       storage.getBodyWeights(),
     ]);
     
@@ -47,6 +50,7 @@ export default function DashboardScreen() {
     setMacros(macroData);
     setRoutines(routineData);
     setWorkouts(workoutData);
+    setRuns(runData);
     
     if (weightData.length > 0) {
       const sorted = weightData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -195,6 +199,22 @@ export default function DashboardScreen() {
         </Card>
       ) : null}
       
+      <View style={styles.calendarSection}>
+        <ThemedText type="h4" style={styles.sectionTitle}>Your Activity</ThemedText>
+        <WorkoutCalendar 
+          workouts={workouts} 
+          runs={runs}
+          onDayPress={(date) => {
+            const dayWorkouts = workouts.filter(w => 
+              w.completedAt && new Date(w.completedAt).toISOString().split("T")[0] === date
+            );
+            if (dayWorkouts.length > 0) {
+              navigation.navigate("WorkoutDetail", { workoutId: dayWorkouts[0].id });
+            }
+          }}
+        />
+      </View>
+      
       
       {macros ? (
         <Card style={styles.macrosCard}>
@@ -302,6 +322,12 @@ const styles = StyleSheet.create({
   },
   lastWorkoutCard: {
     marginBottom: Spacing.xl,
+  },
+  calendarSection: {
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.md,
   },
   lastWorkoutHeader: {
     flexDirection: "row",
