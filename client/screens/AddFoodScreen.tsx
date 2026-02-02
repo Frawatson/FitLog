@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator, Platform, Image, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
 import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -52,7 +53,12 @@ export default function AddFoodScreen() {
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
+  const [foodImage, setFoodImage] = useState<string | null>(null);
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
+  const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
   
   useEffect(() => {
     loadSavedFoods();
@@ -143,6 +149,112 @@ export default function AddFoodScreen() {
     setSavedFoods(foods);
   };
   
+  const takePhoto = async () => {
+    if (!cameraPermission?.granted) {
+      const result = await requestCameraPermission();
+      if (!result.granted) {
+        if (!result.canAskAgain && Platform.OS !== "web") {
+          try {
+            await Linking.openSettings();
+          } catch (error) {
+            console.error("Could not open settings:", error);
+          }
+        }
+        return;
+      }
+    }
+    
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      base64: true,
+    });
+    
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setFoodImage(asset.uri);
+      setShowForm(true);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      await analyzePhoto(asset.base64 || null, asset.uri);
+    }
+  };
+  
+  const pickImage = async () => {
+    if (!mediaPermission?.granted) {
+      const result = await requestMediaPermission();
+      if (!result.granted) {
+        if (!result.canAskAgain && Platform.OS !== "web") {
+          try {
+            await Linking.openSettings();
+          } catch (error) {
+            console.error("Could not open settings:", error);
+          }
+        }
+        return;
+      }
+    }
+    
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+      base64: true,
+    });
+    
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setFoodImage(asset.uri);
+      setShowForm(true);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      await analyzePhoto(asset.base64 || null, asset.uri);
+    }
+  };
+  
+  const analyzePhoto = async (base64: string | null, uri: string) => {
+    setIsAnalyzingPhoto(true);
+    try {
+      const url = new URL("/api/foods/analyze-photo", getApiUrl());
+      const response = await fetch(url.toString(), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          imageBase64: base64,
+          imageUri: uri,
+        }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.food) {
+          setName(data.food.name);
+          setCalories(data.food.calories?.toString() || "0");
+          setProtein(data.food.protein?.toString() || "0");
+          setCarbs(data.food.carbs?.toString() || "0");
+          setFat(data.food.fat?.toString() || "0");
+          if (Platform.OS !== "web") {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }
+        } else {
+          // Use fallback - just show the form for manual entry
+          console.log("Could not identify food:", data.message);
+        }
+      }
+    } catch (error) {
+      console.error("Error analyzing photo:", error);
+    } finally {
+      setIsAnalyzingPhoto(false);
+    }
+  };
+  
   const handleSelectApiFood = (food: APIFoodResult) => {
     setName(food.brand ? `${food.name} (${food.brand})` : food.name);
     setCalories(food.calories.toString());
@@ -221,12 +333,32 @@ export default function AddFoodScreen() {
         }}
       >
         <View style={styles.header}>
-          <Pressable onPress={() => setShowForm(false)}>
+          <Pressable onPress={() => {
+            setShowForm(false);
+            setFoodImage(null);
+            setName("");
+            setCalories("");
+            setProtein("");
+            setCarbs("");
+            setFat("");
+          }}>
             <Feather name="arrow-left" size={24} color={theme.text} />
           </Pressable>
           <ThemedText type="h3">Add Food</ThemedText>
           <View style={{ width: 24 }} />
         </View>
+        
+        {foodImage ? (
+          <View style={styles.imagePreviewContainer}>
+            <Image source={{ uri: foodImage }} style={styles.imagePreview} />
+            {isAnalyzingPhoto ? (
+              <View style={styles.analyzingOverlay}>
+                <ActivityIndicator size="large" color="#FFFFFF" />
+                <ThemedText style={styles.analyzingText}>Identifying food...</ThemedText>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
         
         <Input
           label="Food Name"
@@ -386,6 +518,23 @@ export default function AddFoodScreen() {
               </ThemedText>
             </View>
           ) : null}
+          
+          <View style={styles.addButtonsRow}>
+            <Pressable 
+              onPress={takePhoto}
+              style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
+            >
+              <Feather name="camera" size={24} color={Colors.light.primary} />
+              <ThemedText type="small" style={{ color: theme.text }}>Take Photo</ThemedText>
+            </Pressable>
+            <Pressable 
+              onPress={pickImage}
+              style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
+            >
+              <Feather name="image" size={24} color={Colors.light.primary} />
+              <ThemedText type="small" style={{ color: theme.text }}>Pick Photo</ThemedText>
+            </Pressable>
+          </View>
           
           <Button
             onPress={() => setShowForm(true)}
@@ -547,5 +696,47 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: Spacing.lg,
+  },
+  addButtonsRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  photoButton: {
+    flex: 1,
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.sm,
+  },
+  imagePreviewContainer: {
+    width: "100%",
+    height: 200,
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.lg,
+    position: "relative",
+  },
+  imagePreview: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  analyzingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  analyzingText: {
+    color: "#FFFFFF",
+    marginTop: Spacing.md,
+    fontWeight: "600",
   },
 });

@@ -141,6 +141,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Photo-based food analysis endpoint
+  // Uses CalorieNinjas for nutrition lookup after food is identified
+  app.post("/api/foods/analyze-photo", async (req, res) => {
+    try {
+      const { imageBase64, imageUri } = req.body;
+      
+      if (!imageBase64 && !imageUri) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "No image provided" 
+        });
+      }
+
+      // For now, we'll return a prompt for manual entry
+      // In a production app, you would integrate with a food recognition API like:
+      // - Clarifai Food Model
+      // - Google Cloud Vision
+      // - LogMeal API
+      // - Foodvisor API
+      
+      // Since we don't have a food recognition API configured,
+      // we'll return a message asking user to describe the food
+      // The app will show the form for manual entry with the image
+      
+      const apiKey = process.env.CALORIENINJA_API_KEY;
+      
+      // If we had food recognition, we would:
+      // 1. Send image to recognition API
+      // 2. Get identified food name(s)
+      // 3. Look up nutrition data from CalorieNinjas
+      
+      // For demo purposes, let's try to detect common foods from a simple list
+      // In production, replace this with actual AI-based food recognition
+      const commonFoods = [
+        "apple", "banana", "orange", "chicken breast", "rice", "salad", 
+        "pizza", "hamburger", "sandwich", "pasta", "steak", "salmon",
+        "eggs", "oatmeal", "yogurt", "coffee", "smoothie"
+      ];
+      
+      // Simulate a detected food for demo (in reality this would come from AI)
+      // We'll return success: false to indicate manual entry is needed
+      return res.json({
+        success: false,
+        message: "Please enter food details manually. Photo-based food recognition requires an AI vision API.",
+        requiresManualEntry: true,
+      });
+      
+    } catch (error) {
+      console.error("Error analyzing food photo:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Error analyzing photo" 
+      });
+    }
+  });
+
   // Exercises API - fetches from WorkoutAPI
   app.get("/api/exercises", async (req, res) => {
     try {
