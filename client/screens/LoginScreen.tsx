@@ -70,8 +70,8 @@ export default function LoginScreen() {
 
           <View style={styles.form}>
             {error ? (
-              <View style={[styles.errorBox, { backgroundColor: Colors.light.danger + "20" }]}>
-                <ThemedText type="small" style={{ color: Colors.light.danger }}>
+              <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+                <ThemedText type="small" style={{ color: Colors.light.error }}>
                   {error}
                 </ThemedText>
               </View>
