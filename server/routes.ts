@@ -1,7 +1,14 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { exerciseDatabase, getExercisesByMuscle, getExercisesByDifficulty, type LocalExercise } from "./exerciseDatabase";
-import { getBodyWeights, addBodyWeight, deleteBodyWeight } from "./db";
+import { 
+  getBodyWeights, addBodyWeight, deleteBodyWeight,
+  getMacroTargets, saveMacroTargets,
+  getRoutines, saveRoutine, deleteRoutine,
+  getWorkouts, saveWorkout,
+  getRuns, saveRun,
+  getFoodLogs, saveFoodLog, deleteFoodLog
+} from "./db";
 import { requireAuth } from "./auth";
 
 interface CalorieNinjaFood {
@@ -491,6 +498,180 @@ Respond ONLY with valid JSON, no markdown or additional text.`
     } catch (error) {
       console.error("Error deleting body weight:", error);
       res.status(500).json({ error: "Failed to delete body weight" });
+    }
+  });
+
+  // Macro Targets
+  app.get("/api/macro-targets", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const targets = await getMacroTargets(userId);
+      res.json(targets);
+    } catch (error) {
+      console.error("Error getting macro targets:", error);
+      res.status(500).json({ error: "Failed to get macro targets" });
+    }
+  });
+
+  app.post("/api/macro-targets", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { calories, protein, carbs, fat } = req.body;
+      
+      if (!calories || !protein || !carbs || !fat) {
+        return res.status(400).json({ error: "All macro values are required" });
+      }
+      
+      const targets = await saveMacroTargets(userId, { calories, protein, carbs, fat });
+      res.json(targets);
+    } catch (error) {
+      console.error("Error saving macro targets:", error);
+      res.status(500).json({ error: "Failed to save macro targets" });
+    }
+  });
+
+  // Routines
+  app.get("/api/routines", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const routines = await getRoutines(userId);
+      res.json(routines);
+    } catch (error) {
+      console.error("Error getting routines:", error);
+      res.status(500).json({ error: "Failed to get routines" });
+    }
+  });
+
+  app.post("/api/routines", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { clientId, name, exercises, createdAt, lastCompletedAt } = req.body;
+      
+      if (!clientId || !name) {
+        return res.status(400).json({ error: "clientId and name are required" });
+      }
+      
+      await saveRoutine(userId, { clientId, name, exercises: exercises || [], createdAt, lastCompletedAt });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving routine:", error);
+      res.status(500).json({ error: "Failed to save routine" });
+    }
+  });
+
+  app.delete("/api/routines/:clientId", requireAuth, async (req: Request<{ clientId: string }>, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const deleted = await deleteRoutine(userId, req.params.clientId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Routine not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting routine:", error);
+      res.status(500).json({ error: "Failed to delete routine" });
+    }
+  });
+
+  // Workouts
+  app.get("/api/workouts", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const workouts = await getWorkouts(userId);
+      res.json(workouts);
+    } catch (error) {
+      console.error("Error getting workouts:", error);
+      res.status(500).json({ error: "Failed to get workouts" });
+    }
+  });
+
+  app.post("/api/workouts", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { clientId, routineId, routineName, exercises, startedAt, completedAt, durationMinutes } = req.body;
+      
+      if (!clientId || !startedAt) {
+        return res.status(400).json({ error: "clientId and startedAt are required" });
+      }
+      
+      await saveWorkout(userId, { clientId, routineId, routineName, exercises: exercises || [], startedAt, completedAt, durationMinutes });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving workout:", error);
+      res.status(500).json({ error: "Failed to save workout" });
+    }
+  });
+
+  // Runs
+  app.get("/api/runs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const runs = await getRuns(userId);
+      res.json(runs);
+    } catch (error) {
+      console.error("Error getting runs:", error);
+      res.status(500).json({ error: "Failed to get runs" });
+    }
+  });
+
+  app.post("/api/runs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { clientId, distanceKm, durationSeconds, paceMinPerKm, calories, startedAt, completedAt, route } = req.body;
+      
+      if (!clientId || !startedAt || !completedAt) {
+        return res.status(400).json({ error: "clientId, startedAt, and completedAt are required" });
+      }
+      
+      await saveRun(userId, { clientId, distanceKm, durationSeconds, paceMinPerKm, calories, startedAt, completedAt, route });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving run:", error);
+      res.status(500).json({ error: "Failed to save run" });
+    }
+  });
+
+  // Food Logs
+  app.get("/api/food-logs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const date = req.query.date as string | undefined;
+      const logs = await getFoodLogs(userId, date);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error getting food logs:", error);
+      res.status(500).json({ error: "Failed to get food logs" });
+    }
+  });
+
+  app.post("/api/food-logs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { clientId, foodData, date, createdAt } = req.body;
+      
+      if (!clientId || !foodData || !date) {
+        return res.status(400).json({ error: "clientId, foodData, and date are required" });
+      }
+      
+      await saveFoodLog(userId, { clientId, foodData, date, createdAt: createdAt || new Date().toISOString() });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving food log:", error);
+      res.status(500).json({ error: "Failed to save food log" });
+    }
+  });
+
+  app.delete("/api/food-logs/:clientId", requireAuth, async (req: Request<{ clientId: string }>, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const deleted = await deleteFoodLog(userId, req.params.clientId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Food log not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting food log:", error);
+      res.status(500).json({ error: "Failed to delete food log" });
     }
   });
 
