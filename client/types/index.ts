@@ -12,6 +12,7 @@ export interface UserProfile {
   sex: Sex;
   heightCm: number;
   weightKg: number;
+  weightGoalKg?: number;
   experience: TrainingExperience;
   goal: FitnessGoal;
   activityLevel: ActivityLevel;

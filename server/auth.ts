@@ -117,6 +117,7 @@ router.post("/login", async (req: Request, res: Response) => {
       sex: user.sex,
       heightCm: user.height_cm,
       weightKg: user.weight_kg,
+      weightGoalKg: user.weight_goal_kg,
       experience: user.experience,
       goal: user.goal,
       activityLevel: user.activity_level,
@@ -160,6 +161,7 @@ router.get("/me", async (req: Request, res: Response) => {
       sex: user.sex,
       heightCm: user.height_cm,
       weightKg: user.weight_kg,
+      weightGoalKg: user.weight_goal_kg,
       experience: user.experience,
       goal: user.goal,
       activityLevel: user.activity_level,
@@ -172,7 +174,7 @@ router.get("/me", async (req: Request, res: Response) => {
 
 router.put("/profile", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { name, age, sex, heightCm, weightKg, experience, goal, activityLevel } = req.body;
+    const { name, age, sex, heightCm, weightKg, weightGoalKg, experience, goal, activityLevel } = req.body;
     const userId = (req as any).userId;
 
     const updated = await updateUserProfile(userId, {
@@ -181,6 +183,7 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
       sex,
       heightCm,
       weightKg,
+      weightGoalKg,
       experience,
       goal,
       activityLevel,
@@ -198,6 +201,7 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
       sex: updated.sex,
       heightCm: updated.height_cm,
       weightKg: updated.weight_kg,
+      weightGoalKg: updated.weight_goal_kg,
       experience: updated.experience,
       goal: updated.goal,
       activityLevel: updated.activity_level,

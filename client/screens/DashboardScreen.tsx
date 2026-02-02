@@ -170,6 +170,16 @@ export default function DashboardScreen() {
             Current weight
           </ThemedText>
         </Card>
+        
+        <Card style={styles.statCard}>
+          <Feather name="target" size={24} color={Colors.light.primary} />
+          <ThemedText type="h2" style={styles.statValue}>
+            {profile?.weightGoalKg ? `${profile.weightGoalKg}kg` : "--"}
+          </ThemedText>
+          <ThemedText type="small" style={styles.statLabel}>
+            Weight goal
+          </ThemedText>
+        </Card>
       </View>
       
             

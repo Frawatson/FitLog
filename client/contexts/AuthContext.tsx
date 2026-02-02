@@ -13,6 +13,7 @@ export interface User {
   sex?: string;
   heightCm?: number;
   weightKg?: number;
+  weightGoalKg?: number;
   experience?: string;
   goal?: string;
   activityLevel?: string;

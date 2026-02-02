@@ -17,12 +17,21 @@ export async function initializeDatabase(): Promise<void> {
         sex VARCHAR(10),
         height_cm REAL,
         weight_kg REAL,
+        weight_goal_kg REAL,
         experience VARCHAR(50),
         goal VARCHAR(50),
         activity_level VARCHAR(20),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+      
+      -- Add weight_goal_kg column if it doesn't exist
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'weight_goal_kg') THEN
+          ALTER TABLE users ADD COLUMN weight_goal_kg REAL;
+        END IF;
+      END $$;
 
       CREATE TABLE IF NOT EXISTS session (
         sid VARCHAR NOT NULL COLLATE "default",
@@ -49,7 +58,7 @@ export async function getUserByEmail(email: string) {
 
 export async function getUserById(id: number) {
   const result = await pool.query(
-    "SELECT id, email, name, age, sex, height_cm, weight_kg, experience, goal, activity_level, created_at FROM users WHERE id = $1",
+    "SELECT id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, created_at FROM users WHERE id = $1",
     [id]
   );
   return result.rows[0] || null;
@@ -75,6 +84,7 @@ export async function updateUserProfile(id: number, data: {
   sex?: string;
   heightCm?: number;
   weightKg?: number;
+  weightGoalKg?: number;
   experience?: string;
   goal?: string;
   activityLevel?: string;
@@ -103,6 +113,10 @@ export async function updateUserProfile(id: number, data: {
     fields.push(`weight_kg = $${paramIndex++}`);
     values.push(data.weightKg);
   }
+  if (data.weightGoalKg !== undefined) {
+    fields.push(`weight_goal_kg = $${paramIndex++}`);
+    values.push(data.weightGoalKg);
+  }
   if (data.experience !== undefined) {
     fields.push(`experience = $${paramIndex++}`);
     values.push(data.experience);
@@ -125,7 +139,7 @@ export async function updateUserProfile(id: number, data: {
 
   const result = await pool.query(
     `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramIndex} 
-     RETURNING id, email, name, age, sex, height_cm, weight_kg, experience, goal, activity_level`,
+     RETURNING id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level`,
     values
   );
   return result.rows[0];

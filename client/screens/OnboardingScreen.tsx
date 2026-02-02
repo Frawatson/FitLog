@@ -43,6 +43,7 @@ export default function OnboardingScreen() {
   const [sex, setSex] = useState<Sex>("male");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
+  const [weightGoalKg, setWeightGoalKg] = useState("");
   const [experience, setExperience] = useState<TrainingExperience>("beginner");
   const [goal, setGoal] = useState<FitnessGoal>("gain_muscle");
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>("3-4");
@@ -104,6 +105,7 @@ export default function OnboardingScreen() {
         sex,
         heightCm: parseInt(heightCm) || 170,
         weightKg: parseInt(weightKg) || 70,
+        weightGoalKg: parseInt(weightGoalKg) || undefined,
         experience,
         goal,
         activityLevel,
@@ -125,6 +127,7 @@ export default function OnboardingScreen() {
         sex,
         heightCm: parseInt(heightCm) || undefined,
         weightKg: parseInt(weightKg) || undefined,
+        weightGoalKg: parseInt(weightGoalKg) || undefined,
         experience,
         goal,
         activityLevel,
@@ -142,6 +145,7 @@ export default function OnboardingScreen() {
       sex,
       heightCm: parseInt(heightCm) || 170,
       weightKg: parseInt(weightKg) || 70,
+      weightGoalKg: parseInt(weightGoalKg) || undefined,
       experience,
       goal,
       activityLevel,
@@ -174,8 +178,8 @@ export default function OnboardingScreen() {
       </ThemedText>
       
       {error ? (
-        <View style={[styles.errorBox, { backgroundColor: Colors.light.danger + "20" }]}>
-          <ThemedText type="small" style={{ color: Colors.light.danger }}>
+        <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+          <ThemedText type="small" style={{ color: Colors.light.error }}>
             {error}
           </ThemedText>
         </View>
@@ -274,6 +278,14 @@ export default function OnboardingScreen() {
         keyboardType="number-pad"
         value={weightKg}
         onChangeText={setWeightKg}
+      />
+      
+      <Input
+        label="Goal Weight (kg)"
+        placeholder="65"
+        keyboardType="number-pad"
+        value={weightGoalKg}
+        onChangeText={setWeightGoalKg}
       />
       
       <ThemedText type="small" style={styles.fieldLabel}>
