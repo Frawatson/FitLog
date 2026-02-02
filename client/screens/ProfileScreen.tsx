@@ -18,7 +18,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, BodyWeightEntry, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { getApiUrl } from "@/lib/query-client";
+import { formatWeight, parseWeightInput } from "@/lib/units";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,7 +28,7 @@ export default function ProfileScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user, logout, deleteAccount } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [bodyWeights, setBodyWeights] = useState<BodyWeightEntry[]>([]);
@@ -60,7 +60,10 @@ export default function ProfileScreen() {
     const weight = parseFloat(newWeight);
     if (isNaN(weight) || weight <= 0) return;
     
-    await storage.addBodyWeight(weight);
+    const unitSystem = profile?.unitSystem || "imperial";
+    const weightInKg = parseWeightInput(weight, unitSystem);
+    
+    await storage.addBodyWeight(weightInKg);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setNewWeight("");
     setShowWeightInput(false);
@@ -75,28 +78,13 @@ export default function ProfileScreen() {
   const performDeleteAccount = async () => {
     setIsDeleting(true);
     try {
-      const apiUrl = getApiUrl();
-      const token = await storage.getAuthToken();
-      
-      const response = await fetch(new URL("/api/auth/account", apiUrl).toString(), {
-        method: "DELETE",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to delete account");
-      }
-      
+      await deleteAccount();
       await storage.clearAllData();
       setShowDeleteModal(false);
       setDeleteStep(1);
-      await logout();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (error) {
-      console.error("Delete account error:", error);
+    } catch (error: any) {
+      console.error("Delete account error:", error?.message || error);
       if (Platform.OS === "web") {
         window.alert("Failed to delete account. Please try again.");
       } else {
@@ -192,7 +180,7 @@ export default function ProfileScreen() {
         {showWeightInput ? (
           <View style={styles.weightInputRow}>
             <Input
-              placeholder="Weight in kg"
+              placeholder={`Weight in ${(profile?.unitSystem || "imperial") === "imperial" ? "lbs" : "kg"}`}
               keyboardType="decimal-pad"
               value={newWeight}
               onChangeText={setNewWeight}
@@ -206,7 +194,7 @@ export default function ProfileScreen() {
         
         {latestWeight ? (
           <View style={styles.latestWeight}>
-            <ThemedText type="h2">{latestWeight.weightKg} kg</ThemedText>
+            <ThemedText type="h2">{formatWeight(latestWeight.weightKg, profile?.unitSystem || "imperial")}</ThemedText>
             <ThemedText type="small" style={{ opacity: 0.6 }}>
               {new Date(latestWeight.date).toLocaleDateString()}
             </ThemedText>
@@ -224,7 +212,7 @@ export default function ProfileScreen() {
             </ThemedText>
             {bodyWeights.slice(0, 5).map((entry) => (
               <View key={entry.id} style={styles.weightEntry}>
-                <ThemedText type="body">{entry.weightKg} kg</ThemedText>
+                <ThemedText type="body">{formatWeight(entry.weightKg, profile?.unitSystem || "imperial")}</ThemedText>
                 <ThemedText type="small" style={{ opacity: 0.6 }}>
                   {new Date(entry.date).toLocaleDateString()}
                 </ThemedText>
