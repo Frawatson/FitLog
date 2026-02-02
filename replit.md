@@ -121,6 +121,13 @@ App data stored locally on device:
   - Falls back to local food database (85+ foods) when API is unavailable
 
 ## Recent Changes
+- February 2026: Run Goals and Photo Food Logging
+  - Added RunGoalScreen for setting distance (1-10 mi) or time (15-60 min) goals before starting runs
+  - RunTrackerScreen now tracks progress toward goals with visual progress bar
+  - Added RunCompleteAnimation component with confetti effects for goal completion
+  - Created WorkoutCalendar component for Dashboard showing monthly activity with color-coded indicators
+  - Added camera/photo integration to AddFoodScreen for taking food photos
+  - Photo analysis endpoint for food recognition (requires AI vision API for full functionality)
 - January 2026: User Authentication System
   - Added PostgreSQL database with users and session tables
   - Implemented register/login/logout with bcrypt password hashing
