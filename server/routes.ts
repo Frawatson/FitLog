@@ -142,57 +142,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Photo-based food analysis endpoint
-  // Uses CalorieNinjas for nutrition lookup after food is identified
+  // Uses OpenAI Vision to identify food, then CalorieNinjas for nutrition lookup
   app.post("/api/foods/analyze-photo", async (req, res) => {
     try {
-      const { imageBase64, imageUri } = req.body;
+      const { imageBase64 } = req.body;
       
-      if (!imageBase64 && !imageUri) {
+      if (!imageBase64) {
         return res.status(400).json({ 
           success: false, 
           message: "No image provided" 
         });
       }
 
-      // For now, we'll return a prompt for manual entry
-      // In a production app, you would integrate with a food recognition API like:
-      // - Clarifai Food Model
-      // - Google Cloud Vision
-      // - LogMeal API
-      // - Foodvisor API
+      const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
       
-      // Since we don't have a food recognition API configured,
-      // we'll return a message asking user to describe the food
-      // The app will show the form for manual entry with the image
+      if (!openaiApiKey || !openaiBaseUrl) {
+        return res.json({
+          success: false,
+          message: "AI vision service not configured. Please enter food details manually.",
+          requiresManualEntry: true,
+        });
+      }
+
+      // Use OpenAI Vision to identify the food
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: openaiApiKey,
+        baseURL: openaiBaseUrl,
+      });
+
+      const visionResponse = await openai.chat.completions.create({
+        model: "gpt-5-mini",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: `Analyze this food image and identify the food items. Return a JSON object with:
+- "foods": array of identified food items, each with:
+  - "name": common food name (e.g., "grilled chicken breast", "steamed rice")
+  - "estimatedServingSize": estimated serving size (e.g., "1 cup", "6 oz", "1 medium")
+  - "confidence": confidence level (high, medium, low)
+- "description": brief description of the meal
+
+If you cannot identify any food, return: {"foods": [], "description": "Could not identify food items"}
+
+Respond ONLY with valid JSON, no markdown or additional text.`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`,
+                },
+              },
+            ],
+          },
+        ],
+        max_completion_tokens: 500,
+      });
+
+      const visionContent = visionResponse.choices[0]?.message?.content || "";
       
-      const apiKey = process.env.CALORIENINJA_API_KEY;
-      
-      // If we had food recognition, we would:
-      // 1. Send image to recognition API
-      // 2. Get identified food name(s)
-      // 3. Look up nutrition data from CalorieNinjas
-      
-      // For demo purposes, let's try to detect common foods from a simple list
-      // In production, replace this with actual AI-based food recognition
-      const commonFoods = [
-        "apple", "banana", "orange", "chicken breast", "rice", "salad", 
-        "pizza", "hamburger", "sandwich", "pasta", "steak", "salmon",
-        "eggs", "oatmeal", "yogurt", "coffee", "smoothie"
-      ];
-      
-      // Simulate a detected food for demo (in reality this would come from AI)
-      // We'll return success: false to indicate manual entry is needed
+      let identifiedFoods;
+      try {
+        identifiedFoods = JSON.parse(visionContent);
+      } catch (parseError) {
+        console.error("Failed to parse vision response:", visionContent);
+        return res.json({
+          success: false,
+          message: "Could not identify food items. Please enter details manually.",
+          requiresManualEntry: true,
+        });
+      }
+
+      if (!identifiedFoods.foods || identifiedFoods.foods.length === 0) {
+        return res.json({
+          success: false,
+          message: identifiedFoods.description || "No food items identified. Please enter details manually.",
+          requiresManualEntry: true,
+        });
+      }
+
+      // Look up nutrition data for identified foods using CalorieNinjas
+      const calorieNinjasKey = process.env.CALORIENINJA_API_KEY;
+      const foodsWithNutrition = [];
+
+      for (const food of identifiedFoods.foods) {
+        const searchQuery = `${food.estimatedServingSize || ''} ${food.name}`.trim();
+        
+        if (calorieNinjasKey) {
+          try {
+            const nutritionResponse = await fetch(
+              `https://api.calorieninjas.com/v1/nutrition?query=${encodeURIComponent(searchQuery)}`,
+              {
+                headers: { "X-Api-Key": calorieNinjasKey },
+              }
+            );
+
+            if (nutritionResponse.ok) {
+              const nutritionData = await nutritionResponse.json();
+              if (nutritionData.items && nutritionData.items.length > 0) {
+                const item = nutritionData.items[0];
+                foodsWithNutrition.push({
+                  name: food.name,
+                  servingSize: food.estimatedServingSize,
+                  confidence: food.confidence,
+                  calories: Math.round(item.calories || 0),
+                  protein: Math.round(item.protein_g || 0),
+                  carbs: Math.round(item.carbohydrates_total_g || 0),
+                  fat: Math.round(item.fat_total_g || 0),
+                });
+                continue;
+              }
+            }
+          } catch (nutritionError) {
+            console.error("CalorieNinjas lookup failed:", nutritionError);
+          }
+        }
+
+        // If nutrition lookup failed, still include the identified food
+        foodsWithNutrition.push({
+          name: food.name,
+          servingSize: food.estimatedServingSize,
+          confidence: food.confidence,
+          calories: null,
+          protein: null,
+          carbs: null,
+          fat: null,
+        });
+      }
+
       return res.json({
-        success: false,
-        message: "Please enter food details manually. Photo-based food recognition requires an AI vision API.",
-        requiresManualEntry: true,
+        success: true,
+        foods: foodsWithNutrition,
+        description: identifiedFoods.description,
+        message: `Identified ${foodsWithNutrition.length} food item(s)`,
       });
       
     } catch (error) {
       console.error("Error analyzing food photo:", error);
       res.status(500).json({ 
         success: false, 
-        message: "Error analyzing photo" 
+        message: "Error analyzing photo. Please try again or enter details manually.",
+        requiresManualEntry: true,
       });
     }
   });

@@ -228,23 +228,25 @@ export default function AddFoodScreen() {
         },
         body: JSON.stringify({ 
           imageBase64: base64,
-          imageUri: uri,
         }),
       });
       
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.food) {
-          setName(data.food.name);
-          setCalories(data.food.calories?.toString() || "0");
-          setProtein(data.food.protein?.toString() || "0");
-          setCarbs(data.food.carbs?.toString() || "0");
-          setFat(data.food.fat?.toString() || "0");
+        if (data.success && data.foods && data.foods.length > 0) {
+          const food = data.foods[0];
+          const foodName = food.servingSize 
+            ? `${food.servingSize} ${food.name}`
+            : food.name;
+          setName(foodName);
+          setCalories(food.calories?.toString() || "0");
+          setProtein(food.protein?.toString() || "0");
+          setCarbs(food.carbs?.toString() || "0");
+          setFat(food.fat?.toString() || "0");
           if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
         } else {
-          // Use fallback - just show the form for manual entry
           console.log("Could not identify food:", data.message);
         }
       }
