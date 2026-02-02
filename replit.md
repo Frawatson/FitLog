@@ -119,6 +119,10 @@ App data stored locally on device:
 - **CalorieNinjas** (nutrition): Uses CALORIENINJA_API_KEY secret for food nutrition data
   - Simple API key authentication, no IP restrictions
   - Falls back to local food database (85+ foods) when API is unavailable
+- **OpenAI Vision** (photo food recognition): Uses Replit AI Integrations (AI_INTEGRATIONS_OPENAI_API_KEY, AI_INTEGRATIONS_OPENAI_BASE_URL)
+  - gpt-5-mini model for identifying foods from photos
+  - Returns food name, estimated serving size, and confidence level
+  - Automatically fetches nutrition data from CalorieNinjas after identification
 
 ## Recent Changes
 - February 2026: Run Goals and Photo Food Logging
