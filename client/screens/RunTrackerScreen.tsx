@@ -8,7 +8,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -77,6 +77,13 @@ export default function RunTrackerScreen() {
     };
   }, []);
   
+  // Reload run history when screen gains focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadRunHistory();
+    }, [])
+  );
+  
   const checkPermission = async () => {
     const { status } = await Location.getForegroundPermissionsAsync();
     setPermission(status);
@@ -109,6 +116,7 @@ export default function RunTrackerScreen() {
   
   const loadRunHistory = async () => {
     const runs = await storage.getRunHistory();
+    console.log("[RunTracker] Loaded run history:", runs.length, "runs");
     setRunHistory(runs);
   };
   
@@ -508,10 +516,10 @@ export default function RunTrackerScreen() {
           )}
         </View>
         
-        {runHistory.length > 0 ? (
-          <View style={styles.historySection}>
-            <ThemedText style={[styles.historyTitle, { color: theme.text }]}>Run History</ThemedText>
-            {runHistory.slice(0, 5).map((run) => (
+        <View style={styles.historySection}>
+          <ThemedText style={[styles.historyTitle, { color: theme.text }]}>Run History</ThemedText>
+          {runHistory.length > 0 ? (
+            runHistory.slice(0, 5).map((run) => (
               <View key={run.id} style={[styles.historyCard, { backgroundColor: theme.backgroundSecondary }]}>
                 <View style={styles.historyHeader}>
                   <ThemedText style={[styles.historyDate, { color: theme.text }]}>
@@ -545,9 +553,16 @@ export default function RunTrackerScreen() {
                   </View>
                 </View>
               </View>
-            ))}
-          </View>
-        ) : null}
+            ))
+          ) : (
+            <View style={[styles.emptyHistoryCard, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="activity" size={32} color={theme.textSecondary} />
+              <ThemedText style={[styles.emptyHistoryText, { color: theme.textSecondary }]}>
+                No runs yet. Start your first run!
+              </ThemedText>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -792,6 +807,17 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
+  },
+  emptyHistoryCard: {
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.md,
+  },
+  emptyHistoryText: {
+    textAlign: "center",
+    fontSize: 14,
   },
   historyHeader: {
     flexDirection: "row",
