@@ -284,7 +284,7 @@ export default function RunTrackerScreen() {
     completeRun(goalReached);
   };
   
-  const handleAnimationDismiss = () => {
+  const handleAnimationDismiss = async () => {
     setShowCompleteAnimation(false);
     setCompletedRunData(null);
     setDuration(0);
@@ -292,6 +292,7 @@ export default function RunTrackerScreen() {
     setRoute([]);
     setSplits([]);
     goalReachedRef.current = false;
+    await loadRunHistory();
   };
   
   const calculateDistance = (

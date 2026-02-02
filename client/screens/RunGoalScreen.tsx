@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { View, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -44,7 +44,11 @@ export default function RunGoalScreen() {
   
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <View style={[styles.content, { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl }]}>
+      <ScrollView 
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Pressable onPress={() => navigation.goBack()}>
             <Feather name="x" size={24} color={theme.text} />
@@ -234,7 +238,7 @@ export default function RunGoalScreen() {
             </View>
           </Button>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -244,7 +248,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: Spacing.lg,
   },
   header: {
@@ -301,8 +305,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   footer: {
-    flex: 1,
-    justifyContent: "flex-end",
+    marginTop: Spacing["2xl"],
   },
   startButton: {
     backgroundColor: ACCENT_COLOR,

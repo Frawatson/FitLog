@@ -50,6 +50,7 @@ export default function EditProfileScreen() {
   const [sex, setSex] = useState(user?.sex || "");
   const [heightCm, setHeightCm] = useState(user?.heightCm?.toString() || "");
   const [weightKg, setWeightKg] = useState(user?.weightKg?.toString() || "");
+  const [weightGoalKg, setWeightGoalKg] = useState(user?.weightGoalKg?.toString() || "");
   const [experience, setExperience] = useState(user?.experience || "");
   const [goal, setGoal] = useState(user?.goal || "");
   const [activityLevel, setActivityLevel] = useState(user?.activityLevel || "");
@@ -64,6 +65,7 @@ export default function EditProfileScreen() {
       setSex(user.sex || "");
       setHeightCm(user.heightCm?.toString() || "");
       setWeightKg(user.weightKg?.toString() || "");
+      setWeightGoalKg(user.weightGoalKg?.toString() || "");
       setExperience(user.experience || "");
       setGoal(user.goal || "");
       setActivityLevel(user.activityLevel || "");
@@ -87,6 +89,7 @@ export default function EditProfileScreen() {
         sex: sex || undefined,
         heightCm: heightCm ? parseFloat(heightCm) : undefined,
         weightKg: weightKg ? parseFloat(weightKg) : undefined,
+        weightGoalKg: weightGoalKg ? parseFloat(weightGoalKg) : undefined,
         experience: experience || undefined,
         goal: goal || undefined,
         activityLevel: activityLevel || undefined,
@@ -109,8 +112,8 @@ export default function EditProfileScreen() {
       }}
     >
       {error ? (
-        <View style={[styles.errorBox, { backgroundColor: Colors.light.danger + "20" }]}>
-          <ThemedText type="small" style={{ color: Colors.light.danger }}>
+        <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+          <ThemedText type="small" style={{ color: Colors.light.error }}>
             {error}
           </ThemedText>
         </View>
@@ -170,6 +173,16 @@ export default function EditProfileScreen() {
               keyboardType="decimal-pad"
             />
           </View>
+        </View>
+        
+        <View style={{ marginTop: Spacing.md }}>
+          <Input
+            label="Weight Goal (kg)"
+            value={weightGoalKg}
+            onChangeText={setWeightGoalKg}
+            placeholder="65"
+            keyboardType="decimal-pad"
+          />
         </View>
       </Card>
 

@@ -26,6 +26,7 @@ interface ConfettiPiece {
   rotation: Animated.Value;
   scale: Animated.Value;
   color: string;
+  startX: number;
 }
 
 export function RunCompleteAnimation({
@@ -47,12 +48,14 @@ export function RunCompleteAnimation({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
       
-      confettiPieces.current = Array(20).fill(0).map(() => ({
-        x: new Animated.Value(Math.random() * SCREEN_WIDTH),
+      const initialPositions = Array(20).fill(0).map(() => Math.random() * SCREEN_WIDTH);
+      confettiPieces.current = initialPositions.map((startX) => ({
+        x: new Animated.Value(startX),
         y: new Animated.Value(-50),
         rotation: new Animated.Value(0),
         scale: new Animated.Value(Math.random() * 0.5 + 0.5),
         color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        startX,
       }));
       
       Animated.parallel([
@@ -89,7 +92,7 @@ export function RunCompleteAnimation({
             useNativeDriver: true,
           }),
           Animated.timing(piece.x, {
-            toValue: piece.x._value + (Math.random() - 0.5) * 200,
+            toValue: piece.startX + (Math.random() - 0.5) * 200,
             duration: 3000 + Math.random() * 2000,
             delay,
             useNativeDriver: true,
