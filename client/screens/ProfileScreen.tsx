@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -19,6 +19,8 @@ import type { UserProfile, BodyWeightEntry, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { formatWeight, parseWeightInput } from "@/lib/units";
+import * as notifications from "@/lib/notifications";
+import type { NotificationSettings } from "@/lib/notifications";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -38,16 +40,62 @@ export default function ProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
+    workoutReminders: false,
+    streakAlerts: false,
+    reminderTime: { hour: 18, minute: 0 },
+  });
   
   const loadData = async () => {
-    const [profileData, weightData, macroData] = await Promise.all([
+    const [profileData, weightData, macroData, notifData] = await Promise.all([
       storage.getUserProfile(),
       storage.getBodyWeights(),
       storage.getMacroTargets(),
+      notifications.getNotificationSettings(),
     ]);
     setProfile(profileData);
     setBodyWeights(weightData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     setMacros(macroData);
+    setNotifSettings(notifData);
+  };
+  
+  const handleToggleWorkoutReminders = async (value: boolean) => {
+    if (value) {
+      const granted = await notifications.requestNotificationPermissions();
+      if (!granted) {
+        if (Platform.OS === "web") {
+          window.alert("Notifications are not available on web. Please use the mobile app.");
+        } else {
+          Alert.alert("Permission Required", "Please enable notifications in your device settings.");
+        }
+        return;
+      }
+      await notifications.scheduleWorkoutReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
+    } else {
+      await notifications.cancelAllNotifications();
+    }
+    const updated = { ...notifSettings, workoutReminders: value };
+    setNotifSettings(updated);
+    await notifications.saveNotificationSettings(updated);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+  
+  const handleToggleStreakAlerts = async (value: boolean) => {
+    if (value) {
+      const granted = await notifications.requestNotificationPermissions();
+      if (!granted) {
+        if (Platform.OS === "web") {
+          window.alert("Notifications are not available on web. Please use the mobile app.");
+        } else {
+          Alert.alert("Permission Required", "Please enable notifications in your device settings.");
+        }
+        return;
+      }
+    }
+    const updated = { ...notifSettings, streakAlerts: value };
+    setNotifSettings(updated);
+    await notifications.saveNotificationSettings(updated);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
   
   useFocusEffect(
@@ -260,6 +308,52 @@ export default function ProfileScreen() {
         </Card>
       ) : null}
       
+      <Card style={styles.sectionCard}>
+        <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Notifications</ThemedText>
+        
+        <View style={styles.notificationRow}>
+          <View style={styles.notificationInfo}>
+            <Feather name="bell" size={20} color={theme.text} />
+            <View style={styles.notificationText}>
+              <ThemedText type="body">Workout Reminders</ThemedText>
+              <ThemedText type="small" style={{ opacity: 0.6 }}>
+                Daily reminder at 6:00 PM
+              </ThemedText>
+            </View>
+          </View>
+          <Switch
+            value={notifSettings.workoutReminders}
+            onValueChange={handleToggleWorkoutReminders}
+            trackColor={{ false: theme.border, true: Colors.light.primary }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+        
+        <View style={[styles.notificationRow, { marginTop: Spacing.md }]}>
+          <View style={styles.notificationInfo}>
+            <Feather name="zap" size={20} color={theme.text} />
+            <View style={styles.notificationText}>
+              <ThemedText type="body">Streak Alerts</ThemedText>
+              <ThemedText type="small" style={{ opacity: 0.6 }}>
+                Get notified when your streak is at risk
+              </ThemedText>
+            </View>
+          </View>
+          <Switch
+            value={notifSettings.streakAlerts}
+            onValueChange={handleToggleStreakAlerts}
+            trackColor={{ false: theme.border, true: Colors.light.primary }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+        
+        {Platform.OS === "web" ? (
+          <ThemedText type="small" style={{ opacity: 0.5, marginTop: Spacing.md, fontStyle: "italic" }}>
+            Notifications only work on mobile devices via Expo Go
+          </ThemedText>
+        ) : null}
+      </Card>
+      
       <Pressable
         onPress={() => navigation.navigate("WorkoutHistory")}
         style={({ pressed }) => [
@@ -470,5 +564,20 @@ const styles = StyleSheet.create({
   },
   modalButtonDelete: {
     backgroundColor: Colors.light.error,
+  },
+  notificationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  notificationInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  notificationText: {
+    marginLeft: Spacing.md,
+    flex: 1,
   },
 });
