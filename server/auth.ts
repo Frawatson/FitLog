@@ -1,7 +1,8 @@
 import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { getUserByEmail, getUserById, createUser, updateUserProfile, deleteUser } from "./db";
+import rateLimit from "express-rate-limit";
+import { getUserByEmail, getUserById, createUser, updateUserProfile, deleteUser, pool } from "./db";
 
 declare module "express-session" {
   interface SessionData {
@@ -14,6 +15,97 @@ const router = Router();
 // JWT secret from environment or fallback
 const JWT_SECRET = process.env.SESSION_SECRET || "fitlog-jwt-secret-key";
 const JWT_EXPIRES_IN = "30d"; // 30 days
+
+// Rate limiter for auth routes (5 attempts per 15 minutes)
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
+  message: { error: "Too many attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Password strength validation
+function validatePassword(password: string): { valid: boolean; message: string } {
+  if (password.length < 8) {
+    return { valid: false, message: "Password must be at least 8 characters" };
+  }
+  if (!/[A-Z]/.test(password)) {
+    return { valid: false, message: "Password must contain at least one uppercase letter" };
+  }
+  if (!/[a-z]/.test(password)) {
+    return { valid: false, message: "Password must contain at least one lowercase letter" };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: "Password must contain at least one number" };
+  }
+  return { valid: true, message: "" };
+}
+
+// Account lockout constants
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MINUTES = 15;
+
+// Track failed login attempts
+async function recordFailedAttempt(email: string): Promise<void> {
+  try {
+    await pool.query(`
+      INSERT INTO login_attempts (email, attempt_count, last_attempt_at)
+      VALUES ($1, 1, NOW())
+      ON CONFLICT (email) DO UPDATE SET
+        attempt_count = login_attempts.attempt_count + 1,
+        last_attempt_at = NOW()
+    `, [email.toLowerCase()]);
+  } catch (error) {
+    console.error("Error recording failed attempt:", error);
+  }
+}
+
+// Clear failed attempts on successful login
+async function clearFailedAttempts(email: string): Promise<void> {
+  try {
+    await pool.query("DELETE FROM login_attempts WHERE email = $1", [email.toLowerCase()]);
+  } catch (error) {
+    console.error("Error clearing failed attempts:", error);
+  }
+}
+
+// Check if account is locked
+async function isAccountLocked(email: string): Promise<{ locked: boolean; remainingMinutes: number }> {
+  try {
+    const result = await pool.query(`
+      SELECT attempt_count, last_attempt_at 
+      FROM login_attempts 
+      WHERE email = $1
+    `, [email.toLowerCase()]);
+    
+    if (result.rows.length === 0) {
+      return { locked: false, remainingMinutes: 0 };
+    }
+    
+    const { attempt_count, last_attempt_at } = result.rows[0];
+    const lockoutEnd = new Date(last_attempt_at);
+    lockoutEnd.setMinutes(lockoutEnd.getMinutes() + LOCKOUT_DURATION_MINUTES);
+    
+    if (attempt_count >= MAX_FAILED_ATTEMPTS && new Date() < lockoutEnd) {
+      const remainingMinutes = Math.ceil((lockoutEnd.getTime() - Date.now()) / 60000);
+      return { locked: true, remainingMinutes };
+    }
+    
+    // If lockout period has passed, clear the attempts
+    if (attempt_count >= MAX_FAILED_ATTEMPTS && new Date() >= lockoutEnd) {
+      await clearFailedAttempts(email);
+    }
+    
+    return { locked: false, remainingMinutes: 0 };
+  } catch (error) {
+    console.error("Error checking account lock:", error);
+    return { locked: false, remainingMinutes: 0 };
+  }
+}
 
 function generateToken(userId: number): string {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -53,7 +145,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-router.post("/register", async (req: Request, res: Response) => {
+router.post("/register", authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password, name } = req.body;
 
@@ -61,8 +153,15 @@ router.post("/register", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Email, password, and name are required" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    // Validate email format
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: "Please enter a valid email address" });
+    }
+
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.message });
     }
 
     const existing = await getUserByEmail(email);
@@ -70,7 +169,7 @@ router.post("/register", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Email already registered" });
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12); // Increased from 10 to 12 rounds
     const user = await createUser({ email, passwordHash, name });
 
     req.session.userId = user.id;
@@ -88,7 +187,7 @@ router.post("/register", async (req: Request, res: Response) => {
   }
 });
 
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -96,15 +195,28 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
+    // Check if account is locked
+    const lockStatus = await isAccountLocked(email);
+    if (lockStatus.locked) {
+      return res.status(429).json({ 
+        error: `Account temporarily locked. Please try again in ${lockStatus.remainingMinutes} minutes.` 
+      });
+    }
+
     const user = await getUserByEmail(email);
     if (!user) {
+      await recordFailedAttempt(email);
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
+      await recordFailedAttempt(email);
       return res.status(401).json({ error: "Invalid email or password" });
     }
+
+    // Clear failed attempts on successful login
+    await clearFailedAttempts(email);
 
     req.session.userId = user.id;
     const token = generateToken(user.id);

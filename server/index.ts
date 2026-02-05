@@ -2,8 +2,10 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
-import authRouter from "./auth";
+import authRouter, { authLimiter } from "./auth";
 import { initializeDatabase, pool } from "./db";
 import * as fs from "fs";
 import * as path from "path";
@@ -233,6 +235,32 @@ function setupErrorHandler(app: express.Application) {
 
 (async () => {
   await initializeDatabase();
+  
+  // Security headers
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        connectSrc: ["'self'", "https:", "wss:"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }));
+  
+  // General API rate limiter (100 requests per minute)
+  const apiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 100,
+    message: { error: "Too many requests. Please slow down." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+  app.use("/api", apiLimiter);
   
   setupCors(app);
   setupBodyParsing(app);

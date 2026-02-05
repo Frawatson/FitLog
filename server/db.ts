@@ -124,6 +124,29 @@ export async function initializeDatabase(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS IDX_food_logs_user_id ON food_logs (user_id);
       CREATE INDEX IF NOT EXISTS IDX_food_logs_date ON food_logs (user_id, date DESC);
+      
+      -- Login attempts table for account lockout
+      CREATE TABLE IF NOT EXISTS login_attempts (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        attempt_count INTEGER DEFAULT 0,
+        last_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS IDX_login_attempts_email ON login_attempts (email);
+      
+      -- Add streak tracking columns to users table
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'current_streak') THEN
+          ALTER TABLE users ADD COLUMN current_streak INTEGER DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'longest_streak') THEN
+          ALTER TABLE users ADD COLUMN longest_streak INTEGER DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'last_activity_date') THEN
+          ALTER TABLE users ADD COLUMN last_activity_date DATE;
+        END IF;
+      END $$;
     `);
     console.log("Database tables initialized");
   } finally {
