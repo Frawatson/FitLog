@@ -42,6 +42,8 @@ MVP completed with the following features:
   - `POST /api/auth/logout` - Session destruction
   - `GET /api/auth/me` - Get current user info
   - `PUT /api/auth/profile` - Update user profile
+  - `POST /api/auth/forgot-password` - Request password reset (generates 6-digit code, sends email via Resend)
+  - `POST /api/auth/reset-password` - Reset password with code verification
   - `GET /api/exercises` - Fetches exercises from WorkoutAPI by muscle group
   - `POST /api/generate-routine` - Generates a complete workout routine from selected muscle groups
   - `GET /api/foods/search` - Searches FatSecret food database (falls back to local DB if API unavailable)
@@ -87,6 +89,8 @@ MVP completed with the following features:
 - `NutritionScreen` - Daily macro tracking with progress rings
 - `AddFoodScreen` - Log food entries with food database search and auto-populate
 - `ProfileScreen` - User settings, body weight, history
+- `ForgotPasswordScreen` - Email entry for password reset code request
+- `ResetPasswordScreen` - 6-digit code entry + new password setup
 
 ### Components
 - `Button`, `Card`, `Input` - Core UI components
@@ -100,6 +104,7 @@ MVP completed with the following features:
 ### PostgreSQL Database (User Authentication)
 - **users** table: id, email, password_hash, name, age, sex, height_cm, weight_kg, experience, goal, activity_level
 - **session** table: Session storage for express-session (connect-pg-simple)
+- **password_reset_codes** table: id, user_id, code (6-digit), expires_at, used, created_at
 
 ### Local Storage (AsyncStorage)
 App data stored locally on device:
