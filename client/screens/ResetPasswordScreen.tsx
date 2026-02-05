@@ -171,25 +171,24 @@ export default function ResetPasswordScreen() {
               <ThemedText type="small" style={[styles.label, { fontWeight: "600" }]}>Reset Code</ThemedText>
               <View style={styles.codeRow}>
                 {code.map((digit, index) => (
-                  <TextInput
-                    key={index}
-                    ref={(ref) => { inputRefs.current[index] = ref; }}
-                    style={[
-                      styles.codeInput,
-                      {
-                        backgroundColor: theme.backgroundDefault,
-                        color: theme.text,
-                        borderColor: digit ? Colors.light.primary : "transparent",
-                      },
-                    ]}
-                    value={digit}
-                    onChangeText={(val) => handleCodeChange(val, index)}
-                    onKeyPress={({ nativeEvent }) => handleCodeKeyPress(nativeEvent.key, index)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    textAlign="center"
-                    testID={`input-code-${index}`}
-                  />
+                  <View key={index} style={[
+                    styles.codeBox,
+                    {
+                      backgroundColor: theme.backgroundDefault,
+                      borderColor: digit ? Colors.light.primary : "transparent",
+                    },
+                  ]}>
+                    <TextInput
+                      ref={(ref) => { inputRefs.current[index] = ref; }}
+                      style={[styles.codeInput, { color: theme.text }]}
+                      value={digit}
+                      onChangeText={(val) => handleCodeChange(val, index)}
+                      onKeyPress={({ nativeEvent }) => handleCodeKeyPress(nativeEvent.key, index)}
+                      keyboardType="number-pad"
+                      maxLength={1}
+                      testID={`input-code-${index}`}
+                    />
+                  </View>
                 ))}
               </View>
             </View>
@@ -276,17 +275,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: Spacing.sm,
   },
-  codeInput: {
+  codeBox: {
     width: 48,
     height: 56,
     borderRadius: BorderRadius.sm,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  codeInput: {
+    width: "100%",
+    height: "100%",
     fontSize: 24,
     fontWeight: "700",
-    borderWidth: 2,
+    textAlign: "center",
     textAlignVertical: "center",
-    lineHeight: 56,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
+    padding: 0,
   },
   errorBox: {
     padding: Spacing.md,
