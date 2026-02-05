@@ -111,6 +111,18 @@ export interface ProgressionSuggestion {
   message: string;
 }
 
+// Heart Rate Zone Types
+export type HeartRateZone = "zone1" | "zone2" | "zone3" | "zone4" | "zone5";
+
+export interface HeartRateZoneInfo {
+  zone: HeartRateZone;
+  name: string;
+  minBpm: number;
+  maxBpm: number;
+  color: string;
+  description: string;
+}
+
 // Run Tracking Types
 export interface RunEntry {
   id: string;
@@ -124,4 +136,7 @@ export interface RunEntry {
     latitude: number;
     longitude: number;
   }[];
+  avgHeartRate?: number;
+  maxHeartRate?: number;
+  heartRateZone?: HeartRateZone;
 }

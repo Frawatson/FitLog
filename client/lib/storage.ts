@@ -599,8 +599,15 @@ export async function saveRunEntry(run: RunEntry): Promise<void> {
       startedAt: run.startedAt,
       completedAt: run.completedAt,
       route: run.route,
+      avgHeartRate: run.avgHeartRate,
+      maxHeartRate: run.maxHeartRate,
+      heartRateZone: run.heartRateZone,
     });
   }
+}
+
+export async function saveRunHistory(runs: RunEntry[]): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
 }
 
 // Clear all data (for logout)

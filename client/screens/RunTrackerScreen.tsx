@@ -5,6 +5,8 @@ import {
   Pressable,
   Platform,
   ScrollView,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -20,10 +22,11 @@ import { Button } from "@/components/Button";
 import { MapDisplay } from "@/components/MapDisplay";
 import { RunCompleteAnimation } from "@/components/RunCompleteAnimation";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius } from "@/constants/theme";
-import type { RunEntry } from "@/types";
+import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import type { RunEntry, HeartRateZone } from "@/types";
 import * as storage from "@/lib/storage";
 import { RunStackParamList, RunGoal } from "@/navigation/RunStackNavigator";
+import { getHeartRateZones, getZoneForHeartRate, getZoneColor, getZoneName } from "@/lib/heartRateZones";
 
 type NavigationProp = NativeStackNavigationProp<RunStackParamList>;
 type RunTrackerRouteProp = RouteProp<RunStackParamList, "RunTracker">;
@@ -51,6 +54,11 @@ export default function RunTrackerScreen() {
   const [splits, setSplits] = useState<number[]>([]);
   const [showCompleteAnimation, setShowCompleteAnimation] = useState(false);
   const [completedRunData, setCompletedRunData] = useState<{ distance: number; duration: number; goalReached: boolean } | null>(null);
+  const [showHRInput, setShowHRInput] = useState(false);
+  const [avgHRInput, setAvgHRInput] = useState("");
+  const [maxHRInput, setMaxHRInput] = useState("");
+  const [pendingRunId, setPendingRunId] = useState<string | null>(null);
+  const [userAge, setUserAge] = useState<number>(30);
   
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,6 +71,7 @@ export default function RunTrackerScreen() {
   useEffect(() => {
     checkPermission();
     loadRunHistory();
+    loadUserAge();
     return () => {
       if (locationSubscription.current) {
         try {
@@ -76,6 +85,13 @@ export default function RunTrackerScreen() {
       }
     };
   }, []);
+  
+  const loadUserAge = async () => {
+    const profile = await storage.getUserProfile();
+    if (profile?.age) {
+      setUserAge(profile.age);
+    }
+  };
   
   // Reload run history when screen gains focus
   useFocusEffect(
@@ -271,8 +287,9 @@ export default function RunTrackerScreen() {
       const pace = finalDuration / 60 / finalDistance;
       const distanceMiles = finalDistance * 0.621371;
       const runCalories = Math.round(distanceMiles * 100);
+      const runId = uuidv4();
       const runEntry: RunEntry = {
-        id: uuidv4(),
+        id: runId,
         distanceKm: finalDistance,
         durationSeconds: finalDuration,
         paceMinPerKm: pace,
@@ -283,6 +300,7 @@ export default function RunTrackerScreen() {
       };
       
       await storage.saveRunEntry(runEntry);
+      setPendingRunId(runId);
       loadRunHistory();
     }
     
@@ -309,12 +327,59 @@ export default function RunTrackerScreen() {
   const handleAnimationDismiss = async () => {
     setShowCompleteAnimation(false);
     setCompletedRunData(null);
+    if (pendingRunId) {
+      setShowHRInput(true);
+    } else {
+      resetRunState();
+    }
+  };
+  
+  const resetRunState = async () => {
     setDuration(0);
     setDistance(0);
     setRoute([]);
     setSplits([]);
     goalReachedRef.current = false;
+    setPendingRunId(null);
+    setAvgHRInput("");
+    setMaxHRInput("");
     await loadRunHistory();
+  };
+  
+  const handleSaveHeartRate = async () => {
+    if (pendingRunId) {
+      const avgHR = parseInt(avgHRInput) || undefined;
+      const maxHR = parseInt(maxHRInput) || undefined;
+      
+      if (avgHR || maxHR) {
+        const runs = await storage.getRunHistory();
+        const updatedRuns = runs.map(run => {
+          if (run.id === pendingRunId) {
+            let hrZone: HeartRateZone | undefined;
+            if (avgHR) {
+              const zoneInfo = getZoneForHeartRate(avgHR, userAge);
+              hrZone = zoneInfo?.zone;
+            }
+            return {
+              ...run,
+              avgHeartRate: avgHR,
+              maxHeartRate: maxHR,
+              heartRateZone: hrZone,
+            };
+          }
+          return run;
+        });
+        await storage.saveRunHistory(updatedRuns);
+      }
+    }
+    setShowHRInput(false);
+    resetRunState();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+  
+  const handleSkipHeartRate = () => {
+    setShowHRInput(false);
+    resetRunState();
   };
   
   const calculateDistance = (
@@ -398,6 +463,84 @@ export default function RunTrackerScreen() {
         goalReached={completedRunData?.goalReached ?? false}
         onDismiss={handleAnimationDismiss}
       />
+      
+      <Modal
+        visible={showHRInput}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={handleSkipHeartRate}
+      >
+        <View style={styles.hrModalOverlay}>
+          <View style={[styles.hrModalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <View style={styles.hrModalHeader}>
+              <Feather name="heart" size={32} color={Colors.light.primary} />
+              <ThemedText type="h3" style={styles.hrModalTitle}>Add Heart Rate</ThemedText>
+              <ThemedText type="small" style={{ opacity: 0.6, textAlign: "center" }}>
+                Optional: Enter your heart rate data from a watch or monitor
+              </ThemedText>
+            </View>
+            
+            <View style={styles.hrInputRow}>
+              <View style={styles.hrInputGroup}>
+                <ThemedText type="small" style={{ marginBottom: Spacing.xs }}>Avg HR (bpm)</ThemedText>
+                <TextInput
+                  style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+                  value={avgHRInput}
+                  onChangeText={setAvgHRInput}
+                  keyboardType="number-pad"
+                  placeholder="145"
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+              <View style={styles.hrInputGroup}>
+                <ThemedText type="small" style={{ marginBottom: Spacing.xs }}>Max HR (bpm)</ThemedText>
+                <TextInput
+                  style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+                  value={maxHRInput}
+                  onChangeText={setMaxHRInput}
+                  keyboardType="number-pad"
+                  placeholder="175"
+                  placeholderTextColor={theme.textSecondary}
+                />
+              </View>
+            </View>
+            
+            {avgHRInput ? (
+              <View style={styles.zonePreview}>
+                {(() => {
+                  const zoneInfo = getZoneForHeartRate(parseInt(avgHRInput) || 0, userAge);
+                  if (zoneInfo) {
+                    return (
+                      <View style={[styles.zoneBadge, { backgroundColor: zoneInfo.color + "20" }]}>
+                        <View style={[styles.zoneDot, { backgroundColor: zoneInfo.color }]} />
+                        <ThemedText type="body" style={{ color: zoneInfo.color }}>
+                          {zoneInfo.name} Zone
+                        </ThemedText>
+                      </View>
+                    );
+                  }
+                  return null;
+                })()}
+              </View>
+            ) : null}
+            
+            <View style={styles.hrModalButtons}>
+              <Pressable
+                onPress={handleSkipHeartRate}
+                style={[styles.hrModalButton, { borderColor: theme.border, borderWidth: 1 }]}
+              >
+                <ThemedText type="body">Skip</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={handleSaveHeartRate}
+                style={[styles.hrModalButton, { backgroundColor: Colors.light.primary }]}
+              >
+                <ThemedText type="body" style={{ color: "#FFFFFF" }}>Save</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
       
       <ScrollView
         style={{ flex: 1 }}
@@ -551,6 +694,17 @@ export default function RunTrackerScreen() {
                     </ThemedText>
                     <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>kcal</ThemedText>
                   </View>
+                  {run.avgHeartRate ? (
+                    <View style={styles.historyStat}>
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Feather name="heart" size={12} color={run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary} style={{ marginRight: 4 }} />
+                        <ThemedText style={[styles.historyValue, { color: run.heartRateZone ? getZoneColor(run.heartRateZone) : theme.text }]}>
+                          {run.avgHeartRate}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>bpm</ThemedText>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             ))
@@ -847,5 +1001,67 @@ const styles = StyleSheet.create({
   },
   historyLabel: {
     fontSize: 12,
+  },
+  hrModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  hrModalContent: {
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    paddingBottom: Spacing["4xl"],
+  },
+  hrModalHeader: {
+    alignItems: "center",
+    marginBottom: Spacing.xl,
+  },
+  hrModalTitle: {
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  hrInputRow: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+  },
+  hrInputGroup: {
+    flex: 1,
+  },
+  hrInput: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  zonePreview: {
+    alignItems: "center",
+    marginTop: Spacing.lg,
+  },
+  zoneBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.sm,
+  },
+  zoneDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  hrModalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
+  },
+  hrModalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
