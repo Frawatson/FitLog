@@ -6,17 +6,22 @@ FitLog is a comprehensive fitness tracking mobile app built with React Native (E
 ## Current State
 MVP completed with the following features:
 - **User Authentication** - Full login/register system with PostgreSQL database
+  - **Enhanced Security**: Rate limiting (5 attempts/15 min), account lockout after 5 failures, strong password validation (8+ chars, uppercase, lowercase, number, special char), helmet security headers
 - User onboarding with profile setup and goal selection
 - Workout routine builder with exercise library
 - **10 pre-built workout routine templates** (Push/Pull/Legs, Upper/Lower, Full Body, Beginner, etc.) with browse and customize functionality
 - **Generate Custom Routine** - Routine generator using WorkoutAPI + comprehensive local database (165+ exercises) with muscle group and difficulty selection
 - Workout logging with rest timer and set tracking
 - Rule-based progression engine (suggests weight increases/decreases)
-- **GPS Run Tracker** - track runs with distance, pace, duration, and route history
+- **Streak Tracking** - Current and longest workout streak displayed on Dashboard with celebration badges
+- **GPS Run Tracker** - track runs with distance, pace, duration, route history, and **heart rate zones**
+- **Heart Rate Zones** - 5 zones (Warm Up, Fat Burn, Cardio, Threshold, Max Effort) based on age, with post-run HR entry and zone history
 - Nutrition tracking with macro targets
 - **Food Database** with 85+ common foods and auto-populate search for quick logging
 - Body weight logging and history
 - Workout history
+- **Push Notifications** - Daily workout reminders, streak alerts (mobile only via Expo Go)
+- **Dark/Light Mode** - Theme toggle in Profile with system/light/dark options
 
 ## Project Architecture
 
@@ -50,11 +55,14 @@ MVP completed with the following features:
 ### Frontend
 - `client/App.tsx` - Main app entry with navigation and providers
 - `client/contexts/AuthContext.tsx` - Authentication state management
+- `client/contexts/ThemeContext.tsx` - Dark/light mode theme management
 - `client/navigation/RootStackNavigator.tsx` - Root navigation with auth flow
 - `client/navigation/MainTabNavigator.tsx` - Bottom tab navigation
 - `client/lib/storage.ts` - AsyncStorage utilities for data persistence
 - `client/lib/routineTemplates.ts` - Pre-built workout routine templates (10 templates)
 - `client/lib/foodDatabase.ts` - Food database with 85+ foods and search function
+- `client/lib/notifications.ts` - Push notification scheduling and management
+- `client/lib/heartRateZones.ts` - Heart rate zone calculations based on age
 - `client/types/index.ts` - TypeScript type definitions
 - `client/constants/theme.ts` - Design system colors, spacing, typography
 
@@ -125,6 +133,13 @@ App data stored locally on device:
   - Automatically fetches nutrition data from CalorieNinjas after identification
 
 ## Recent Changes
+- February 2026: Security, Notifications, Theme, and Heart Rate Features
+  - **Enhanced Security**: Added rate limiting (5 attempts/15 min), account lockout after 5 failures, strong password validation, helmet security headers
+  - **Streak Tracking**: Dashboard now displays current streak and longest streak with celebration badges
+  - **Push Notifications**: Added expo-notifications with permission handling, daily workout reminders (6 PM), streak alerts, settings UI in Profile
+  - **Dark/Light Mode**: Created ThemeContext with system/light/dark options, persistent storage, toggle in Profile
+  - **Heart Rate Zones**: 5-zone system based on age (220-age formula), post-run HR input modal, zone display in run history with color coding
+  - Added new files: ThemeContext.tsx, notifications.ts, heartRateZones.ts
 - February 2026: Run Goals and Photo Food Logging
   - Added RunGoalScreen for setting distance (1-10 mi) or time (15-60 min) goals before starting runs
   - RunTrackerScreen now tracks progress toward goals with visual progress bar
