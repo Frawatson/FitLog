@@ -355,7 +355,7 @@ router.post("/forgot-password", resetLimiter, async (req: Request, res: Response
       try {
         const resend = new Resend(resendApiKey);
         await resend.emails.send({
-          from: "Merge <onboarding@resend.dev>",
+          from: "Merge <support@mergefitness.fitness>",
           to: [email.toLowerCase()],
           subject: "Your Merge Password Reset Code",
           html: `
