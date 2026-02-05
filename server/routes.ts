@@ -7,7 +7,8 @@ import {
   getRoutines, saveRoutine, deleteRoutine,
   getWorkouts, saveWorkout,
   getRuns, saveRun,
-  getFoodLogs, saveFoodLog, deleteFoodLog
+  getFoodLogs, saveFoodLog, deleteFoodLog,
+  getUserStreak, updateUserStreak
 } from "./db";
 import { requireAuth } from "./auth";
 
@@ -595,7 +596,10 @@ Respond ONLY with valid JSON, no markdown or additional text.`
       }
       
       await saveWorkout(userId, { clientId, routineId, routineName, exercises: exercises || [], startedAt, completedAt, durationMinutes });
-      res.json({ success: true });
+      
+      // Update user's streak when completing a workout
+      const streak = await updateUserStreak(userId);
+      res.json({ success: true, streak });
     } catch (error) {
       console.error("Error saving workout:", error);
       res.status(500).json({ error: "Failed to save workout" });
@@ -624,7 +628,10 @@ Respond ONLY with valid JSON, no markdown or additional text.`
       }
       
       await saveRun(userId, { clientId, distanceKm, durationSeconds, paceMinPerKm, calories, startedAt, completedAt, route });
-      res.json({ success: true });
+      
+      // Update user's streak when completing a run
+      const streak = await updateUserStreak(userId);
+      res.json({ success: true, streak });
     } catch (error) {
       console.error("Error saving run:", error);
       res.status(500).json({ error: "Failed to save run" });
@@ -672,6 +679,18 @@ Respond ONLY with valid JSON, no markdown or additional text.`
     } catch (error) {
       console.error("Error deleting food log:", error);
       res.status(500).json({ error: "Failed to delete food log" });
+    }
+  });
+
+  // Streak tracking
+  app.get("/api/streak", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const streak = await getUserStreak(userId);
+      res.json(streak);
+    } catch (error) {
+      console.error("Error getting streak:", error);
+      res.status(500).json({ error: "Failed to get streak" });
     }
   });
 

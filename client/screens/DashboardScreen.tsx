@@ -6,6 +6,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -17,6 +18,13 @@ import type { UserProfile, MacroTargets, Routine, Workout, BodyWeightEntry, RunE
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { formatWeight } from "@/lib/units";
+import { getApiUrl } from "@/lib/query-client";
+
+interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string | null;
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -35,6 +43,7 @@ export default function DashboardScreen() {
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [todayMacros, setTodayMacros] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [latestWeight, setLatestWeight] = useState<BodyWeightEntry | null>(null);
+  const [streak, setStreak] = useState<StreakData>({ currentStreak: 0, longestStreak: 0, lastActivityDate: null });
   const [refreshing, setRefreshing] = useState(false);
   
   const loadData = async () => {
@@ -61,6 +70,22 @@ export default function DashboardScreen() {
     const today = new Date().toISOString().split("T")[0];
     const todayTotals = await storage.getDailyTotals(today);
     setTodayMacros(todayTotals);
+    
+    // Fetch streak data from API
+    try {
+      const token = await AsyncStorage.getItem("@fitlog_auth_token");
+      if (token) {
+        const response = await fetch(`${getApiUrl()}api/streak`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const streakData = await response.json();
+          setStreak(streakData);
+        }
+      }
+    } catch (error) {
+      console.log("Error fetching streak:", error);
+    }
   };
   
   useFocusEffect(
@@ -160,6 +185,28 @@ export default function DashboardScreen() {
           <Feather name="plus" size={32} color={theme.text} />
         </Pressable>
       )}
+      
+      <View style={styles.statsGrid}>
+        <Card style={styles.statCard}>
+          <Feather name="zap" size={24} color={Colors.light.primary} />
+          <ThemedText type="h2" style={styles.statValue}>
+            {streak.currentStreak}
+          </ThemedText>
+          <ThemedText type="small" style={styles.statLabel}>
+            Day streak
+          </ThemedText>
+        </Card>
+        
+        <Card style={styles.statCard}>
+          <Feather name="award" size={24} color="#FFB300" />
+          <ThemedText type="h2" style={styles.statValue}>
+            {streak.longestStreak}
+          </ThemedText>
+          <ThemedText type="small" style={styles.statLabel}>
+            Best streak
+          </ThemedText>
+        </Card>
+      </View>
       
       <View style={styles.statsGrid}>
         <Card style={styles.statCard}>

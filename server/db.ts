@@ -524,3 +524,55 @@ export async function deleteFoodLog(userId: number, clientId: string): Promise<b
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
+
+// Streak tracking functions
+export async function getUserStreak(userId: number): Promise<{ currentStreak: number; longestStreak: number; lastActivityDate: string | null }> {
+  const result = await pool.query(
+    "SELECT current_streak, longest_streak, last_activity_date FROM users WHERE id = $1",
+    [userId]
+  );
+  if (result.rows.length === 0) {
+    return { currentStreak: 0, longestStreak: 0, lastActivityDate: null };
+  }
+  const row = result.rows[0];
+  return {
+    currentStreak: row.current_streak || 0,
+    longestStreak: row.longest_streak || 0,
+    lastActivityDate: row.last_activity_date ? row.last_activity_date.toISOString().split('T')[0] : null,
+  };
+}
+
+export async function updateUserStreak(userId: number): Promise<{ currentStreak: number; longestStreak: number }> {
+  const today = new Date().toISOString().split('T')[0];
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  
+  // Get current streak data
+  const current = await getUserStreak(userId);
+  
+  let newStreak = current.currentStreak;
+  let newLongest = current.longestStreak;
+  
+  if (current.lastActivityDate === today) {
+    // Already logged today, no change
+    return { currentStreak: newStreak, longestStreak: newLongest };
+  } else if (current.lastActivityDate === yesterday) {
+    // Consecutive day - increment streak
+    newStreak = current.currentStreak + 1;
+  } else {
+    // Streak broken or first activity - reset to 1
+    newStreak = 1;
+  }
+  
+  // Update longest streak if needed
+  if (newStreak > newLongest) {
+    newLongest = newStreak;
+  }
+  
+  // Save to database
+  await pool.query(
+    `UPDATE users SET current_streak = $1, longest_streak = $2, last_activity_date = $3, updated_at = NOW() WHERE id = $4`,
+    [newStreak, newLongest, today, userId]
+  );
+  
+  return { currentStreak: newStreak, longestStreak: newLongest };
+}
