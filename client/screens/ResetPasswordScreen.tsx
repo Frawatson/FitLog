@@ -283,6 +283,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "700",
     borderWidth: 2,
+    textAlignVertical: "center",
+    lineHeight: 56,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
   errorBox: {
     padding: Spacing.md,
