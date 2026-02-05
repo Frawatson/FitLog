@@ -29,7 +29,7 @@ export default function ProfileScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { theme } = useTheme();
+  const { theme, isDark, themePreference, setThemePreference } = useTheme();
   const { user, logout, deleteAccount } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -309,6 +309,47 @@ export default function ProfileScreen() {
       ) : null}
       
       <Card style={styles.sectionCard}>
+        <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Appearance</ThemedText>
+        
+        <View style={styles.notificationRow}>
+          <View style={styles.notificationInfo}>
+            <Feather name={isDark ? "moon" : "sun"} size={20} color={theme.text} />
+            <View style={styles.notificationText}>
+              <ThemedText type="body">Dark Mode</ThemedText>
+              <ThemedText type="small" style={{ opacity: 0.6 }}>
+                {themePreference === "system" ? "Following system" : themePreference === "dark" ? "Always dark" : "Always light"}
+              </ThemedText>
+            </View>
+          </View>
+          <Switch
+            value={themePreference === "dark" || (themePreference === "system" && isDark)}
+            onValueChange={(value) => {
+              setThemePreference(value ? "dark" : "light");
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+            trackColor={{ false: theme.border, true: Colors.light.primary }}
+            thumbColor="#FFFFFF"
+          />
+        </View>
+        
+        <Pressable
+          onPress={() => {
+            setThemePreference("system");
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          style={({ pressed }) => [
+            styles.systemThemeButton,
+            { backgroundColor: themePreference === "system" ? Colors.light.primary + "20" : "transparent", opacity: pressed ? 0.7 : 1 },
+          ]}
+        >
+          <Feather name="smartphone" size={16} color={themePreference === "system" ? Colors.light.primary : theme.textSecondary} />
+          <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: themePreference === "system" ? Colors.light.primary : theme.textSecondary }}>
+            Use System Setting
+          </ThemedText>
+        </Pressable>
+      </Card>
+      
+      <Card style={styles.sectionCard}>
         <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Notifications</ThemedText>
         
         <View style={styles.notificationRow}>
@@ -579,5 +620,14 @@ const styles = StyleSheet.create({
   notificationText: {
     marginLeft: Spacing.md,
     flex: 1,
+  },
+  systemThemeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.md,
+    alignSelf: "flex-start",
   },
 });
