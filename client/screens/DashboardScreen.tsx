@@ -73,7 +73,7 @@ export default function DashboardScreen() {
     
     // Fetch streak data from API
     try {
-      const token = await AsyncStorage.getItem("@fitlog_auth_token");
+      const token = await AsyncStorage.getItem("@merge_auth_token");
       if (token) {
         const response = await fetch(`${getApiUrl()}api/streak`, {
           headers: { Authorization: `Bearer ${token}` },

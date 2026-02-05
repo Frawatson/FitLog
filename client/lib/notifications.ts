@@ -2,7 +2,7 @@ import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
-const NOTIFICATION_SETTINGS_KEY = "@fitlog_notification_settings";
+const NOTIFICATION_SETTINGS_KEY = "@merge_notification_settings";
 
 export interface NotificationSettings {
   workoutReminders: boolean;

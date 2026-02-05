@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-// FitLog Design System - Bold Athletic Theme
+// Merge Design System - Bold Athletic Theme
 const primaryOrange = "#FF4500";
 const nearBlack = "#1A1A1A";
 const successGreen = "#00D084";

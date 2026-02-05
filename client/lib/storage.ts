@@ -17,15 +17,15 @@ import { syncToServer, syncWithRetry, isAuthenticated, initSyncService } from "@
 export { initSyncService };
 
 const STORAGE_KEYS = {
-  USER_PROFILE: "@fitlog_user_profile",
-  MACRO_TARGETS: "@fitlog_macro_targets",
-  EXERCISES: "@fitlog_exercises",
-  ROUTINES: "@fitlog_routines",
-  WORKOUTS: "@fitlog_workouts",
-  BODY_WEIGHTS: "@fitlog_body_weights",
-  SAVED_FOODS: "@fitlog_saved_foods",
-  FOOD_LOG: "@fitlog_food_log",
-  RUN_HISTORY: "@fitlog_run_history",
+  USER_PROFILE: "@merge_user_profile",
+  MACRO_TARGETS: "@merge_macro_targets",
+  EXERCISES: "@merge_exercises",
+  ROUTINES: "@merge_routines",
+  WORKOUTS: "@merge_workouts",
+  BODY_WEIGHTS: "@merge_body_weights",
+  SAVED_FOODS: "@merge_saved_foods",
+  FOOD_LOG: "@merge_food_log",
+  RUN_HISTORY: "@merge_run_history",
 };
 
 // Default exercises
@@ -296,7 +296,7 @@ export async function getLastWorkoutForExercise(
   return null;
 }
 
-const AUTH_TOKEN_KEY = "@fitlog_auth_token";
+const AUTH_TOKEN_KEY = "@merge_auth_token";
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);

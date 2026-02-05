@@ -4,7 +4,7 @@ import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
 import { initSyncService } from "@/lib/storage";
 
-const AUTH_TOKEN_KEY = "@fitlog_auth_token";
+const AUTH_TOKEN_KEY = "@merge_auth_token";
 
 export interface User {
   id: number;

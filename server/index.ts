@@ -270,7 +270,7 @@ function setupErrorHandler(app: express.Application) {
       pool,
       tableName: "session",
     }),
-    secret: process.env.SESSION_SECRET || "fitlog-secret-key-change-in-prod",
+    secret: process.env.SESSION_SECRET || "merge-secret-key-change-in-prod",
     resave: false,
     saveUninitialized: false,
     cookie: {

@@ -85,7 +85,7 @@ export default function MainTabNavigator() {
         options={{
           title: "Home",
           headerShown: true,
-          headerTitle: "FitLog",
+          headerTitle: "Merge",
           headerTransparent: true,
           headerTintColor: theme.text,
           tabBarIcon: ({ color, size }) => (

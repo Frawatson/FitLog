@@ -13,7 +13,7 @@ declare module "express-session" {
 const router = Router();
 
 // JWT secret from environment or fallback
-const JWT_SECRET = process.env.SESSION_SECRET || "fitlog-jwt-secret-key";
+const JWT_SECRET = process.env.SESSION_SECRET || "merge-jwt-secret-key";
 const JWT_EXPIRES_IN = "30d"; // 30 days
 
 // Rate limiter for auth routes (5 attempts per 15 minutes)

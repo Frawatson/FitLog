@@ -62,7 +62,7 @@ export default function LoginScreen() {
             <View style={[styles.iconContainer, { backgroundColor: Colors.light.primary }]}>
               <Feather name="activity" size={40} color="#FFFFFF" />
             </View>
-            <ThemedText type="h1" style={styles.title}>FitLog</ThemedText>
+            <ThemedText type="h1" style={styles.title}>Merge</ThemedText>
             <ThemedText type="body" style={styles.subtitle}>
               Track your fitness journey
             </ThemedText>

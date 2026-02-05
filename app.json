@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "FitLog",
-    "slug": "fitlog",
+    "name": "Merge",
+    "slug": "merge",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "fitlog",
+    "scheme": "merge",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fitlog.app"
+      "bundleIdentifier": "com.merge.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.fitlog.app"
+      "package": "com.merge.app"
     },
     "web": {
       "output": "single",

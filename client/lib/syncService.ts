@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 
-const AUTH_TOKEN_KEY = "@fitlog_auth_token";
-const SYNC_QUEUE_KEY = "@fitlog_sync_queue";
+const AUTH_TOKEN_KEY = "@merge_auth_token";
+const SYNC_QUEUE_KEY = "@merge_sync_queue";
 const RETRY_INTERVAL_MS = 3 * 60 * 1000;
 
 interface SyncQueueItem {
