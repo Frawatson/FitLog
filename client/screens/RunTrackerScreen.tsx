@@ -710,7 +710,7 @@ export default function RunTrackerScreen() {
             ))
           ) : (
             <View style={[styles.emptyHistoryCard, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="activity" size={32} color={theme.textSecondary} />
+              <Feather name="map-pin" size={32} color={theme.textSecondary} />
               <ThemedText style={[styles.emptyHistoryText, { color: theme.textSecondary }]}>
                 No runs yet. Start your first run!
               </ThemedText>

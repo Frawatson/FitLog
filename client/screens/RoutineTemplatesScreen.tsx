@@ -120,7 +120,7 @@ export default function RoutineTemplatesScreen() {
               </ThemedText>
             </View>
             <View style={styles.metaItem}>
-              <Feather name="activity" size={14} color={theme.textSecondary} />
+              <Feather name="list" size={14} color={theme.textSecondary} />
               <ThemedText type="small" style={styles.metaText}>
                 {item.exercises.length} exercises
               </ThemedText>

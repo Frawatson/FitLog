@@ -210,7 +210,7 @@ export default function DashboardScreen() {
       
       <View style={styles.statsGrid}>
         <Card style={styles.statCard}>
-          <Feather name="activity" size={24} color={Colors.light.success} />
+          <Feather name="trending-up" size={24} color={Colors.light.success} />
           <ThemedText type="h2" style={styles.statValue}>
             {latestWeight ? formatWeight(latestWeight.weightKg, profile?.unitSystem || "imperial") : "--"}
           </ThemedText>

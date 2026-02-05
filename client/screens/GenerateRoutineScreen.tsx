@@ -30,8 +30,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const MUSCLE_GROUPS = [
   { id: "abdominals", label: "Abs", icon: "target" },
-  { id: "biceps", label: "Biceps", icon: "activity" },
-  { id: "triceps", label: "Triceps", icon: "activity" },
+  { id: "biceps", label: "Biceps", icon: "disc" },
+  { id: "triceps", label: "Triceps", icon: "disc" },
   { id: "chest", label: "Chest", icon: "heart" },
   { id: "lats", label: "Back (Lats)", icon: "layers" },
   { id: "middle_back", label: "Middle Back", icon: "layers" },
@@ -41,7 +41,7 @@ const MUSCLE_GROUPS = [
   { id: "hamstrings", label: "Hamstrings", icon: "zap" },
   { id: "glutes", label: "Glutes", icon: "zap" },
   { id: "calves", label: "Calves", icon: "zap" },
-  { id: "forearms", label: "Forearms", icon: "activity" },
+  { id: "forearms", label: "Forearms", icon: "disc" },
   { id: "traps", label: "Traps", icon: "layers" },
 ];
 

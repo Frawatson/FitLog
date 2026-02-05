@@ -3,7 +3,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -60,7 +60,7 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <View style={[styles.iconContainer, { backgroundColor: Colors.light.primary }]}>
-              <Feather name="activity" size={40} color="#FFFFFF" />
+              <MaterialCommunityIcons name="dumbbell" size={40} color="#FFFFFF" />
             </View>
             <ThemedText type="h1" style={styles.title}>Merge</ThemedText>
             <ThemedText type="body" style={styles.subtitle}>
