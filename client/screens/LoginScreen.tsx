@@ -96,6 +96,12 @@ export default function LoginScreen() {
               autoComplete="password"
             />
 
+            <Pressable onPress={() => navigation.navigate("ForgotPassword")} style={styles.forgotPassword}>
+              <ThemedText type="small" style={{ color: Colors.light.primary }}>
+                Forgot password?
+              </ThemedText>
+            </Pressable>
+
             <Button
               onPress={handleLogin}
               disabled={loading}
@@ -158,6 +164,9 @@ const styles = StyleSheet.create({
   errorBox: {
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
+  },
+  forgotPassword: {
+    alignSelf: "flex-end",
   },
   loginButton: {
     marginTop: Spacing.md,

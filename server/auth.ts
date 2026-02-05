@@ -2,7 +2,8 @@ import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
-import { getUserByEmail, getUserById, createUser, updateUserProfile, deleteUser, pool } from "./db";
+import { getUserByEmail, getUserById, createUser, updateUserProfile, deleteUser, pool, createPasswordResetCode, verifyPasswordResetCode, markResetCodeUsed, updateUserPassword } from "./db";
+import { Resend } from "resend";
 
 declare module "express-session" {
   interface SessionData {
@@ -321,6 +322,99 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Update profile error:", error);
     res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+const resetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { error: "Too many reset attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post("/forgot-password", resetLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: "Please enter a valid email address" });
+    }
+
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.json({ success: true, message: "If an account exists with that email, a reset code has been sent." });
+    }
+
+    const code = await createPasswordResetCode(user.id);
+
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (resendApiKey) {
+      try {
+        const resend = new Resend(resendApiKey);
+        await resend.emails.send({
+          from: "Merge <onboarding@resend.dev>",
+          to: [email.toLowerCase()],
+          subject: "Your Merge Password Reset Code",
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+              <div style="text-align: center; margin-bottom: 32px;">
+                <h1 style="color: #FF4500; font-size: 28px; margin: 0;">Merge</h1>
+                <p style="color: #666; margin-top: 4px;">Fitness Tracking</p>
+              </div>
+              <h2 style="color: #1A1A1A; font-size: 20px;">Password Reset</h2>
+              <p style="color: #333; line-height: 1.6;">You requested a password reset. Enter this code in the app:</p>
+              <div style="background: #F5F5F5; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
+                <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #FF4500;">${code}</span>
+              </div>
+              <p style="color: #666; font-size: 14px;">This code expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error("Failed to send reset email:", emailError);
+      }
+    } else {
+      console.log(`[DEV] Password reset code for ${email}: ${code}`);
+    }
+
+    res.json({ success: true, message: "If an account exists with that email, a reset code has been sent." });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ error: "Failed to process reset request" });
+  }
+});
+
+router.post("/reset-password", resetLimiter, async (req: Request, res: Response) => {
+  try {
+    const { email, code, newPassword } = req.body;
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: "Email, code, and new password are required" });
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ error: passwordValidation.message });
+    }
+
+    const verification = await verifyPasswordResetCode(email, code);
+    if (!verification.valid || !verification.userId) {
+      return res.status(400).json({ error: "Invalid or expired reset code" });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await updateUserPassword(verification.userId, passwordHash);
+    await markResetCodeUsed(email, code);
+    await clearFailedAttempts(email);
+
+    await pool.query("DELETE FROM session WHERE sess::text LIKE $1", [`%"userId":${verification.userId}%`]);
+
+    res.json({ success: true, message: "Password has been reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ error: "Failed to reset password" });
   }
 });
 

@@ -16,6 +16,8 @@ import GenerateRoutineScreen from "@/screens/GenerateRoutineScreen";
 import LoginScreen from "@/screens/LoginScreen";
 import RegisterScreen from "@/screens/RegisterScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
+import ForgotPasswordScreen from "@/screens/ForgotPasswordScreen";
+import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import * as storage from "@/lib/storage";
@@ -24,6 +26,8 @@ import * as storage from "@/lib/storage";
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { email: string };
   Main: { screen?: string } | undefined;
   Onboarding: undefined;
   EditRoutine: { routineId?: string };
@@ -95,6 +99,16 @@ export default function RootStackNavigator() {
         <Stack.Screen
           name="Onboarding"
           component={OnboardingScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ForgotPassword"
+          component={ForgotPasswordScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ResetPassword"
+          component={ResetPasswordScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

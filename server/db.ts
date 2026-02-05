@@ -134,6 +134,17 @@ export async function initializeDatabase(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS IDX_login_attempts_email ON login_attempts (email);
       
+      -- Password reset codes table
+      CREATE TABLE IF NOT EXISTS password_reset_codes (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        code VARCHAR(6) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS IDX_password_reset_codes_user ON password_reset_codes (user_id);
+      
       -- Add streak tracking columns to users table
       DO $$ 
       BEGIN 
@@ -540,6 +551,51 @@ export async function getUserStreak(userId: number): Promise<{ currentStreak: nu
     longestStreak: row.longest_streak || 0,
     lastActivityDate: row.last_activity_date ? row.last_activity_date.toISOString().split('T')[0] : null,
   };
+}
+
+export async function createPasswordResetCode(userId: number): Promise<string> {
+  await pool.query("DELETE FROM password_reset_codes WHERE user_id = $1", [userId]);
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+  await pool.query(
+    `INSERT INTO password_reset_codes (user_id, code, expires_at) VALUES ($1, $2, $3)`,
+    [userId, code, expiresAt]
+  );
+  return code;
+}
+
+export async function verifyPasswordResetCode(email: string, code: string): Promise<{ valid: boolean; userId: number | null }> {
+  const result = await pool.query(
+    `SELECT prc.id, prc.user_id, prc.expires_at, prc.used
+     FROM password_reset_codes prc
+     JOIN users u ON u.id = prc.user_id
+     WHERE u.email = $1 AND prc.code = $2
+     ORDER BY prc.created_at DESC LIMIT 1`,
+    [email.toLowerCase(), code]
+  );
+  if (result.rows.length === 0) {
+    return { valid: false, userId: null };
+  }
+  const row = result.rows[0];
+  if (row.used || new Date(row.expires_at) < new Date()) {
+    return { valid: false, userId: null };
+  }
+  return { valid: true, userId: row.user_id };
+}
+
+export async function markResetCodeUsed(email: string, code: string): Promise<void> {
+  await pool.query(
+    `UPDATE password_reset_codes SET used = TRUE
+     WHERE user_id = (SELECT id FROM users WHERE email = $1) AND code = $2`,
+    [email.toLowerCase(), code]
+  );
+}
+
+export async function updateUserPassword(userId: number, passwordHash: string): Promise<void> {
+  await pool.query(
+    "UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+    [passwordHash, userId]
+  );
 }
 
 export async function updateUserStreak(userId: number): Promise<{ currentStreak: number; longestStreak: number }> {
