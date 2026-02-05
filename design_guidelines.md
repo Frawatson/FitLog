@@ -1,4 +1,4 @@
-# FitLog - Design Guidelines
+# Merge - Design Guidelines
 
 ## Brand Identity
 
