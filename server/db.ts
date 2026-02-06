@@ -263,6 +263,10 @@ export async function updateUserProfile(id: number, data: {
 }
 
 export async function deleteUser(id: number): Promise<boolean> {
+  const user = await getUserById(id);
+  if (user) {
+    await pool.query("DELETE FROM login_attempts WHERE email = $1", [user.email]);
+  }
   const result = await pool.query(
     "DELETE FROM users WHERE id = $1 RETURNING id",
     [id]
