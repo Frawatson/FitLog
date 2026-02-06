@@ -117,10 +117,8 @@ export default function DashboardScreen() {
   }).length;
   
   const getName = () => {
-    // Use the authenticated user's name first, then fall back to local profile
-    if (user?.name) return user.name;
-    if (profile?.name) return profile.name;
-    return "Athlete";
+    const fullName = user?.name || profile?.name || "Athlete";
+    return fullName.split(" ")[0];
   };
   
   return (
