@@ -8,7 +8,10 @@ import {
   getWorkouts, saveWorkout,
   getRuns, saveRun,
   getFoodLogs, saveFoodLog, deleteFoodLog,
-  getUserStreak, updateUserStreak
+  getUserStreak, updateUserStreak,
+  getCustomExercises, saveCustomExercise, deleteCustomExercise,
+  getSavedFoods, saveSavedFood, deleteSavedFood,
+  getNotificationPrefs, saveNotificationPrefs
 } from "./db";
 import { requireAuth } from "./auth";
 
@@ -679,6 +682,154 @@ Respond ONLY with valid JSON, no markdown or additional text.`
     } catch (error) {
       console.error("Error deleting food log:", error);
       res.status(500).json({ error: "Failed to delete food log" });
+    }
+  });
+
+  // Custom Exercises
+  app.get("/api/custom-exercises", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const exercises = await getCustomExercises(userId);
+      res.json(exercises);
+    } catch (error) {
+      console.error("Error getting custom exercises:", error);
+      res.status(500).json({ error: "Failed to get custom exercises" });
+    }
+  });
+
+  app.post("/api/custom-exercises", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { clientId, name, muscleGroup, isCustom } = req.body;
+      if (!clientId || !name || !muscleGroup) {
+        return res.status(400).json({ error: "clientId, name, and muscleGroup are required" });
+      }
+      await saveCustomExercise(userId, { clientId, name, muscleGroup, isCustom: isCustom ?? true });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving custom exercise:", error);
+      res.status(500).json({ error: "Failed to save custom exercise" });
+    }
+  });
+
+  app.post("/api/custom-exercises/bulk", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { exercises } = req.body;
+      if (!Array.isArray(exercises)) {
+        return res.status(400).json({ error: "exercises array is required" });
+      }
+      for (const exercise of exercises) {
+        if (exercise.isCustom) {
+          await saveCustomExercise(userId, {
+            clientId: exercise.clientId || exercise.id,
+            name: exercise.name,
+            muscleGroup: exercise.muscleGroup,
+            isCustom: true,
+          });
+        }
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error bulk saving exercises:", error);
+      res.status(500).json({ error: "Failed to save exercises" });
+    }
+  });
+
+  app.delete("/api/custom-exercises/:clientId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      await deleteCustomExercise(userId, req.params.clientId as string);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting custom exercise:", error);
+      res.status(500).json({ error: "Failed to delete custom exercise" });
+    }
+  });
+
+  // Saved Foods
+  app.get("/api/saved-foods", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const foods = await getSavedFoods(userId);
+      res.json(foods);
+    } catch (error) {
+      console.error("Error getting saved foods:", error);
+      res.status(500).json({ error: "Failed to get saved foods" });
+    }
+  });
+
+  app.post("/api/saved-foods", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { food } = req.body;
+      if (!food || !food.id) {
+        return res.status(400).json({ error: "food object with id is required" });
+      }
+      await saveSavedFood(userId, food);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving food:", error);
+      res.status(500).json({ error: "Failed to save food" });
+    }
+  });
+
+  app.post("/api/saved-foods/bulk", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { foods } = req.body;
+      if (!Array.isArray(foods)) {
+        return res.status(400).json({ error: "foods array is required" });
+      }
+      for (const food of foods) {
+        if (food && food.id) {
+          await saveSavedFood(userId, food);
+        }
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error bulk saving foods:", error);
+      res.status(500).json({ error: "Failed to save foods" });
+    }
+  });
+
+  app.delete("/api/saved-foods/:foodId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      await deleteSavedFood(userId, req.params.foodId as string);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting saved food:", error);
+      res.status(500).json({ error: "Failed to delete saved food" });
+    }
+  });
+
+  // Notification Preferences
+  app.get("/api/notification-prefs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const prefs = await getNotificationPrefs(userId);
+      res.json(prefs);
+    } catch (error) {
+      console.error("Error getting notification prefs:", error);
+      res.status(500).json({ error: "Failed to get notification preferences" });
+    }
+  });
+
+  app.post("/api/notification-prefs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { workoutReminders, streakAlerts, reminderHour, reminderMinute } = req.body;
+      await saveNotificationPrefs(userId, {
+        workoutReminders: workoutReminders ?? false,
+        streakAlerts: streakAlerts ?? false,
+        reminderHour: reminderHour ?? 18,
+        reminderMinute: reminderMinute ?? 0,
+      });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving notification prefs:", error);
+      res.status(500).json({ error: "Failed to save notification preferences" });
     }
   });
 

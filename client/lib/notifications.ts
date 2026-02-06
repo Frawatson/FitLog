@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
+import { syncToServer, syncWithRetry, isAuthenticated } from "@/lib/syncService";
 
 const NOTIFICATION_SETTINGS_KEY = "@merge_notification_settings";
 
@@ -44,6 +45,21 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
   try {
+    if (await isAuthenticated()) {
+      const result = await syncToServer<any>("/api/notification-prefs", "GET");
+      if (result.success && result.data) {
+        const settings: NotificationSettings = {
+          workoutReminders: result.data.workoutReminders ?? false,
+          streakAlerts: result.data.streakAlerts ?? false,
+          reminderTime: {
+            hour: result.data.reminderHour ?? 18,
+            minute: result.data.reminderMinute ?? 0,
+          },
+        };
+        await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+        return settings;
+      }
+    }
     const stored = await AsyncStorage.getItem(NOTIFICATION_SETTINGS_KEY);
     if (stored) {
       return { ...defaultSettings, ...JSON.parse(stored) };
@@ -57,6 +73,15 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
 export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
   try {
     await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+
+    if (await isAuthenticated()) {
+      await syncWithRetry("/api/notification-prefs", "POST", {
+        workoutReminders: settings.workoutReminders,
+        streakAlerts: settings.streakAlerts,
+        reminderHour: settings.reminderTime.hour,
+        reminderMinute: settings.reminderTime.minute,
+      });
+    }
   } catch (error) {
     console.log("Error saving notification settings:", error);
   }

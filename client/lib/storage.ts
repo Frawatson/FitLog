@@ -131,11 +131,24 @@ export function calculateMacros(profile: UserProfile): MacroTargets {
 // Exercises
 export async function getExercises(): Promise<Exercise[]> {
   try {
+    if (await isAuthenticated()) {
+      const result = await syncToServer<any[]>("/api/custom-exercises", "GET");
+      if (result.success && result.data) {
+        const customExercises: Exercise[] = result.data.map(e => ({
+          id: e.clientId,
+          name: e.name,
+          muscleGroup: e.muscleGroup,
+          isCustom: true,
+        }));
+        const allExercises = [...DEFAULT_EXERCISES, ...customExercises];
+        await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(allExercises));
+        return allExercises;
+      }
+    }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.EXERCISES);
     if (data) {
       return JSON.parse(data);
     }
-    // Initialize with defaults
     await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(DEFAULT_EXERCISES));
     return DEFAULT_EXERCISES;
   } catch {
@@ -153,6 +166,15 @@ export async function addExercise(name: string, muscleGroup: string): Promise<Ex
   };
   exercises.push(newExercise);
   await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(exercises));
+
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/custom-exercises", "POST", {
+      clientId: newExercise.id,
+      name: newExercise.name,
+      muscleGroup: newExercise.muscleGroup,
+      isCustom: true,
+    });
+  }
   return newExercise;
 }
 
@@ -392,6 +414,22 @@ async function getBodyWeightsLocal(): Promise<BodyWeightEntry[]> {
 // Saved Foods
 export async function getSavedFoods(): Promise<Food[]> {
   try {
+    if (await isAuthenticated()) {
+      const result = await syncToServer<any[]>("/api/saved-foods", "GET");
+      if (result.success && result.data) {
+        const foods: Food[] = result.data.map(f => ({
+          id: f.id,
+          name: f.name,
+          calories: f.calories,
+          protein: f.protein,
+          carbs: f.carbs,
+          fat: f.fat,
+          isSaved: true,
+        }));
+        await AsyncStorage.setItem(STORAGE_KEYS.SAVED_FOODS, JSON.stringify(foods));
+        return foods;
+      }
+    }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_FOODS);
     return data ? JSON.parse(data) : [];
   } catch {
@@ -408,6 +446,10 @@ export async function saveFood(food: Omit<Food, "id" | "isSaved">): Promise<Food
   };
   foods.push(newFood);
   await AsyncStorage.setItem(STORAGE_KEYS.SAVED_FOODS, JSON.stringify(foods));
+
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/saved-foods", "POST", { food: newFood });
+  }
   return newFood;
 }
 
@@ -415,6 +457,10 @@ export async function deleteSavedFood(foodId: string): Promise<void> {
   const foods = await getSavedFoods();
   const filtered = foods.filter((f) => f.id !== foodId);
   await AsyncStorage.setItem(STORAGE_KEYS.SAVED_FOODS, JSON.stringify(filtered));
+
+  if (await isAuthenticated()) {
+    await syncWithRetry("/api/saved-foods/" + foodId, "DELETE", {});
+  }
 }
 
 // Food Log

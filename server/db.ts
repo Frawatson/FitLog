@@ -145,6 +145,41 @@ export async function initializeDatabase(): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS IDX_password_reset_codes_user ON password_reset_codes (user_id);
       
+      -- Custom exercises table
+      CREATE TABLE IF NOT EXISTS custom_exercises (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        client_id VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        muscle_group VARCHAR(100) NOT NULL,
+        is_custom BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, client_id)
+      );
+      CREATE INDEX IF NOT EXISTS IDX_custom_exercises_user_id ON custom_exercises (user_id);
+
+      -- Saved foods table
+      CREATE TABLE IF NOT EXISTS saved_foods (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        food_data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS IDX_saved_foods_user_id ON saved_foods (user_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS IDX_saved_foods_unique ON saved_foods (user_id, (food_data->>'id'));
+
+      -- Notification preferences table
+      CREATE TABLE IF NOT EXISTS notification_preferences (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        workout_reminders BOOLEAN DEFAULT FALSE,
+        streak_alerts BOOLEAN DEFAULT FALSE,
+        reminder_hour INTEGER DEFAULT 18,
+        reminder_minute INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id)
+      );
+
       -- Add streak tracking columns to users table
       DO $$ 
       BEGIN 
@@ -635,4 +670,107 @@ export async function updateUserStreak(userId: number): Promise<{ currentStreak:
   );
   
   return { currentStreak: newStreak, longestStreak: newLongest };
+}
+
+// Custom Exercises
+export interface CustomExerciseData {
+  clientId: string;
+  name: string;
+  muscleGroup: string;
+  isCustom: boolean;
+}
+
+export async function getCustomExercises(userId: number): Promise<CustomExerciseData[]> {
+  const result = await pool.query(
+    `SELECT client_id, name, muscle_group, is_custom FROM custom_exercises WHERE user_id = $1 ORDER BY created_at ASC`,
+    [userId]
+  );
+  return result.rows.map(row => ({
+    clientId: row.client_id,
+    name: row.name,
+    muscleGroup: row.muscle_group,
+    isCustom: row.is_custom,
+  }));
+}
+
+export async function saveCustomExercise(userId: number, exercise: CustomExerciseData): Promise<void> {
+  await pool.query(
+    `INSERT INTO custom_exercises (user_id, client_id, name, muscle_group, is_custom)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (user_id, client_id) DO UPDATE SET
+       name = EXCLUDED.name,
+       muscle_group = EXCLUDED.muscle_group,
+       is_custom = EXCLUDED.is_custom`,
+    [userId, exercise.clientId, exercise.name, exercise.muscleGroup, exercise.isCustom]
+  );
+}
+
+export async function deleteCustomExercise(userId: number, clientId: string): Promise<void> {
+  await pool.query(
+    "DELETE FROM custom_exercises WHERE user_id = $1 AND client_id = $2",
+    [userId, clientId]
+  );
+}
+
+// Saved Foods
+export async function getSavedFoods(userId: number): Promise<any[]> {
+  const result = await pool.query(
+    `SELECT food_data FROM saved_foods WHERE user_id = $1 ORDER BY created_at ASC`,
+    [userId]
+  );
+  return result.rows.map(row => row.food_data);
+}
+
+export async function saveSavedFood(userId: number, foodData: any): Promise<void> {
+  await pool.query(
+    `INSERT INTO saved_foods (user_id, food_data)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id, (food_data->>'id')) DO UPDATE SET
+       food_data = EXCLUDED.food_data`,
+    [userId, JSON.stringify(foodData)]
+  );
+}
+
+export async function deleteSavedFood(userId: number, foodId: string): Promise<void> {
+  await pool.query(
+    "DELETE FROM saved_foods WHERE user_id = $1 AND food_data->>'id' = $2",
+    [userId, foodId]
+  );
+}
+
+// Notification Preferences
+export interface NotificationPrefsData {
+  workoutReminders: boolean;
+  streakAlerts: boolean;
+  reminderHour: number;
+  reminderMinute: number;
+}
+
+export async function getNotificationPrefs(userId: number): Promise<NotificationPrefsData | null> {
+  const result = await pool.query(
+    "SELECT workout_reminders, streak_alerts, reminder_hour, reminder_minute FROM notification_preferences WHERE user_id = $1",
+    [userId]
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    workoutReminders: row.workout_reminders,
+    streakAlerts: row.streak_alerts,
+    reminderHour: row.reminder_hour,
+    reminderMinute: row.reminder_minute,
+  };
+}
+
+export async function saveNotificationPrefs(userId: number, prefs: NotificationPrefsData): Promise<void> {
+  await pool.query(
+    `INSERT INTO notification_preferences (user_id, workout_reminders, streak_alerts, reminder_hour, reminder_minute)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (user_id) DO UPDATE SET
+       workout_reminders = EXCLUDED.workout_reminders,
+       streak_alerts = EXCLUDED.streak_alerts,
+       reminder_hour = EXCLUDED.reminder_hour,
+       reminder_minute = EXCLUDED.reminder_minute,
+       updated_at = CURRENT_TIMESTAMP`,
+    [userId, prefs.workoutReminders, prefs.streakAlerts, prefs.reminderHour, prefs.reminderMinute]
+  );
 }
