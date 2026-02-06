@@ -112,22 +112,40 @@ function generateToken(userId: number): string {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
-function getUserIdFromToken(token: string): number | null {
+function decodeToken(token: string): { userId: number; iat: number } | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
-    return decoded.userId;
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; iat: number };
+    return decoded;
   } catch (error) {
     return null;
   }
 }
 
-// Get user ID from session or Bearer token
-function getUserIdFromRequest(req: Request): number | null {
-  // First check session
+async function getUserIdFromToken(token: string): Promise<number | null> {
+  const decoded = decodeToken(token);
+  if (!decoded) return null;
+
+  const result = await pool.query(
+    "SELECT password_changed_at FROM users WHERE id = $1",
+    [decoded.userId]
+  );
+  if (result.rows.length === 0) return null;
+
+  const { password_changed_at } = result.rows[0];
+  if (password_changed_at) {
+    const changedAtSeconds = Math.floor(new Date(password_changed_at).getTime() / 1000);
+    if (decoded.iat < changedAtSeconds) {
+      return null;
+    }
+  }
+
+  return decoded.userId;
+}
+
+async function getUserIdFromRequest(req: Request): Promise<number | null> {
   if (req.session.userId) {
     return req.session.userId;
   }
-  // Then check Authorization header (JWT token)
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
@@ -137,13 +155,15 @@ function getUserIdFromRequest(req: Request): number | null {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const userId = getUserIdFromRequest(req);
-  if (!userId) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  // Store userId on request for later use
-  (req as any).userId = userId;
-  next();
+  getUserIdFromRequest(req).then(userId => {
+    if (!userId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    (req as any).userId = userId;
+    next();
+  }).catch(() => {
+    res.status(401).json({ error: "Authentication required" });
+  });
 }
 
 router.post("/register", authLimiter, async (req: Request, res: Response) => {
@@ -254,7 +274,7 @@ router.post("/logout", (req: Request, res: Response) => {
 });
 
 router.get("/me", async (req: Request, res: Response) => {
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
   if (!userId) {
     return res.status(401).json({ error: "Not authenticated" });
   }

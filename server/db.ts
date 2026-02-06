@@ -33,6 +33,14 @@ export async function initializeDatabase(): Promise<void> {
         END IF;
       END $$;
 
+      -- Add password_changed_at column if it doesn't exist
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'password_changed_at') THEN
+          ALTER TABLE users ADD COLUMN password_changed_at TIMESTAMP;
+        END IF;
+      END $$;
+
       CREATE TABLE IF NOT EXISTS session (
         sid VARCHAR NOT NULL COLLATE "default",
         sess JSON NOT NULL,
@@ -632,7 +640,7 @@ export async function markResetCodeUsed(email: string, code: string): Promise<vo
 
 export async function updateUserPassword(userId: number, passwordHash: string): Promise<void> {
   await pool.query(
-    "UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
+    "UPDATE users SET password_hash = $1, password_changed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
     [passwordHash, userId]
   );
 }
