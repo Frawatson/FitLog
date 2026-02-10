@@ -90,7 +90,7 @@ async function fetchAllExercises(apiKey: string): Promise<WorkoutAPIExercise[]> 
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // CalorieNinjas Food Search API
-  app.get("/api/foods/search", async (req, res) => {
+  app.get("/api/foods/search", requireAuth, async (req, res) => {
     try {
       const { query } = req.query;
       
@@ -156,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Photo-based food analysis endpoint
   // Uses OpenAI Vision to identify food, then CalorieNinjas for nutrition lookup
-  app.post("/api/foods/analyze-photo", async (req, res) => {
+  app.post("/api/foods/analyze-photo", requireAuth, async (req, res) => {
     try {
       const { imageBase64 } = req.body;
       

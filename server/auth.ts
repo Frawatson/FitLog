@@ -43,6 +43,9 @@ function validatePassword(password: string): { valid: boolean; message: string }
   if (!/[0-9]/.test(password)) {
     return { valid: false, message: "Password must contain at least one number" };
   }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    return { valid: false, message: "Password must contain at least one special character" };
+  }
   return { valid: true, message: "" };
 }
 
@@ -310,8 +313,27 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
     const { name, age, sex, heightCm, weightKg, weightGoalKg, experience, goal, activityLevel } = req.body;
     const userId = (req as any).userId;
 
+    if (name !== undefined && (typeof name !== "string" || name.trim().length === 0 || name.length > 255)) {
+      return res.status(400).json({ error: "Name must be between 1 and 255 characters" });
+    }
+    if (age !== undefined && (typeof age !== "number" || age < 13 || age > 120)) {
+      return res.status(400).json({ error: "Age must be between 13 and 120" });
+    }
+    if (sex !== undefined && !["male", "female", "other"].includes(sex)) {
+      return res.status(400).json({ error: "Invalid sex value" });
+    }
+    if (heightCm !== undefined && (typeof heightCm !== "number" || heightCm < 50 || heightCm > 300)) {
+      return res.status(400).json({ error: "Height must be between 50 and 300 cm" });
+    }
+    if (weightKg !== undefined && (typeof weightKg !== "number" || weightKg < 20 || weightKg > 500)) {
+      return res.status(400).json({ error: "Weight must be between 20 and 500 kg" });
+    }
+    if (weightGoalKg !== undefined && (typeof weightGoalKg !== "number" || weightGoalKg < 20 || weightGoalKg > 500)) {
+      return res.status(400).json({ error: "Weight goal must be between 20 and 500 kg" });
+    }
+
     const updated = await updateUserProfile(userId, {
-      name,
+      name: name?.trim(),
       age,
       sex,
       heightCm,

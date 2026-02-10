@@ -210,7 +210,7 @@ export async function initializeDatabase(): Promise<void> {
 
 export async function getUserByEmail(email: string) {
   const result = await pool.query(
-    "SELECT * FROM users WHERE email = $1",
+    "SELECT id, email, password_hash, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, created_at FROM users WHERE email = $1",
     [email.toLowerCase()]
   );
   return result.rows[0] || null;

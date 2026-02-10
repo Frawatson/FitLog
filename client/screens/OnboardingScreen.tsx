@@ -78,8 +78,24 @@ export default function OnboardingScreen() {
         setError("Please enter your email");
         return;
       }
-      if (password.length < 6) {
-        setError("Password must be at least 6 characters");
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters");
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setError("Password must contain an uppercase letter");
+        return;
+      }
+      if (!/[a-z]/.test(password)) {
+        setError("Password must contain a lowercase letter");
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        setError("Password must contain a number");
+        return;
+      }
+      if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+        setError("Password must contain a special character");
         return;
       }
       if (password !== confirmPassword) {

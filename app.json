@@ -10,7 +10,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.merge.app"
+      "bundleIdentifier": "com.merge.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Merge uses your location to track your running routes, distance, and pace.",
+        "NSCameraUsageDescription": "Merge uses the camera to photograph food for nutritional analysis.",
+        "NSPhotoLibraryUsageDescription": "Merge accesses your photo library to select food photos for nutritional analysis."
+      }
     },
     "android": {
       "adaptiveIcon": {
