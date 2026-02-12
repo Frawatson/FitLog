@@ -13,6 +13,7 @@ import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
@@ -29,26 +30,45 @@ import { v4 as uuidv4 } from "uuid";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const MUSCLE_GROUPS = [
-  { id: "abdominals", label: "Abs", icon: "target" },
+  { id: "chest", label: "Chest", icon: "heart" },
+  { id: "shoulders", label: "Shoulders", icon: "circle" },
   { id: "biceps", label: "Biceps", icon: "disc" },
   { id: "triceps", label: "Triceps", icon: "disc" },
-  { id: "chest", label: "Chest", icon: "heart" },
+  { id: "forearms", label: "Forearms", icon: "disc" },
   { id: "lats", label: "Back (Lats)", icon: "layers" },
   { id: "middle_back", label: "Middle Back", icon: "layers" },
   { id: "lower_back", label: "Lower Back", icon: "layers" },
-  { id: "shoulders", label: "Shoulders", icon: "circle" },
+  { id: "traps", label: "Traps", icon: "layers" },
+  { id: "abdominals", label: "Abs", icon: "target" },
   { id: "quadriceps", label: "Quads", icon: "zap" },
   { id: "hamstrings", label: "Hamstrings", icon: "zap" },
   { id: "glutes", label: "Glutes", icon: "zap" },
   { id: "calves", label: "Calves", icon: "zap" },
-  { id: "forearms", label: "Forearms", icon: "disc" },
-  { id: "traps", label: "Traps", icon: "layers" },
 ];
 
 const DIFFICULTY_LEVELS = [
   { id: "beginner", label: "Beginner", description: "New to lifting" },
-  { id: "intermediate", label: "Intermediate", description: "1-3 years experience" },
-  { id: "expert", label: "Advanced", description: "3+ years experience" },
+  { id: "intermediate", label: "Intermediate", description: "1-3 years" },
+  { id: "expert", label: "Advanced", description: "3+ years" },
+];
+
+const EQUIPMENT_OPTIONS = [
+  { id: "barbell", label: "Barbell" },
+  { id: "dumbbells", label: "Dumbbells" },
+  { id: "cables", label: "Cables" },
+  { id: "machines", label: "Machines" },
+  { id: "kettlebell", label: "Kettlebell" },
+  { id: "bodyweight", label: "Bodyweight" },
+  { id: "resistance_bands", label: "Bands" },
+  { id: "pull_up_bar", label: "Pull-up Bar" },
+];
+
+const GOAL_OPTIONS = [
+  { id: "build_muscle", label: "Build Muscle", icon: "trending-up" },
+  { id: "build_strength", label: "Build Strength", icon: "award" },
+  { id: "lose_fat", label: "Lose Fat", icon: "activity" },
+  { id: "endurance", label: "Endurance", icon: "repeat" },
+  { id: "general_fitness", label: "General Fitness", icon: "heart" },
 ];
 
 export default function GenerateRoutineScreen() {
@@ -56,10 +76,13 @@ export default function GenerateRoutineScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme, isDark } = useTheme();
-  
+
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("intermediate");
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
+  const [selectedGoal, setSelectedGoal] = useState<string>("build_muscle");
   const [routineName, setRoutineName] = useState("");
+  const [notes, setNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,9 +95,23 @@ export default function GenerateRoutineScreen() {
     );
   };
 
+  const toggleEquipment = (equipId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedEquipment((prev) =>
+      prev.includes(equipId)
+        ? prev.filter((id) => id !== equipId)
+        : [...prev, equipId]
+    );
+  };
+
   const selectDifficulty = (difficultyId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedDifficulty(difficultyId);
+  };
+
+  const selectGoal = (goalId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedGoal(goalId);
   };
 
   const generateRoutine = async () => {
@@ -88,25 +125,31 @@ export default function GenerateRoutineScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
+      const token = await AsyncStorage.getItem("@merge_auth_token");
       const apiUrl = getApiUrl();
       const response = await fetch(new URL("/api/generate-routine", apiUrl).toString(), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           muscleGroups: selectedMuscles,
           difficulty: selectedDifficulty,
           name: routineName || undefined,
+          equipment: selectedEquipment.length > 0 ? selectedEquipment : undefined,
+          goal: selectedGoal,
+          notes: notes.trim() || undefined,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to generate routine");
+        const errData = await response.json().catch(() => null);
+        throw new Error(errData?.error || "Failed to generate routine");
       }
 
       const data = await response.json();
-      
+
       const exercises: RoutineExercise[] = data.exercises.map((ex: any, index: number) => ({
         exerciseId: ex.id || uuidv4(),
         exerciseName: ex.name,
@@ -124,9 +167,9 @@ export default function GenerateRoutineScreen() {
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.navigate("Main", { screen: "RoutinesTab" });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating routine:", err);
-      setError("Failed to generate routine. Please try again.");
+      setError(err.message || "Failed to generate routine. Please try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsGenerating(false);
@@ -139,7 +182,7 @@ export default function GenerateRoutineScreen() {
         style={styles.scrollView}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.lg,
-          paddingBottom: insets.bottom + Spacing.xl,
+          paddingBottom: insets.bottom + Spacing["3xl"],
           paddingHorizontal: Spacing.lg,
         }}
         showsVerticalScrollIndicator={false}
@@ -161,6 +204,7 @@ export default function GenerateRoutineScreen() {
             placeholderTextColor={theme.textSecondary}
             value={routineName}
             onChangeText={setRoutineName}
+            testID="input-routine-name"
           />
         </View>
 
@@ -171,25 +215,26 @@ export default function GenerateRoutineScreen() {
           <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
             Select the muscles you want to train
           </ThemedText>
-          <View style={styles.muscleGrid}>
+          <View style={styles.chipGrid}>
             {MUSCLE_GROUPS.map((muscle) => {
               const isSelected = selectedMuscles.includes(muscle.id);
               return (
                 <Pressable
                   key={muscle.id}
                   style={[
-                    styles.muscleChip,
+                    styles.chip,
                     {
                       backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
                       borderColor: isSelected ? theme.primary : theme.border,
                     },
                   ]}
                   onPress={() => toggleMuscle(muscle.id)}
+                  testID={`chip-muscle-${muscle.id}`}
                 >
                   <Feather
                     name={muscle.icon as any}
-                    size={16}
-                    color={isSelected ? "#FFFFFF" : theme.text}
+                    size={14}
+                    color={isSelected ? "#FFFFFF" : theme.textSecondary}
                   />
                   <ThemedText
                     type="small"
@@ -199,6 +244,84 @@ export default function GenerateRoutineScreen() {
                     }}
                   >
                     {muscle.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="h3" style={styles.sectionTitle}>
+            Training Goal
+          </ThemedText>
+          <View style={styles.chipGrid}>
+            {GOAL_OPTIONS.map((goal) => {
+              const isSelected = selectedGoal === goal.id;
+              return (
+                <Pressable
+                  key={goal.id}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      borderColor: isSelected ? theme.primary : theme.border,
+                    },
+                  ]}
+                  onPress={() => selectGoal(goal.id)}
+                  testID={`chip-goal-${goal.id}`}
+                >
+                  <Feather
+                    name={goal.icon as any}
+                    size={14}
+                    color={isSelected ? "#FFFFFF" : theme.textSecondary}
+                  />
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: isSelected ? "#FFFFFF" : theme.text,
+                      fontWeight: isSelected ? "600" : "400",
+                    }}
+                  >
+                    {goal.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <ThemedText type="h3" style={styles.sectionTitle}>
+            Available Equipment
+          </ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+            Select what you have access to (leave empty for full gym)
+          </ThemedText>
+          <View style={styles.chipGrid}>
+            {EQUIPMENT_OPTIONS.map((equip) => {
+              const isSelected = selectedEquipment.includes(equip.id);
+              return (
+                <Pressable
+                  key={equip.id}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      borderColor: isSelected ? theme.primary : theme.border,
+                    },
+                  ]}
+                  onPress={() => toggleEquipment(equip.id)}
+                  testID={`chip-equip-${equip.id}`}
+                >
+                  <ThemedText
+                    type="small"
+                    style={{
+                      color: isSelected ? "#FFFFFF" : theme.text,
+                      fontWeight: isSelected ? "600" : "400",
+                    }}
+                  >
+                    {equip.label}
                   </ThemedText>
                 </Pressable>
               );
@@ -224,20 +347,17 @@ export default function GenerateRoutineScreen() {
                     },
                   ]}
                   onPress={() => selectDifficulty(level.id)}
+                  testID={`chip-difficulty-${level.id}`}
                 >
                   <ThemedText
                     type="h4"
-                    style={{
-                      color: isSelected ? "#FFFFFF" : theme.text,
-                    }}
+                    style={{ color: isSelected ? "#FFFFFF" : theme.text }}
                   >
                     {level.label}
                   </ThemedText>
                   <ThemedText
                     type="caption"
-                    style={{
-                      color: isSelected ? "rgba(255,255,255,0.8)" : theme.textSecondary,
-                    }}
+                    style={{ color: isSelected ? "rgba(255,255,255,0.8)" : theme.textSecondary }}
                   >
                     {level.description}
                   </ThemedText>
@@ -247,62 +367,100 @@ export default function GenerateRoutineScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <ThemedText type="h3" style={styles.sectionTitle}>
+            Additional Notes (Optional)
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.input,
+              styles.multilineInput,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="e.g., I have a shoulder injury, focus on hypertrophy..."
+            placeholderTextColor={theme.textSecondary}
+            value={notes}
+            onChangeText={setNotes}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            testID="input-notes"
+          />
+        </View>
+
         {error ? (
-          <View style={styles.errorContainer}>
-            <Feather name="alert-circle" size={20} color={theme.error} />
-            <ThemedText style={{ color: theme.error, marginLeft: Spacing.sm }}>
+          <View style={[styles.errorContainer, { backgroundColor: `${theme.error}15` }]}>
+            <Feather name="alert-circle" size={18} color={theme.error} />
+            <ThemedText type="small" style={{ color: theme.error, marginLeft: Spacing.sm, flex: 1 }}>
               {error}
             </ThemedText>
           </View>
         ) : null}
 
-        <View style={styles.summarySection}>
-          <Card style={styles.summaryCard}>
-            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>
-              Your Workout
+        <Card style={styles.summaryCard}>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
+            Workout Summary
+          </ThemedText>
+          <View style={styles.summaryRow}>
+            <Feather name="target" size={16} color={theme.primary} />
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm, flex: 1 }}>
+              {selectedMuscles.length > 0
+                ? selectedMuscles.map((id) => MUSCLE_GROUPS.find((m) => m.id === id)?.label).join(", ")
+                : "No muscles selected"}
             </ThemedText>
+          </View>
+          <View style={styles.summaryRow}>
+            <Feather name="trending-up" size={16} color={theme.primary} />
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+              {GOAL_OPTIONS.find((g) => g.id === selectedGoal)?.label}
+            </ThemedText>
+          </View>
+          <View style={styles.summaryRow}>
+            <Feather name="bar-chart-2" size={16} color={theme.primary} />
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+              {DIFFICULTY_LEVELS.find((d) => d.id === selectedDifficulty)?.label} level
+            </ThemedText>
+          </View>
+          {selectedEquipment.length > 0 ? (
             <View style={styles.summaryRow}>
-              <Feather name="target" size={16} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
-                {selectedMuscles.length > 0
-                  ? selectedMuscles.map((id) => MUSCLE_GROUPS.find((m) => m.id === id)?.label).join(", ")
-                  : "No muscles selected"}
+              <Feather name="tool" size={16} color={theme.primary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm, flex: 1 }}>
+                {selectedEquipment.map((id) => EQUIPMENT_OPTIONS.find((e) => e.id === id)?.label).join(", ")}
               </ThemedText>
             </View>
-            <View style={styles.summaryRow}>
-              <Feather name="bar-chart-2" size={16} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
-                {DIFFICULTY_LEVELS.find((d) => d.id === selectedDifficulty)?.label} level
-              </ThemedText>
-            </View>
-            <View style={styles.summaryRow}>
-              <Feather name="list" size={16} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
-                ~{selectedMuscles.length * 3} exercises will be generated
-              </ThemedText>
-            </View>
-          </Card>
-        </View>
+          ) : null}
+          <View style={[styles.summaryRow, { marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: theme.border }]}>
+            <Feather name="cpu" size={16} color={theme.primary} />
+            <ThemedText type="small" style={{ color: theme.primary, marginLeft: Spacing.sm, fontWeight: "600" }}>
+              Powered by AI
+            </ThemedText>
+          </View>
+        </Card>
 
         <Button
           onPress={generateRoutine}
           disabled={isGenerating || selectedMuscles.length === 0}
           style={styles.generateButton}
+          testID="button-generate"
         >
           {isGenerating ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator color="#FFFFFF" size="small" />
               <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>
-                Generating...
+                AI is building your workout...
               </ThemedText>
             </View>
           ) : (
-            <>
+            <View style={styles.loadingContainer}>
               <Feather name="zap" size={20} color="#FFFFFF" />
               <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm, fontWeight: "700" }}>
                 Generate Routine
               </ThemedText>
-            </>
+            </View>
           )}
         </Button>
       </ScrollView>
@@ -330,12 +488,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
   },
-  muscleGrid: {
+  multilineInput: {
+    height: 80,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
+  },
+  chipGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: Spacing.sm,
   },
-  muscleChip: {
+  chip: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: Spacing.sm,
@@ -357,12 +520,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: Spacing.md,
     marginBottom: Spacing.lg,
-  },
-  summarySection: {
-    marginBottom: Spacing.xl,
+    borderRadius: BorderRadius.md,
   },
   summaryCard: {
-    padding: Spacing.lg,
+    marginBottom: Spacing.xl,
   },
   summaryRow: {
     flexDirection: "row",
@@ -373,6 +534,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: Spacing.xl,
   },
   loadingContainer: {
     flexDirection: "row",

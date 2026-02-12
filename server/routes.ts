@@ -344,27 +344,100 @@ Respond ONLY with valid JSON, no markdown or additional text.`
   
   // Generate routine - creates a balanced workout from exercises
   // Uses WorkoutAPI as primary source, falls back to local database for variety
-  app.post("/api/generate-routine", async (req, res) => {
+  app.post("/api/generate-routine", requireAuth, async (req, res) => {
     try {
-      const { muscleGroups, difficulty, name } = req.body;
-      
+      const { muscleGroups, difficulty, name, equipment, goal, notes } = req.body;
+
       if (!muscleGroups || !Array.isArray(muscleGroups) || muscleGroups.length === 0) {
         return res.status(400).json({ error: "At least one muscle group is required" });
       }
 
-      const difficultyLevel: "beginner" | "intermediate" | "expert" = 
-        difficulty === "beginner" ? "beginner" : 
-        difficulty === "advanced" || difficulty === "expert" ? "expert" : "intermediate";
+      const difficultyLevel = difficulty === "beginner" ? "beginner" : difficulty === "advanced" || difficulty === "expert" ? "advanced" : "intermediate";
 
-      // Try to fetch from API first
-      let apiExercises: WorkoutAPIExercise[] = [];
-      const apiKey = process.env.WORKOUT_API_KEY;
-      
-      if (apiKey) {
+      const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+
+      if (openaiApiKey && openaiBaseUrl) {
         try {
-          apiExercises = await fetchAllExercises(apiKey);
-        } catch (err) {
-          console.log("WorkoutAPI unavailable, using local database only");
+          const OpenAI = (await import("openai")).default;
+          const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: openaiBaseUrl });
+
+          const equipmentList = equipment && equipment.length > 0
+            ? equipment.join(", ")
+            : "full gym (barbell, dumbbells, cables, machines)";
+
+          const goalText = goal || "general fitness";
+
+          const prompt = `You are an expert personal trainer. Create a workout routine with the following parameters:
+- Target muscle groups: ${muscleGroups.join(", ")}
+- Experience level: ${difficultyLevel}
+- Available equipment: ${equipmentList}
+- Training goal: ${goalText}
+${notes ? `- Additional notes: ${notes}` : ""}
+
+Generate a complete workout routine. For each exercise include:
+- name: the exercise name
+- muscleGroup: primary muscle targeted
+- equipment: equipment needed
+- sets: number of sets (${difficultyLevel === "beginner" ? "2-3" : difficultyLevel === "intermediate" ? "3-4" : "4-5"})
+- reps: rep range as a string (e.g. "8-12", "12-15", "5")
+- restSeconds: rest between sets in seconds
+- instructions: brief form cues (1-2 sentences)
+- order: exercise order (start compound movements first, then isolation)
+
+Order exercises properly: compound lifts first, then isolation work. Include ${muscleGroups.length <= 2 ? "4-5" : "3-4"} exercises per muscle group. Total should be ${muscleGroups.length <= 2 ? "8-10" : Math.min(muscleGroups.length * 3, 15)} exercises.
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "name": "routine name",
+  "exercises": [
+    {
+      "name": "Exercise Name",
+      "muscleGroup": "Chest",
+      "equipment": "Barbell",
+      "sets": 4,
+      "reps": "8-12",
+      "restSeconds": 90,
+      "instructions": "Brief form cues here.",
+      "order": 0
+    }
+  ]
+}`;
+
+          const response = await openai.chat.completions.create({
+            model: "gpt-5-mini",
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+          });
+
+          const content = response.choices[0]?.message?.content;
+          if (!content) throw new Error("Empty AI response");
+
+          const parsed = JSON.parse(content);
+          const exercises = parsed.exercises.map((ex: any, idx: number) => ({
+            id: `ai-${Date.now()}-${idx}`,
+            name: ex.name,
+            muscleGroup: ex.muscleGroup,
+            equipment: ex.equipment || "Bodyweight",
+            sets: ex.sets || 3,
+            reps: String(ex.reps || "10"),
+            restSeconds: ex.restSeconds || 60,
+            instructions: ex.instructions || "",
+            order: ex.order ?? idx,
+          }));
+
+          exercises.sort((a: any, b: any) => a.order - b.order);
+
+          return res.json({
+            id: `routine-${Date.now()}`,
+            name: name || parsed.name || `${muscleGroups.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1).replace("_", " ")).join(" & ")} Workout`,
+            exercises,
+            difficulty: difficultyLevel,
+            muscleGroups,
+            generatedBy: "ai",
+          });
+        } catch (aiError) {
+          console.error("OpenAI routine generation failed, falling back to database:", aiError);
         }
       }
 
@@ -372,78 +445,64 @@ Respond ONLY with valid JSON, no markdown or additional text.`
       const usedExerciseNames = new Set<string>();
       const exercisesPerMuscle = muscleGroups.length <= 2 ? 3 : 2;
 
-      // Get exercises for each muscle group
+      let apiExercises: WorkoutAPIExercise[] = [];
+      const apiKey = process.env.WORKOUT_API_KEY;
+      if (apiKey) {
+        try { apiExercises = await fetchAllExercises(apiKey); } catch {}
+      }
+
       for (const muscle of muscleGroups) {
         const muscleCode = MUSCLE_MAP[String(muscle).toLowerCase()] || String(muscle).toUpperCase();
         let muscleExercisesCount = 0;
-        
-        // First, try to get exercises from API
-        if (apiExercises.length > 0) {
-          const apiMuscleExercises = apiExercises.filter(ex => 
-            ex.primaryMuscles.some(m => 
-              m.code === muscleCode || 
-              m.code.includes(muscleCode) || 
-              muscleCode.includes(m.code)
-            )
-          );
 
+        if (apiExercises.length > 0) {
+          const apiMuscleExercises = apiExercises.filter(ex =>
+            ex.primaryMuscles.some(m => m.code === muscleCode || m.code.includes(muscleCode) || muscleCode.includes(m.code))
+          );
           for (const ex of apiMuscleExercises) {
             if (muscleExercisesCount >= exercisesPerMuscle) break;
             if (usedExerciseNames.has(ex.name.toLowerCase())) continue;
-            
             usedExerciseNames.add(ex.name.toLowerCase());
             routineExercises.push({
-              id: ex.id,
-              name: ex.name,
+              id: ex.id, name: ex.name,
               muscleGroup: ex.primaryMuscles[0]?.name || muscle,
               equipment: ex.categories[0]?.name || "Bodyweight",
               sets: difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5,
-              reps: 10,
-              restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
+              reps: "10", restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
               instructions: ex.description,
             });
             muscleExercisesCount++;
           }
         }
 
-        // Supplement with local database if we need more exercises
         if (muscleExercisesCount < exercisesPerMuscle) {
           const localExercises = getExercisesByMuscle(muscle);
-          const filteredLocal = getExercisesByDifficulty(localExercises, difficultyLevel);
-          
-          // Shuffle for variety
+          const filteredLocal = getExercisesByDifficulty(localExercises, difficultyLevel === "advanced" ? "expert" : difficultyLevel);
           const shuffled = filteredLocal.sort(() => Math.random() - 0.5);
-          
           for (const ex of shuffled) {
             if (muscleExercisesCount >= exercisesPerMuscle) break;
             if (usedExerciseNames.has(ex.name.toLowerCase())) continue;
-            
             usedExerciseNames.add(ex.name.toLowerCase());
             routineExercises.push({
-              id: ex.id,
-              name: ex.name,
-              muscleGroup: muscle.charAt(0).toUpperCase() + muscle.slice(1).replace('_', ' '),
+              id: ex.id, name: ex.name,
+              muscleGroup: muscle.charAt(0).toUpperCase() + muscle.slice(1).replace("_", " "),
               equipment: ex.equipment,
               sets: difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5,
-              reps: 10,
-              restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
+              reps: "10", restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
               instructions: ex.instructions,
             });
             muscleExercisesCount++;
           }
         }
-
-        console.log(`Added ${muscleExercisesCount} exercises for ${muscle}`);
       }
-
-      console.log(`Total exercises in routine: ${routineExercises.length}`);
 
       res.json({
         id: `routine-${Date.now()}`,
-        name: name || `${muscleGroups.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1).replace('_', ' ')).join(" & ")} Workout`,
+        name: name || `${muscleGroups.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1).replace("_", " ")).join(" & ")} Workout`,
         exercises: routineExercises,
         difficulty: difficultyLevel,
         muscleGroups,
+        generatedBy: "database",
       });
     } catch (error) {
       console.error("Error generating routine:", error);
