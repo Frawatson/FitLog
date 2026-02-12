@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   StyleSheet,
@@ -6,6 +6,9 @@ import {
   Pressable,
   ActivityIndicator,
   TextInput,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -26,6 +29,10 @@ import * as storage from "@/lib/storage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { Routine, RoutineExercise } from "@/types";
 import { v4 as uuidv4 } from "uuid";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -71,6 +78,91 @@ const GOAL_OPTIONS = [
   { id: "general_fitness", label: "General Fitness", icon: "heart" },
 ];
 
+function CollapsibleSection({
+  title,
+  subtitle,
+  isExpanded,
+  onToggle,
+  children,
+  badge,
+  theme,
+}: {
+  title: string;
+  subtitle?: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+  badge?: string;
+  theme: any;
+}) {
+  return (
+    <View style={[sectionStyles.wrapper, { borderColor: theme.border }]}>
+      <Pressable
+        onPress={onToggle}
+        style={sectionStyles.header}
+        testID={`section-toggle-${title.toLowerCase().replace(/\s+/g, "-")}`}
+      >
+        <View style={sectionStyles.headerLeft}>
+          <ThemedText type="h4">{title}</ThemedText>
+          {badge ? (
+            <View style={[sectionStyles.badge, { backgroundColor: theme.primary }]}>
+              <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                {badge}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+        <Feather
+          name={isExpanded ? "chevron-up" : "chevron-down"}
+          size={20}
+          color={theme.textSecondary}
+        />
+      </Pressable>
+      {subtitle && !isExpanded ? (
+        <ThemedText type="caption" style={{ color: theme.textSecondary, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
+          {subtitle}
+        </ThemedText>
+      ) : null}
+      {isExpanded ? (
+        <View style={sectionStyles.content}>
+          {children}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+const sectionStyles = StyleSheet.create({
+  wrapper: {
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+    overflow: "hidden",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  badge: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  content: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.lg,
+  },
+});
+
 export default function GenerateRoutineScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -85,6 +177,20 @@ export default function GenerateRoutineScreen() {
   const [notes, setNotes] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    muscles: true,
+    goal: false,
+    equipment: false,
+    difficulty: false,
+    extras: false,
+  });
+
+  const toggleSection = useCallback((key: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const toggleMuscle = (muscleId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -176,6 +282,11 @@ export default function GenerateRoutineScreen() {
     }
   };
 
+  const musclesBadge = selectedMuscles.length > 0 ? `${selectedMuscles.length}` : undefined;
+  const equipBadge = selectedEquipment.length > 0 ? `${selectedEquipment.length}` : undefined;
+  const goalLabel = GOAL_OPTIONS.find((g) => g.id === selectedGoal)?.label;
+  const diffLabel = DIFFICULTY_LEVELS.find((d) => d.id === selectedDifficulty)?.label;
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
@@ -187,34 +298,16 @@ export default function GenerateRoutineScreen() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.section}>
-          <ThemedText type="h3" style={styles.sectionTitle}>
-            Routine Name (Optional)
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.backgroundSecondary,
-                color: theme.text,
-                borderColor: theme.border,
-              },
-            ]}
-            placeholder="e.g., Upper Body Strength"
-            placeholderTextColor={theme.textSecondary}
-            value={routineName}
-            onChangeText={setRoutineName}
-            testID="input-routine-name"
-          />
-        </View>
-
-        <View style={styles.section}>
-          <ThemedText type="h3" style={styles.sectionTitle}>
-            Target Muscle Groups
-          </ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
-            Select the muscles you want to train
-          </ThemedText>
+        <CollapsibleSection
+          title="Muscle Groups"
+          subtitle={selectedMuscles.length > 0
+            ? selectedMuscles.map((id) => MUSCLE_GROUPS.find((m) => m.id === id)?.label).join(", ")
+            : "Tap to select muscles"}
+          isExpanded={expandedSections.muscles}
+          onToggle={() => toggleSection("muscles")}
+          badge={musclesBadge}
+          theme={theme}
+        >
           <View style={styles.chipGrid}>
             {MUSCLE_GROUPS.map((muscle) => {
               const isSelected = selectedMuscles.includes(muscle.id);
@@ -249,12 +342,15 @@ export default function GenerateRoutineScreen() {
               );
             })}
           </View>
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <ThemedText type="h3" style={styles.sectionTitle}>
-            Training Goal
-          </ThemedText>
+        <CollapsibleSection
+          title="Training Goal"
+          subtitle={goalLabel}
+          isExpanded={expandedSections.goal}
+          onToggle={() => toggleSection("goal")}
+          theme={theme}
+        >
           <View style={styles.chipGrid}>
             {GOAL_OPTIONS.map((goal) => {
               const isSelected = selectedGoal === goal.id;
@@ -289,14 +385,20 @@ export default function GenerateRoutineScreen() {
               );
             })}
           </View>
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <ThemedText type="h3" style={styles.sectionTitle}>
-            Available Equipment
-          </ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
-            Select what you have access to (leave empty for full gym)
+        <CollapsibleSection
+          title="Equipment"
+          subtitle={selectedEquipment.length > 0
+            ? selectedEquipment.map((id) => EQUIPMENT_OPTIONS.find((e) => e.id === id)?.label).join(", ")
+            : "Full gym (default)"}
+          isExpanded={expandedSections.equipment}
+          onToggle={() => toggleSection("equipment")}
+          badge={equipBadge}
+          theme={theme}
+        >
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+            Leave empty to assume full gym access
           </ThemedText>
           <View style={styles.chipGrid}>
             {EQUIPMENT_OPTIONS.map((equip) => {
@@ -327,12 +429,15 @@ export default function GenerateRoutineScreen() {
               );
             })}
           </View>
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <ThemedText type="h3" style={styles.sectionTitle}>
-            Difficulty Level
-          </ThemedText>
+        <CollapsibleSection
+          title="Difficulty"
+          subtitle={diffLabel}
+          isExpanded={expandedSections.difficulty}
+          onToggle={() => toggleSection("difficulty")}
+          theme={theme}
+        >
           <View style={styles.difficultyContainer}>
             {DIFFICULTY_LEVELS.map((level) => {
               const isSelected = selectedDifficulty === level.id;
@@ -365,23 +470,47 @@ export default function GenerateRoutineScreen() {
               );
             })}
           </View>
-        </View>
+        </CollapsibleSection>
 
-        <View style={styles.section}>
-          <ThemedText type="h3" style={styles.sectionTitle}>
-            Additional Notes (Optional)
+        <CollapsibleSection
+          title="Name & Notes"
+          subtitle={routineName || notes ? (routineName || notes).substring(0, 40) : "Optional"}
+          isExpanded={expandedSections.extras}
+          onToggle={() => toggleSection("extras")}
+          theme={theme}
+        >
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+            Routine Name
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.backgroundDefault,
+                color: theme.text,
+                borderColor: theme.border,
+              },
+            ]}
+            placeholder="e.g., Upper Body Strength"
+            placeholderTextColor={theme.textSecondary}
+            value={routineName}
+            onChangeText={setRoutineName}
+            testID="input-routine-name"
+          />
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.sm, marginTop: Spacing.lg }}>
+            Notes for AI
           </ThemedText>
           <TextInput
             style={[
               styles.input,
               styles.multilineInput,
               {
-                backgroundColor: theme.backgroundSecondary,
+                backgroundColor: theme.backgroundDefault,
                 color: theme.text,
                 borderColor: theme.border,
               },
             ]}
-            placeholder="e.g., I have a shoulder injury, focus on hypertrophy..."
+            placeholder="e.g., shoulder injury, focus on hypertrophy..."
             placeholderTextColor={theme.textSecondary}
             value={notes}
             onChangeText={setNotes}
@@ -390,7 +519,7 @@ export default function GenerateRoutineScreen() {
             textAlignVertical="top"
             testID="input-notes"
           />
-        </View>
+        </CollapsibleSection>
 
         {error ? (
           <View style={[styles.errorContainer, { backgroundColor: `${theme.error}15` }]}>
@@ -400,46 +529,6 @@ export default function GenerateRoutineScreen() {
             </ThemedText>
           </View>
         ) : null}
-
-        <Card style={styles.summaryCard}>
-          <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
-            Workout Summary
-          </ThemedText>
-          <View style={styles.summaryRow}>
-            <Feather name="target" size={16} color={theme.primary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm, flex: 1 }}>
-              {selectedMuscles.length > 0
-                ? selectedMuscles.map((id) => MUSCLE_GROUPS.find((m) => m.id === id)?.label).join(", ")
-                : "No muscles selected"}
-            </ThemedText>
-          </View>
-          <View style={styles.summaryRow}>
-            <Feather name="trending-up" size={16} color={theme.primary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
-              {GOAL_OPTIONS.find((g) => g.id === selectedGoal)?.label}
-            </ThemedText>
-          </View>
-          <View style={styles.summaryRow}>
-            <Feather name="bar-chart-2" size={16} color={theme.primary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
-              {DIFFICULTY_LEVELS.find((d) => d.id === selectedDifficulty)?.label} level
-            </ThemedText>
-          </View>
-          {selectedEquipment.length > 0 ? (
-            <View style={styles.summaryRow}>
-              <Feather name="tool" size={16} color={theme.primary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm, flex: 1 }}>
-                {selectedEquipment.map((id) => EQUIPMENT_OPTIONS.find((e) => e.id === id)?.label).join(", ")}
-              </ThemedText>
-            </View>
-          ) : null}
-          <View style={[styles.summaryRow, { marginTop: Spacing.md, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: theme.border }]}>
-            <Feather name="cpu" size={16} color={theme.primary} />
-            <ThemedText type="small" style={{ color: theme.primary, marginLeft: Spacing.sm, fontWeight: "600" }}>
-              Powered by AI
-            </ThemedText>
-          </View>
-        </Card>
 
         <Button
           onPress={generateRoutine}
@@ -474,12 +563,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  section: {
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.sm,
   },
   input: {
     height: 48,
@@ -521,14 +604,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     marginBottom: Spacing.lg,
     borderRadius: BorderRadius.md,
-  },
-  summaryCard: {
-    marginBottom: Spacing.xl,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: Spacing.sm,
   },
   generateButton: {
     flexDirection: "row",
