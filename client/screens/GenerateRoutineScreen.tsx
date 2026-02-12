@@ -6,9 +6,6 @@ import {
   Pressable,
   ActivityIndicator,
   TextInput,
-  LayoutAnimation,
-  Platform,
-  UIManager,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -29,10 +26,6 @@ import * as storage from "@/lib/storage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { Routine, RoutineExercise } from "@/types";
 import { v4 as uuidv4 } from "uuid";
-
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -187,7 +180,6 @@ export default function GenerateRoutineScreen() {
   });
 
   const toggleSection = useCallback((key: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setExpandedSections((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
