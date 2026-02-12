@@ -10,7 +10,7 @@ MVP completed with the following features:
 - User onboarding with profile setup and goal selection
 - Workout routine builder with exercise library
 - **10 pre-built workout routine templates** (Push/Pull/Legs, Upper/Lower, Full Body, Beginner, etc.) with browse and customize functionality
-- **Generate Custom Routine** - Routine generator using WorkoutAPI + comprehensive local database (165+ exercises) with muscle group and difficulty selection
+- **AI-Powered Routine Generator** - OpenAI-powered workout generation with muscle group, equipment, training goal, and difficulty selection. Falls back to WorkoutAPI + local database (165+ exercises) if AI unavailable
 - Workout logging with rest timer and set tracking
 - Rule-based progression engine (suggests weight increases/decreases)
 - **Streak Tracking** - Current and longest workout streak displayed on Dashboard with celebration badges
@@ -45,7 +45,7 @@ MVP completed with the following features:
   - `POST /api/auth/forgot-password` - Request password reset (generates 6-digit code, sends email via Resend)
   - `POST /api/auth/reset-password` - Reset password with code verification
   - `GET /api/exercises` - Fetches exercises from WorkoutAPI by muscle group
-  - `POST /api/generate-routine` - Generates a complete workout routine from selected muscle groups
+  - `POST /api/generate-routine` - AI-powered workout routine generation (OpenAI gpt-5-mini) with equipment, goal, and notes parameters. Falls back to WorkoutAPI + local database
   - `GET /api/foods/search` - Searches FatSecret food database (falls back to local DB if API unavailable)
 
 ### Shared
@@ -145,6 +145,14 @@ App data stored locally on device:
   - **Dark/Light Mode**: Created ThemeContext with system/light/dark options, persistent storage, toggle in Profile
   - **Heart Rate Zones**: 5-zone system based on age (220-age formula), post-run HR input modal, zone display in run history with color coding
   - Added new files: ThemeContext.tsx, notifications.ts, heartRateZones.ts
+- February 2026: AI Routine Generator
+  - Replaced WorkoutAPI-only routine generation with OpenAI-powered intelligent generation (gpt-5-mini)
+  - AI creates properly structured workouts: compound movements first, then isolation, with appropriate sets/reps/rest
+  - Added equipment selection (barbell, dumbbells, cables, machines, kettlebell, bodyweight, bands, pull-up bar)
+  - Added training goal selection (build muscle, build strength, lose fat, endurance, general fitness)
+  - Added optional notes field for personalization (injuries, preferences, etc.)
+  - WorkoutAPI + local database (165+ exercises) kept as automatic fallback
+  - Endpoint now requires authentication
 - February 2026: Run Goals and Photo Food Logging
   - Added RunGoalScreen for setting distance (1-10 mi) or time (15-60 min) goals before starting runs
   - RunTrackerScreen now tracks progress toward goals with visual progress bar
