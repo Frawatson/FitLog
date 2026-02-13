@@ -213,7 +213,7 @@ JSON only, no markdown.`
             ],
           },
         ],
-        max_completion_tokens: 800,
+        max_completion_tokens: 1000,
       });
 
       const visionContent = visionResponse.choices[0]?.message?.content || "";

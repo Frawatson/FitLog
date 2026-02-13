@@ -129,15 +129,18 @@ App data stored locally on device:
 
 ## API Integrations
 - **WorkoutAPI** (exercises): Uses WORKOUT_API_KEY secret, 30-min cache
-- **CalorieNinjas** (nutrition): Uses CALORIENINJA_API_KEY secret for food nutrition data
-  - Simple API key authentication, no IP restrictions
-  - Falls back to local food database (85+ foods) when API is unavailable
-- **OpenAI Vision** (photo food recognition): Uses Replit AI Integrations (AI_INTEGRATIONS_OPENAI_API_KEY, AI_INTEGRATIONS_OPENAI_BASE_URL)
-  - gpt-5-mini model for identifying foods from photos
-  - Returns food name, estimated serving size, and confidence level
-  - Automatically fetches nutrition data from CalorieNinjas after identification
+- **OpenAI gpt-5.2** (all nutrition features): Uses Replit AI Integrations (AI_INTEGRATIONS_OPENAI_API_KEY, AI_INTEGRATIONS_OPENAI_BASE_URL)
+  - Food search: Returns up to 3 food variations with USDA-accurate macros
+  - Photo analysis: Vision-based food identification with min/max/median nutrition estimates
+  - Falls back to local food database (85+ foods) when AI is unavailable
 
 ## Recent Changes
+- February 2026: OpenAI-Only Nutrition Migration
+  - Removed CalorieNinjas dependency from all nutrition features
+  - Food search now powered by OpenAI gpt-5.2 with USDA-accurate macro data
+  - Photo analysis uses OpenAI Vision directly (no CalorieNinjas lookup step)
+  - Improved photo analysis prompt with portion estimation guidelines and double-counting prevention
+  - Increased photo analysis token limit to 1000 for more detailed responses
 - February 2026: Security, Notifications, Theme, and Heart Rate Features
   - **Enhanced Security**: Added rate limiting (5 attempts/15 min), account lockout after 5 failures, strong password validation, helmet security headers
   - **Streak Tracking**: Dashboard now displays current streak and longest streak with celebration badges
