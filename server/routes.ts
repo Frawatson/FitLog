@@ -218,7 +218,7 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
             ],
           },
         ],
-        max_completion_tokens: 1000,
+        max_completion_tokens: 2000,
       });
 
       let visionContent = visionResponse.choices[0]?.message?.content || "";
