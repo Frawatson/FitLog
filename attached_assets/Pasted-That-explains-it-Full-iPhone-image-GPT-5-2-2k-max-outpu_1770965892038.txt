@@ -1,0 +1,133 @@
+That explains it. **Full iPhone image + GPT-5.2 + 2k max output** is a perfect recipe for 30–80s.
+
+Here’s how to fix it fast (and keep your 75–85% accuracy goal).
+
+---
+
+## 1) Stop sending full images (biggest win)
+
+Full iPhone photos are often **2–6MB+** (sometimes 10MB). Upload time + processing time kills you.
+
+**Do this on-device before calling the API:**
+
+* Resize: **1024px width** (or 960px)
+* JPEG quality: **0.65–0.75**
+* Target file size: **150–400KB**
+
+This alone can take you from **30–80s → ~5–15s**.
+
+If you need a single setting:
+✅ **1024px wide, JPEG quality 70%**
+
+---
+
+## 2) Your `max_tokens=2000` is slowing responses
+
+Even if the model doesn’t always use all 2k, it tends to produce longer outputs + more “thinking space.”
+
+For your photo feature, set:
+
+* **Fast path output cap:** **300–600 tokens**
+* If you need min/max/median, cap at **700–900**, not 2000.
+
+If you insist on min/max/median + totals:
+✅ **max_output_tokens: 800**
+
+---
+
+## 3) Don’t use GPT-5.2 for the whole job
+
+Use GPT-5.2 only where you need it. For food tracking, split into **two quick calls**:
+
+### Call A (multimodal, small output)
+
+**Image → items + grams + flags**
+
+* max_output_tokens: **250–400**
+* JSON only
+
+### Call B (text-only)
+
+**items/grams → nutrition math**
+
+* max_output_tokens: **250–400**
+* JSON only
+
+This reduces latency because:
+
+* Call A becomes very short
+* Call B is cheap + fast (no image)
+
+---
+
+## 4) Keep your prompt short AND accurate (fast path)
+
+For speed, don’t ask for essay-like reasoning. Ask for **just what you need**.
+
+### Prompt for Call A (Image → items/grams)
+
+```text
+Identify foods in the photo and estimate grams.
+
+Rules:
+- Visible items only.
+- Estimate grams using plate/container cues.
+- Fried/breaded: flag "fried_breaded=true".
+- Pan-seared: flag "pan_seared=true".
+- Sauce: estimate tbsp if visible.
+
+Return JSON only:
+{"items":[{"name":"","grams":{"min":0,"median":0,"max":0},"fried_breaded":false,"pan_seared":false,"sauce_tbsp":{"min":0,"median":0,"max":0}}],"confidence":0}
+```
+
+### Prompt for Call B (Text → macros)
+
+```text
+Using USDA-style averages, compute macros for each item and totals.
+Rules:
+- Fried/breaded: only 60–70% of grams is meat; rest is breading/oil.
+- Pan-seared: add oil only if pan_seared=true (0/1/1.5 tbsp for min/med/max).
+- Sauce: use sauce_tbsp for calories/macros.
+- Calorie check: p*4+c*4+f*9 within ±8%; adjust fat/oil first.
+
+Return JSON only:
+{"items":[{"name":"","kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}}],"totals":{...},"confidence":0,"warnings":[]}
+```
+
+---
+
+## 5) Concrete config that will feel “instant”
+
+If you implement just these numbers:
+
+* **Image resize:** 1024px wide, JPEG 70%
+* **Call A:** GPT-5.2, `max_output_tokens=350`
+* **Call B:** cheaper/faster text model (or GPT-5.2 if you must), `max_output_tokens=450`
+
+You should see typical:
+
+* **3–10 seconds** on decent networks
+  instead of 30–80.
+
+---
+
+## 6) Extra speed wins (optional)
+
+* **Turn on streaming** so users see progress immediately.
+* **Cache by perceptual hash** of the image.
+* **Do totals only** (skip per-item min/max) for default UI, compute ranges only on “Details”.
+
+---
+
+### Bottom line
+
+Your current setup is slow because:
+
+* **full image upload** + **heavy model** + **huge token ceiling**
+
+The fastest improvement is:
+✅ compress the image + lower token cap
+Then:
+✅ split into 2 short calls
+
+If you want, tell me what stack you’re using (React Native/Flutter + backend language) and I’ll give you a drop-in image compression snippet + the exact request payload structure.
