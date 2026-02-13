@@ -1,0 +1,241 @@
+Analyze this food photo for a bodybuilding-focused macro tracker.
+
+STRICT RULES:
+- Identify visible items only.
+- Output COOKED edible grams (exclude bones, shells, packaging). If bone-in, set bone_in=true.
+- Choose category ONLY from APPROVED_LIST. If uncertain, choose the closest match. Do NOT invent categories.
+- If fried/breaded, set fried_breaded=true.
+- If pan-seared meat and visible oil sheen/pooling, set pan_seared=true and oil_present=true.
+- If sauce is visible, estimate sauce_tbsp (min/median/max) and set sauce_type from ["none","bbq","mayo_ranch","ketchup","hot_sauce","unknown"].
+
+APPROVED_LIST:
+
+PROTEINS (50):
+chicken_breast_grilled
+chicken_breast_pan_seared
+chicken_thigh
+chicken_fried_breaded
+ground_beef_lean
+ground_beef_regular
+steak_lean
+steak_moderate
+steak_fatty
+pork_chop_lean
+pork_chop_moderate
+pork_chop_fatty
+salmon
+white_fish
+tilapia
+tuna
+turkey_breast
+ground_turkey_lean
+ground_turkey_regular
+shrimp
+egg_whole
+egg_whites
+tofu
+tempeh
+protein_bar
+protein_powder
+greek_yogurt_plain
+greek_yogurt_flavored
+cottage_cheese
+beef_jerky
+ham
+bacon
+sausage
+lamb
+venison
+crab
+lobster
+sardines
+mackerel
+whey_shake_ready_to_drink
+casein_shake
+edamame
+beans_chili
+chicken_sausage
+turkey_bacon
+deli_chicken
+deli_turkey
+ground_bison
+bison_steak
+pork_tenderloin
+
+CARBS (50):
+white_rice
+brown_rice
+jasmine_rice
+basmati_rice
+rice_mix
+sweet_potato
+white_potato
+mashed_potatoes
+baked_potato
+fries_fried
+oats_cooked
+oats_overnight
+pasta_cooked
+quinoa
+couscous
+black_beans
+kidney_beans
+lentils
+chickpeas
+tortilla_flour
+tortilla_corn
+bagel_plain
+bread_white
+bread_wheat
+wrap_flatbread
+burger_bun
+english_muffin
+pancakes
+waffles
+cereal
+granola
+rice_cakes
+banana
+apple
+berries
+grapes
+orange
+mango
+pineapple
+mixed_fruit
+yogurt_parfait
+protein_cookie
+pretzels
+popcorn
+crackers
+ramen_noodles
+udon_noodles
+sushi_rice
+honey
+jam_jelly
+dates
+
+FATS/SAUCES (50):
+olive_oil
+avocado_oil
+butter
+ghee
+cheese_generic
+cheddar_cheese
+mozzarella
+parmesan
+cream_cheese
+sour_cream
+bbq_sauce
+ketchup
+mayo
+ranch
+aioli
+hot_sauce
+mustard
+soy_sauce
+teriyaki_sauce
+sriracha
+peanut_butter
+almond_butter
+nuts_mixed
+walnuts
+almonds
+cashews
+trail_mix
+avocado
+guacamole
+pesto
+hummus
+tahini
+olive_tapenade
+coconut_oil
+sesame_oil
+vinaigrette
+italian_dressing
+caesar_dressing
+blue_cheese_dressing
+honey_mustard
+buffalo_sauce
+gravy
+cheese_sauce
+chili_oil
+maple_syrup
+chocolate_sauce
+ice_cream
+whipped_cream
+bacon_bits
+croutons
+butter_sauce
+garlic_butter
+
+VEGETABLES (50):
+broccoli
+green_beans
+asparagus
+spinach
+kale
+mixed_vegetables
+salad_plain
+carrots
+zucchini
+brussels_sprouts
+cauliflower
+cabbage
+bell_peppers
+onions
+mushrooms
+tomatoes
+cucumber
+lettuce
+arugula
+bok_choy
+broccolini
+snap_peas
+peas
+corn
+sweet_corn
+eggplant
+okra
+beets
+celery
+radish
+sauerkraut
+pickles
+jalapenos
+garlic
+ginger
+spring_mix
+coleslaw_plain
+coleslaw_creamy
+salsa
+pico_de_gallo
+kimchi
+seaweed_salad
+edamame_side
+butternut_squash
+pumpkin
+parsnips
+turnips
+artichoke
+leeks
+fajita_veggies
+stir_fry_veggies
+
+Return JSON only:
+{
+  "items":[
+    {
+      "name":"",
+      "category":"",
+      "grams":{"min":0,"median":0,"max":0},
+      "bone_in":false,
+      "fried_breaded":false,
+      "pan_seared":false,
+      "oil_present":false,
+      "sauce_type":"none|bbq|mayo_ranch|ketchup|hot_sauce|unknown",
+      "sauce_tbsp":{"min":0,"median":0,"max":0}
+    }
+  ],
+  "confidence":0
+}

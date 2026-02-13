@@ -1,0 +1,119 @@
+Compute macros from the detected items using ONLY the macro table below. No external lookups.
+
+INPUTS:
+- mode: "lean" | "maintenance" | "bulk"
+- items[] from Prompt A
+
+MACRO_TABLE (per 100g unless noted):
+PROTEINS:
+chicken_breast_grilled: kcal165 P31 C0 F4
+chicken_breast_pan_seared: kcal190 P30 C0 F8
+chicken_thigh: kcal215 P24 C0 F13
+chicken_fried_breaded: kcal280 P23 C16 F16
+ground_beef_lean: kcal200 P26 C0 F10
+ground_beef_regular: kcal254 P26 C0 F16
+steak_lean: kcal200 P27 C0 F10
+steak_moderate: kcal250 P26 C0 F16
+steak_fatty: kcal310 P24 C0 F24
+pork_chop_lean: kcal200 P27 C0 F9
+pork_chop_moderate: kcal250 P26 C0 F17
+pork_chop_fatty: kcal310 P23 C0 F25
+salmon: kcal208 P22 C0 F13
+white_fish: kcal120 P24 C0 F2
+tilapia: kcal128 P26 C0 F3
+tuna: kcal132 P29 C0 F1
+turkey_breast: kcal135 P29 C0 F2
+ground_turkey_lean: kcal170 P24 C0 F8
+ground_turkey_regular: kcal220 P23 C0 F14
+shrimp: kcal100 P24 C0 F1
+egg_whole: kcal143 P13 C1 F10
+egg_whites: kcal52 P11 C1 F0
+tofu: kcal90 P10 C2 F5
+tempeh: kcal190 P19 C9 F11
+greek_yogurt_plain: kcal60 P10 C4 F0
+greek_yogurt_flavored: kcal95 P9 C12 F1
+cottage_cheese: kcal98 P11 C3 F4
+beef_jerky: kcal300 P40 C10 F8
+protein_bar: kcal360 P25 C35 F10
+protein_powder: kcal400 P80 C10 F6
+(If category not listed above but is a protein, default to: kcal200 P25 C0 F10)
+
+CARBS:
+white_rice: kcal130 P2.7 C28 F0.3
+brown_rice: kcal112 P2.3 C23 F0.9
+jasmine_rice: kcal130 P2.7 C28 F0.3
+basmati_rice: kcal125 P2.6 C27 F0.3
+sweet_potato: kcal90 P2 C21 F0.1
+white_potato: kcal87 P2 C20 F0.1
+mashed_potatoes: kcal110 P2 C17 F4
+baked_potato: kcal93 P2.5 C21 F0.1
+fries_fried: kcal320 P3.5 C41 F15
+oats_cooked: kcal70 P2.5 C12 F1.5
+pasta_cooked: kcal131 P5 C25 F1.1
+quinoa: kcal120 P4 C21 F2
+black_beans: kcal132 P9 C24 F0.5
+lentils: kcal116 P9 C20 F0.4
+tortilla_flour: kcal300 P8 C50 F8
+bread_white: kcal265 P9 C49 F3.2
+bread_wheat: kcal250 P9 C43 F4
+burger_bun: kcal270 P9 C50 F4
+rice_cakes: kcal387 P8 C82 F3
+banana: kcal89 P1.1 C23 F0.3
+berries: kcal50 P1 C12 F0.3
+mixed_fruit: kcal60 P0.8 C15 F0.2
+(If category not listed above but is a carb, default to: kcal130 P3 C28 F1)
+
+VEGETABLES:
+vegetables_default: kcal35 P2 C7 F0.3
+(broccoli/green_beans/asparagus/spinach/kale/mixed_vegetables/salad_plain/etc → use vegetables_default unless creamy slaw)
+coleslaw_creamy: kcal150 P1 C14 F10
+pickles: kcal15 P0.5 C3 F0
+
+SAUCES/FATS:
+olive_oil (per 1 tbsp): kcal120 P0 C0 F14
+butter (per 1 tbsp): kcal100 P0 C0 F11
+bbq_sauce (per 1 tbsp): kcal40 P0 C10 F0
+ketchup (per 1 tbsp): kcal20 P0 C5 F0
+hot_sauce (per 1 tbsp): kcal5 P0 C1 F0
+mayo_ranch_sauce (per 1 tbsp): kcal100 P0 C1 F11
+(If sauce_type unknown and sauce_tbsp>0, use mayo_ranch_sauce)
+
+LEAN/BULK ADJUSTMENT LAYER:
+A) Portion bias on grams.median ONLY:
+- lean: grams_median *= 0.95
+- maintenance: *= 1.00
+- bulk: *= 1.05
+
+B) Meat leanness bias (only for beef/pork/steak/ground_*):
+- lean: fatty→moderate, moderate→lean
+- maintenance: no change
+- bulk: lean→moderate, moderate→fatty
+
+C) Pan-seared oil add-on (only if pan_seared=true AND fried_breaded=false):
+Oil tbsp by mode:
+- lean: min 0, median 0.5, max 1.0
+- maintenance: min 0, median 1.0, max 1.5
+- bulk: min 0.5, median 1.5, max 2.0
+
+D) Sauce bias on sauce_tbsp.median ONLY:
+- lean *= 0.80
+- maintenance *= 1.00
+- bulk *= 1.20
+
+E) Bone-in edible grams:
+If bone_in=true, edible_grams = grams * 0.70 (apply after portion bias).
+
+CALC RULES:
+1) For each item, compute min/median/max using grams(min/median/max) with the adjustments above (median gets mode bias; min/max stay as-is except bone and oil/sauce rules).
+2) If fried_breaded=true: do NOT add oil.
+3) Add sauce macros using sauce_type and sauce_tbsp.
+4) Calorie check: ensure |(P*4 + C*4 + F*9) - kcal| / kcal <= 10%. If not, adjust oil first, then sauce, then grams within min/max and add a warning.
+
+Return JSON only:
+{
+  "mode":"lean|maintenance|bulk",
+  "items":[{"name":"","category_used":"","kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}}],
+  "totals":{"kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}},
+  "confidence":0,
+  "warnings":[]
+}
