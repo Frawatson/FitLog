@@ -193,30 +193,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `You are an expert nutritionist analyzing a food photo. Carefully estimate the portion sizes by comparing food items to standard references (plate size ~10 inches, fork ~7 inches, etc.).
+                text: `You are a certified sports nutritionist with 20 years of experience in food portion estimation. Analyze this food photo with extreme precision.
+
+STEP 1 - IDENTIFY each food item visible in the image.
+STEP 2 - ESTIMATE PORTION SIZE using these visual references:
+  - Standard dinner plate = 10-11 inches (25-28 cm) diameter
+  - Salad/side plate = 7-8 inches (18-20 cm)
+  - Standard fork = 7 inches (18 cm), knife = 9 inches (23 cm)
+  - Adult palm = ~3 oz (85g) of meat, fist = ~1 cup (240ml)
+  - Thumb tip = ~1 tsp (5g butter/oil), full thumb = ~1 tbsp (15g)
+  - Deck of cards = ~3 oz (85g) cooked meat
+  - Tennis ball = ~1/2 cup (120ml) or medium fruit
+  - Compare food thickness, spread area, and density to estimate grams
+STEP 3 - CALCULATE MACROS using USDA nutrition data per 100g, then scale to estimated weight.
 
 Return a JSON object with:
-- "foods": array of identified food items, each with:
-  - "name": specific food name (e.g., "grilled chicken breast", "white rice", "steamed broccoli")
-  - "estimatedWeightGrams": estimated weight in grams (be precise - use visual cues like plate size, thickness, spread area)
-  - "estimatedServingSize": human-readable serving (e.g., "150g / ~5.3 oz", "1 cup / ~200g")
-  - "confidence": confidence level (high, medium, low)
-  - "calories": estimated calories for this portion
-  - "protein": estimated protein in grams
-  - "carbs": estimated carbohydrates in grams
-  - "fat": estimated fat in grams
-  - "fiber": estimated fiber in grams
-- "description": brief description of the meal
-- "totalCalories": sum of all food item calories
-- "totalProtein": sum of all protein
-- "totalCarbs": sum of all carbs
-- "totalFat": sum of all fat
+- "foods": array of food items, each with:
+  - "name": specific food name with preparation method (e.g., "pan-fried chicken thigh with skin", "steamed white jasmine rice", "sauteed broccoli in olive oil")
+  - "estimatedWeightGrams": weight in grams (integer) - be as precise as possible
+  - "estimatedServingSize": human-readable (e.g., "150g / about 5.3 oz")
+  - "confidence": "high", "medium", or "low"
+  - "calories": calories for this exact portion (integer)
+  - "protein": protein in grams (number, 1 decimal)
+  - "carbs": net carbohydrates in grams (number, 1 decimal)
+  - "fat": total fat in grams (number, 1 decimal)
+  - "fiber": dietary fiber in grams (number, 1 decimal)
+- "description": brief meal description
+- "totalCalories": sum of all calories (integer)
+- "totalProtein": sum of all protein (1 decimal)
+- "totalCarbs": sum of all carbs (1 decimal)
+- "totalFat": sum of all fat (1 decimal)
 
-Important guidelines for accuracy:
-- A typical chicken breast is 120-170g, a cup of rice is ~180g cooked, a tablespoon of oil is ~14g
-- Estimate portions conservatively based on visual size relative to the plate/container
-- Account for cooking oils, sauces, and dressings that add hidden calories
-- If a food appears to have a coating (breaded, fried), factor that into macros
+ACCURACY RULES:
+- ALWAYS include cooking fats: pan-frying adds ~1-2 tbsp oil (120-240 cal), deep frying absorbs 10-15% of food weight in oil
+- Sauces/dressings: ranch 73 cal/tbsp, mayo 94 cal/tbsp, ketchup 20 cal/tbsp, soy sauce 9 cal/tbsp
+- Rice: 1 cup cooked white rice = ~200g = 206 cal, 4.3g protein, 44.5g carbs, 0.4g fat
+- Chicken breast (cooked, no skin): 165 cal/100g, 31g protein, 0g carbs, 3.6g fat
+- Chicken thigh (cooked, with skin): 229 cal/100g, 24g protein, 0g carbs, 14g fat
+- Ground beef 80/20 (cooked): 254 cal/100g, 26g protein, 0g carbs, 16g fat
+- Pasta (cooked): 131 cal/100g, 5g protein, 25g carbs, 1.1g fat
+- Bread (white): 265 cal/100g, 9g protein, 49g carbs, 3.2g fat
+- Egg (large, cooked): 78 cal, 6g protein, 0.6g carbs, 5g fat
+- Cheese (cheddar): 403 cal/100g, 25g protein, 1.3g carbs, 33g fat
+- If food looks homemade, estimate slightly higher calories than restaurant portions
+- When uncertain, round calories UP by 10% rather than down
 
 If you cannot identify any food, return: {"foods": [], "description": "Could not identify food items"}
 
@@ -226,6 +246,7 @@ Respond ONLY with valid JSON, no markdown or additional text.`
                 type: "image_url",
                 image_url: {
                   url: `data:image/jpeg;base64,${imageBase64}`,
+                  detail: "high",
                 },
               },
             ],
