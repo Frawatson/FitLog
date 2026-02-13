@@ -56,6 +56,8 @@ export default function AddFoodScreen() {
   const [foodImage, setFoodImage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [nameSuggestions, setNameSuggestions] = useState<FoodDatabaseItem[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
@@ -70,6 +72,8 @@ export default function AddFoodScreen() {
     setProtein("");
     setCarbs("");
     setFat("");
+    setNameSuggestions([]);
+    setShowSuggestions(false);
   }, []);
 
   useEffect(() => {
@@ -304,6 +308,31 @@ export default function AddFoodScreen() {
     }
   };
   
+  const handleNameChange = (text: string) => {
+    setName(text);
+    if (text.trim().length >= 2) {
+      const matches = searchFoods(text);
+      setNameSuggestions(matches);
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setNameSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSelectSuggestion = (food: FoodDatabaseItem) => {
+    setName(food.name);
+    setCalories(food.calories.toString());
+    setProtein(food.protein.toString());
+    setCarbs(food.carbs.toString());
+    setFat(food.fat.toString());
+    setShowSuggestions(false);
+    setNameSuggestions([]);
+    if (Platform.OS !== "web") {
+      Haptics.selectionAsync();
+    }
+  };
+
   const handleSelectApiFood = (food: APIFoodResult) => {
     setName(food.brand ? `${food.name} (${food.brand})` : food.name);
     setCalories(food.calories.toString());
@@ -398,12 +427,36 @@ export default function AddFoodScreen() {
           <ThemedText style={styles.photoErrorText}>{photoError}</ThemedText>
         ) : null}
         
-        <Input
-          label="Food Name"
-          placeholder="e.g., Chicken Breast"
-          value={name}
-          onChangeText={setName}
-        />
+        <View style={{ zIndex: 10 }}>
+          <Input
+            label="Food Name"
+            placeholder="e.g., Chicken Breast"
+            value={name}
+            onChangeText={handleNameChange}
+            testID="input-food-name"
+          />
+          {showSuggestions ? (
+            <View style={[styles.suggestionsDropdown, { backgroundColor: theme.backgroundElevated, borderColor: theme.border }]}>
+              {nameSuggestions.map((item) => (
+                <Pressable
+                  key={item.id}
+                  onPress={() => handleSelectSuggestion(item)}
+                  style={({ pressed }) => [
+                    styles.suggestionItem,
+                    { borderBottomColor: theme.border },
+                    pressed ? { backgroundColor: theme.backgroundRoot } : undefined,
+                  ]}
+                  testID={`suggestion-${item.id}`}
+                >
+                  <ThemedText type="body" style={{ fontWeight: "500" }}>{item.name}</ThemedText>
+                  <ThemedText type="small" style={{ opacity: 0.6 }}>
+                    {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
         
         <Input
           label="Calories"
@@ -787,5 +840,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center" as const,
     marginBottom: Spacing.md,
+  },
+  suggestionsDropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    maxHeight: 200,
+    overflow: "hidden",
+  },
+  suggestionItem: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 2,
   },
 });
