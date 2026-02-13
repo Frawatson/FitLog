@@ -549,9 +549,20 @@ export default function ProfileScreen() {
 
           <Pressable
             onPress={() => setShowTimePicker(false)}
-            style={[styles.modalButton, { backgroundColor: Colors.light.primary, marginTop: Spacing.lg, alignSelf: "center", minWidth: 120 }]}
+            style={({ pressed }) => ({
+              backgroundColor: Colors.light.primary,
+              marginTop: Spacing.lg,
+              alignSelf: "center",
+              minWidth: 140,
+              paddingVertical: Spacing.md,
+              paddingHorizontal: Spacing.xl,
+              borderRadius: BorderRadius.md,
+              alignItems: "center" as const,
+              justifyContent: "center" as const,
+              opacity: pressed ? 0.8 : 1,
+            })}
           >
-            <ThemedText type="body" style={{ color: "#FFFFFF", textAlign: "center" }}>Done</ThemedText>
+            <ThemedText type="body" style={{ color: "#FFFFFF" }}>Done</ThemedText>
           </Pressable>
         </View>
       </View>
