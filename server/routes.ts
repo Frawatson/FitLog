@@ -119,7 +119,8 @@ Return JSON array only:
         max_completion_tokens: 500,
       });
 
-      const content = completion.choices[0]?.message?.content || "[]";
+      let content = completion.choices[0]?.message?.content || "[]";
+      content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
       let foods;
       try {
         const parsed = JSON.parse(content);
@@ -220,7 +221,13 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
         max_completion_tokens: 1000,
       });
 
-      const visionContent = visionResponse.choices[0]?.message?.content || "";
+      let visionContent = visionResponse.choices[0]?.message?.content || "";
+      const finishReason = visionResponse.choices[0]?.finish_reason;
+      console.log("Vision finish_reason:", finishReason);
+      console.log("Vision raw response length:", visionContent.length);
+      console.log("Vision raw response (first 500):", visionContent.substring(0, 500));
+
+      visionContent = visionContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
       
       let identifiedFoods;
       try {
