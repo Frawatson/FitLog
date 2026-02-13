@@ -193,14 +193,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `Estimate nutrition from this food photo. For each food item, provide min, max, and median estimates.
+                text: `Identify all food items in this photo and estimate their weight in grams. Do NOT calculate nutrition — only identify and weigh.
 
-Min = smallest reasonable portion, leanest cut, no added oil. Max = largest reasonable portion, fattier cut, cooking oil if food looks oily/fried. Median = midpoint of min and max.
-
-Use USDA cooked values per 100g. Cross-check: protein*4 + carbs*4 + fat*9 ≈ total calories.
+For each food item:
+- Name it specifically (e.g., "fried chicken breast sandwich with bun" not just "sandwich")
+- Include preparation method (fried, grilled, steamed, etc.)
+- Estimate weight in grams using plate size, food thickness, and density as visual cues
+- Provide a min and max weight range, plus your best estimate
 
 Return JSON:
-{"foods":[{"name":"food name","estimatedWeightGrams":int,"estimatedServingSize":"Xg / about X oz","confidence":"high|medium|low","min":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}}],"description":"brief description","totalMin":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMax":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMedian":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0}}
+{"foods":[{"name":"specific food name with prep method","estimatedWeightGrams":int,"minWeightGrams":int,"maxWeightGrams":int,"estimatedServingSize":"Xg / about X oz","confidence":"high|medium|low"}],"description":"brief meal description"}
 
 If no food found: {"foods":[],"description":"Could not identify food items"}
 JSON only, no markdown.`
@@ -215,7 +217,7 @@ JSON only, no markdown.`
             ],
           },
         ],
-        max_completion_tokens: 800,
+        max_completion_tokens: 500,
       });
 
       const visionContent = visionResponse.choices[0]?.message?.content || "";
@@ -243,18 +245,14 @@ JSON only, no markdown.`
       const calorieNinjasKey = process.env.CALORIENINJA_API_KEY;
       const foodsWithNutrition = [];
 
-      for (const food of identifiedFoods.foods) {
-        const median = food.median || {};
-        let calories = Math.round(median.calories || food.calories || 0);
-        let protein = Math.round(median.protein || food.protein || 0);
-        let carbs = Math.round(median.carbs || food.carbs || 0);
-        let fat = Math.round(median.fat || food.fat || 0);
-        let fiber = Math.round(median.fiber || food.fiber || 0);
-        let source = "ai_estimate";
+      const nutritionLookups = identifiedFoods.foods.map(async (food: any) => {
+        let calories = 0, protein = 0, carbs = 0, fat = 0, fiber = 0;
+        let source = "none";
+        const weight = food.estimatedWeightGrams || 100;
 
-        if (calorieNinjasKey && food.estimatedWeightGrams) {
+        if (calorieNinjasKey) {
           try {
-            const searchQuery = `${food.estimatedWeightGrams}g ${food.name}`.trim();
+            const searchQuery = `${weight}g ${food.name}`.trim();
             const nutritionResponse = await fetch(
               `https://api.calorieninjas.com/v1/nutrition?query=${encodeURIComponent(searchQuery)}`,
               {
@@ -265,65 +263,62 @@ JSON only, no markdown.`
             if (nutritionResponse.ok) {
               const nutritionData = await nutritionResponse.json();
               if (nutritionData.items && nutritionData.items.length > 0) {
-                let apiCals = 0, apiProtein = 0, apiCarbs = 0, apiFat = 0, apiFiber = 0;
                 for (const item of nutritionData.items) {
-                  apiCals += item.calories || 0;
-                  apiProtein += item.protein_g || 0;
-                  apiCarbs += item.carbohydrates_total_g || 0;
-                  apiFat += item.fat_total_g || 0;
-                  apiFiber += item.fiber_g || 0;
+                  calories += item.calories || 0;
+                  protein += item.protein_g || 0;
+                  carbs += item.carbohydrates_total_g || 0;
+                  fat += item.fat_total_g || 0;
+                  fiber += item.fiber_g || 0;
                 }
-                if (apiCals > 0) {
-                  calories = Math.round(apiCals);
-                  protein = Math.round(apiProtein);
-                  carbs = Math.round(apiCarbs);
-                  fat = Math.round(apiFat);
-                  fiber = Math.round(apiFiber);
-                  source = "calorieninjas";
-                }
+                source = "calorieninjas";
               }
             }
           } catch (nutritionError) {
-            console.error("CalorieNinjas lookup failed, using AI estimates:", nutritionError);
+            console.error(`CalorieNinjas lookup failed for "${food.name}":`, nutritionError);
           }
         }
 
-        const minData = food.min || {};
-        const maxData = food.max || {};
+        const minWeight = food.minWeightGrams || Math.round(weight * 0.8);
+        const maxWeight = food.maxWeightGrams || Math.round(weight * 1.2);
+        const minRatio = weight > 0 ? minWeight / weight : 0.8;
+        const maxRatio = weight > 0 ? maxWeight / weight : 1.2;
 
-        foodsWithNutrition.push({
+        return {
           name: food.name,
           servingSize: food.estimatedServingSize,
-          estimatedWeightGrams: food.estimatedWeightGrams,
+          estimatedWeightGrams: weight,
           confidence: food.confidence,
-          calories,
-          protein,
-          carbs,
-          fat,
-          fiber,
+          calories: Math.round(calories),
+          protein: Math.round(protein),
+          carbs: Math.round(carbs),
+          fat: Math.round(fat),
+          fiber: Math.round(fiber),
           source,
           min: {
-            calories: Math.round(minData.calories || calories * 0.75),
-            protein: Math.round(minData.protein || protein * 0.75),
-            carbs: Math.round(minData.carbs || carbs * 0.75),
-            fat: Math.round(minData.fat || fat * 0.75),
+            calories: Math.round(calories * minRatio),
+            protein: Math.round(protein * minRatio),
+            carbs: Math.round(carbs * minRatio),
+            fat: Math.round(fat * minRatio),
           },
           max: {
-            calories: Math.round(maxData.calories || calories * 1.25),
-            protein: Math.round(maxData.protein || protein * 1.25),
-            carbs: Math.round(maxData.carbs || carbs * 1.25),
-            fat: Math.round(maxData.fat || fat * 1.25),
+            calories: Math.round(calories * maxRatio),
+            protein: Math.round(protein * maxRatio),
+            carbs: Math.round(carbs * maxRatio),
+            fat: Math.round(fat * maxRatio),
           },
-        });
-      }
+        };
+      });
 
-      const totalMin = identifiedFoods.totalMin || {
+      const results = await Promise.all(nutritionLookups);
+      foodsWithNutrition.push(...results);
+
+      const totalMin = {
         calories: foodsWithNutrition.reduce((s, f) => s + (f.min?.calories || 0), 0),
         protein: foodsWithNutrition.reduce((s, f) => s + (f.min?.protein || 0), 0),
         carbs: foodsWithNutrition.reduce((s, f) => s + (f.min?.carbs || 0), 0),
         fat: foodsWithNutrition.reduce((s, f) => s + (f.min?.fat || 0), 0),
       };
-      const totalMax = identifiedFoods.totalMax || {
+      const totalMax = {
         calories: foodsWithNutrition.reduce((s, f) => s + (f.max?.calories || 0), 0),
         protein: foodsWithNutrition.reduce((s, f) => s + (f.max?.protein || 0), 0),
         carbs: foodsWithNutrition.reduce((s, f) => s + (f.max?.carbs || 0), 0),
