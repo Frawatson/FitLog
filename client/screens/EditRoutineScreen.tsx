@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, FlatList, Pressable, Alert } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -37,6 +37,7 @@ export default function EditRoutineScreen() {
   const [exercises, setExercises] = useState<RoutineExercise[]>([]);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [showExerciseList, setShowExerciseList] = useState(false);
+  const [showDiscardModal, setShowDiscardModal] = useState(false);
   
   useEffect(() => {
     loadData();
@@ -44,14 +45,7 @@ export default function EditRoutineScreen() {
   
   const handleCancel = () => {
     if (name || exercises.length > 0) {
-      Alert.alert(
-        "Discard Changes?",
-        "You have unsaved changes. Are you sure you want to leave?",
-        [
-          { text: "Stay", style: "cancel" },
-          { text: "Discard", style: "destructive", onPress: () => navigation.goBack() },
-        ]
-      );
+      setShowDiscardModal(true);
     } else {
       navigation.goBack();
     }
@@ -221,6 +215,42 @@ export default function EditRoutineScreen() {
           </View>
         </Button>
       </View>
+      
+      <Modal
+        visible={showDiscardModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDiscardModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowDiscardModal(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Discard Changes?</ThemedText>
+            <ThemedText type="body" style={{ opacity: 0.7, marginBottom: Spacing.xl }}>
+              You have unsaved changes. Are you sure you want to leave?
+            </ThemedText>
+            <View style={styles.modalButtons}>
+              <Pressable
+                onPress={() => setShowDiscardModal(false)}
+                style={[styles.modalButton, { backgroundColor: theme.backgroundSecondary }]}
+              >
+                <ThemedText type="body" style={{ fontWeight: "600" }}>Stay</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setShowDiscardModal(false);
+                  navigation.goBack();
+                }}
+                style={[styles.modalButton, { backgroundColor: Colors.light.error }]}
+              >
+                <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Discard</ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -280,5 +310,27 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.sm,
     marginBottom: Spacing.sm,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    width: "100%",
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
   },
 });
