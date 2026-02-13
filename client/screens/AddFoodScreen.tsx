@@ -223,6 +223,8 @@ export default function AddFoodScreen() {
       const asset = result.assets[0];
       setFoodImage(asset.uri);
       setShowForm(true);
+      setIsAnalyzingPhoto(true);
+      setPhotoError(null);
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -258,6 +260,8 @@ export default function AddFoodScreen() {
       const asset = result.assets[0];
       setFoodImage(asset.uri);
       setShowForm(true);
+      setIsAnalyzingPhoto(true);
+      setPhotoError(null);
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
@@ -267,8 +271,6 @@ export default function AddFoodScreen() {
   };
   
   const analyzePhoto = async (base64: string | null, uri: string) => {
-    setIsAnalyzingPhoto(true);
-    setPhotoError(null);
     try {
       const url = new URL("/api/foods/analyze-photo", getApiUrl());
       const response = await fetch(url.toString(), {

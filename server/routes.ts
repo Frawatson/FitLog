@@ -254,9 +254,14 @@ Return JSON only:
       }
 
       // CALL B: Text-only - calculate macros from identified items (no image)
+      // Use gpt-4o-mini for fast, cheap text-only macro math (no reasoning overhead)
       const callBResponse = await openai.chat.completions.create({
-        model: "gpt-5.2",
+        model: "gpt-4o-mini",
         messages: [
+          {
+            role: "system",
+            content: "You are a nutrition calculator. Return only valid JSON, no explanation or markdown."
+          },
           {
             role: "user",
             content: `Using USDA-style averages, compute macros for each item and totals.
@@ -269,11 +274,11 @@ Rules:
 - Sauce: use sauce_tbsp for calories/macros.
 - Calorie check: p*4+c*4+f*9 within ±8%; adjust fat/oil first.
 
-Return JSON only, no explanation:
+Return JSON only:
 {"items":[{"name":"","kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}}],"totals":{"kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}},"confidence":0,"warnings":[]}`,
           },
         ],
-        max_completion_tokens: 800,
+        max_tokens: 1000,
       });
 
       const callBFinish = callBResponse.choices[0]?.finish_reason;
