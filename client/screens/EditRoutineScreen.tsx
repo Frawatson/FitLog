@@ -52,20 +52,32 @@ export default function EditRoutineScreen() {
   };
 
   useEffect(() => {
-    navigation.setOptions({
-      headerTitle: isNew ? "New Routine" : "Edit Routine",
-      headerLeft: () => (
-        <HeaderButton onPress={handleCancel}>
-          <Feather name="x" size={24} color={theme.text} />
-        </HeaderButton>
-      ),
-      headerRight: () => (
-        <HeaderButton onPress={handleSave}>
-          <ThemedText type="link" style={{ fontWeight: "600" }}>Save</ThemedText>
-        </HeaderButton>
-      ),
-    });
-  }, [name, exercises, theme]);
+    if (showExerciseList) {
+      navigation.setOptions({
+        headerTitle: "Add Exercise",
+        headerLeft: () => (
+          <HeaderButton onPress={() => setShowExerciseList(false)}>
+            <Feather name="arrow-left" size={24} color={theme.text} />
+          </HeaderButton>
+        ),
+        headerRight: () => null,
+      });
+    } else {
+      navigation.setOptions({
+        headerTitle: isNew ? "New Routine" : "Edit Routine",
+        headerLeft: () => (
+          <HeaderButton onPress={handleCancel}>
+            <Feather name="x" size={24} color={theme.text} />
+          </HeaderButton>
+        ),
+        headerRight: () => (
+          <HeaderButton onPress={handleSave}>
+            <ThemedText type="link" style={{ fontWeight: "600" }}>Save</ThemedText>
+          </HeaderButton>
+        ),
+      });
+    }
+  }, [name, exercises, theme, showExerciseList]);
   
   const loadData = async () => {
     const exerciseData = await storage.getExercises();
@@ -127,13 +139,6 @@ export default function EditRoutineScreen() {
   if (showExerciseList) {
     return (
       <ThemedView style={[styles.container, { paddingTop: headerHeight + Spacing.xl }]}>
-        <View style={styles.header}>
-          <ThemedText type="h2">Add Exercise</ThemedText>
-          <Pressable onPress={() => setShowExerciseList(false)}>
-            <Feather name="x" size={24} color={theme.text} />
-          </Pressable>
-        </View>
-        
         <FlatList
           data={Object.entries(groupedExercises)}
           keyExtractor={([group]) => group}
