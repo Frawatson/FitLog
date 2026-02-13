@@ -387,7 +387,8 @@ export default function AddFoodScreen() {
             {isAnalyzingPhoto ? (
               <View style={styles.analyzingOverlay}>
                 <ActivityIndicator size="large" color="#FFFFFF" />
-                <ThemedText style={styles.analyzingText}>Identifying food...</ThemedText>
+                <ThemedText style={styles.analyzingText}>Analyzing your food...</ThemedText>
+                <ThemedText style={styles.analyzingSubtext}>This usually takes 5-10 seconds</ThemedText>
               </View>
             ) : null}
           </View>
@@ -775,6 +776,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     marginTop: Spacing.md,
     fontWeight: "600",
+  },
+  analyzingSubtext: {
+    color: "rgba(255,255,255,0.7)",
+    marginTop: Spacing.xs,
+    fontSize: 13,
   },
   photoErrorText: {
     color: "#FF3B30",
