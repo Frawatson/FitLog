@@ -11,7 +11,8 @@ import {
   getUserStreak, updateUserStreak,
   getCustomExercises, saveCustomExercise, deleteCustomExercise,
   getSavedFoods, saveSavedFood, deleteSavedFood,
-  getNotificationPrefs, saveNotificationPrefs
+  getNotificationPrefs, saveNotificationPrefs,
+  getUserById
 } from "./db";
 import { requireAuth } from "./auth";
 
@@ -183,7 +184,34 @@ Return JSON array only:
         baseURL: openaiBaseUrl,
       });
 
-      // CALL A: Vision - identify food items and estimate grams (small output)
+      // CALL A: Vision - identify food items, categorize, and estimate grams
+      const promptA = `Analyze this food photo for a bodybuilding-focused macro tracker.
+
+STRICT RULES:
+- Identify visible items only.
+- Output COOKED edible grams (exclude bones, shells, packaging). If bone-in, set bone_in=true.
+- Choose category ONLY from APPROVED_LIST. If uncertain, choose the closest match. Do NOT invent categories.
+- If fried/breaded, set fried_breaded=true.
+- If pan-seared meat and visible oil sheen/pooling, set pan_seared=true and oil_present=true.
+- If sauce is visible, estimate sauce_tbsp (min/median/max) and set sauce_type from ["none","bbq","mayo_ranch","ketchup","hot_sauce","unknown"].
+
+APPROVED_LIST:
+
+PROTEINS (50):
+chicken_breast_grilled, chicken_breast_pan_seared, chicken_thigh, chicken_fried_breaded, ground_beef_lean, ground_beef_regular, steak_lean, steak_moderate, steak_fatty, pork_chop_lean, pork_chop_moderate, pork_chop_fatty, salmon, white_fish, tilapia, tuna, turkey_breast, ground_turkey_lean, ground_turkey_regular, shrimp, egg_whole, egg_whites, tofu, tempeh, protein_bar, protein_powder, greek_yogurt_plain, greek_yogurt_flavored, cottage_cheese, beef_jerky, ham, bacon, sausage, lamb, venison, crab, lobster, sardines, mackerel, whey_shake_ready_to_drink, casein_shake, edamame, beans_chili, chicken_sausage, turkey_bacon, deli_chicken, deli_turkey, ground_bison, bison_steak, pork_tenderloin
+
+CARBS (50):
+white_rice, brown_rice, jasmine_rice, basmati_rice, rice_mix, sweet_potato, white_potato, mashed_potatoes, baked_potato, fries_fried, oats_cooked, oats_overnight, pasta_cooked, quinoa, couscous, black_beans, kidney_beans, lentils, chickpeas, tortilla_flour, tortilla_corn, bagel_plain, bread_white, bread_wheat, wrap_flatbread, burger_bun, english_muffin, pancakes, waffles, cereal, granola, rice_cakes, banana, apple, berries, grapes, orange, mango, pineapple, mixed_fruit, yogurt_parfait, protein_cookie, pretzels, popcorn, crackers, ramen_noodles, udon_noodles, sushi_rice, honey, jam_jelly, dates
+
+FATS/SAUCES (50):
+olive_oil, avocado_oil, butter, ghee, cheese_generic, cheddar_cheese, mozzarella, parmesan, cream_cheese, sour_cream, bbq_sauce, ketchup, mayo, ranch, aioli, hot_sauce, mustard, soy_sauce, teriyaki_sauce, sriracha, peanut_butter, almond_butter, nuts_mixed, walnuts, almonds, cashews, trail_mix, avocado, guacamole, pesto, hummus, tahini, olive_tapenade, coconut_oil, sesame_oil, vinaigrette, italian_dressing, caesar_dressing, blue_cheese_dressing, honey_mustard, buffalo_sauce, gravy, cheese_sauce, chili_oil, maple_syrup, chocolate_sauce, ice_cream, whipped_cream, bacon_bits, croutons, butter_sauce, garlic_butter
+
+VEGETABLES (50):
+broccoli, green_beans, asparagus, spinach, kale, mixed_vegetables, salad_plain, carrots, zucchini, brussels_sprouts, cauliflower, cabbage, bell_peppers, onions, mushrooms, tomatoes, cucumber, lettuce, arugula, bok_choy, broccolini, snap_peas, peas, corn, sweet_corn, eggplant, okra, beets, celery, radish, sauerkraut, pickles, jalapenos, garlic, ginger, spring_mix, coleslaw_plain, coleslaw_creamy, salsa, pico_de_gallo, kimchi, seaweed_salad, edamame_side, butternut_squash, pumpkin, parsnips, turnips, artichoke, leeks, fajita_veggies, stir_fry_veggies
+
+Return JSON only:
+{"items":[{"name":"","category":"","grams":{"min":0,"median":0,"max":0},"bone_in":false,"fried_breaded":false,"pan_seared":false,"oil_present":false,"sauce_type":"none","sauce_tbsp":{"min":0,"median":0,"max":0}}],"confidence":0}`;
+
       const callAResponse = await openai.chat.completions.create({
         model: "gpt-5.2",
         messages: [
@@ -192,17 +220,7 @@ Return JSON array only:
             content: [
               {
                 type: "text",
-                text: `Identify foods in the photo and estimate grams.
-
-Rules:
-- Visible items only.
-- Estimate grams using plate/container cues.
-- Fried/breaded: flag "fried_breaded":true.
-- Pan-seared: flag "pan_seared":true.
-- Sauce: estimate tbsp if visible.
-
-Return JSON only:
-{"items":[{"name":"","grams":{"min":0,"median":0,"max":0},"fried_breaded":false,"pan_seared":false,"sauce_tbsp":{"min":0,"median":0,"max":0}}],"confidence":0}`
+                text: promptA,
               },
               {
                 type: "image_url",
@@ -214,7 +232,7 @@ Return JSON only:
             ],
           },
         ],
-        max_completion_tokens: 350,
+        max_completion_tokens: 500,
       });
 
       const callAFinish = callAResponse.choices[0]?.finish_reason;
@@ -253,8 +271,142 @@ Return JSON only:
         });
       }
 
-      // CALL B: Text-only - calculate macros from identified items (no image)
+      // Derive mode from user's fitness goal
+      const userId = (req as any).userId;
+      let mode = "maintenance";
+      try {
+        const user = await getUserById(userId);
+        if (user?.goal) {
+          const g = user.goal.toLowerCase();
+          if (g.includes("lose") || g.includes("cut") || g.includes("lean")) {
+            mode = "lean";
+          } else if (g.includes("bulk") || g.includes("muscle") || g.includes("strength") || g.includes("gain")) {
+            mode = "bulk";
+          }
+        }
+      } catch (e) {
+        console.log("[Photo] Could not fetch user goal, defaulting to maintenance");
+      }
+      console.log("[Photo] Mode:", mode);
+
+      // CALL B: Text-only - calculate macros using built-in macro table
       // Use gpt-4o-mini for fast, cheap text-only macro math (no reasoning overhead)
+      const promptB = `Compute macros from the detected items using ONLY the macro table below. No external lookups.
+
+INPUTS:
+- mode: "${mode}"
+- items[] from Prompt A
+
+MACRO_TABLE (per 100g unless noted):
+PROTEINS:
+chicken_breast_grilled: kcal165 P31 C0 F4
+chicken_breast_pan_seared: kcal190 P30 C0 F8
+chicken_thigh: kcal215 P24 C0 F13
+chicken_fried_breaded: kcal280 P23 C16 F16
+ground_beef_lean: kcal200 P26 C0 F10
+ground_beef_regular: kcal254 P26 C0 F16
+steak_lean: kcal200 P27 C0 F10
+steak_moderate: kcal250 P26 C0 F16
+steak_fatty: kcal310 P24 C0 F24
+pork_chop_lean: kcal200 P27 C0 F9
+pork_chop_moderate: kcal250 P26 C0 F17
+pork_chop_fatty: kcal310 P23 C0 F25
+salmon: kcal208 P22 C0 F13
+white_fish: kcal120 P24 C0 F2
+tilapia: kcal128 P26 C0 F3
+tuna: kcal132 P29 C0 F1
+turkey_breast: kcal135 P29 C0 F2
+ground_turkey_lean: kcal170 P24 C0 F8
+ground_turkey_regular: kcal220 P23 C0 F14
+shrimp: kcal100 P24 C0 F1
+egg_whole: kcal143 P13 C1 F10
+egg_whites: kcal52 P11 C1 F0
+tofu: kcal90 P10 C2 F5
+tempeh: kcal190 P19 C9 F11
+greek_yogurt_plain: kcal60 P10 C4 F0
+greek_yogurt_flavored: kcal95 P9 C12 F1
+cottage_cheese: kcal98 P11 C3 F4
+beef_jerky: kcal300 P40 C10 F8
+protein_bar: kcal360 P25 C35 F10
+protein_powder: kcal400 P80 C10 F6
+(If category not listed above but is a protein, default to: kcal200 P25 C0 F10)
+
+CARBS:
+white_rice: kcal130 P2.7 C28 F0.3
+brown_rice: kcal112 P2.3 C23 F0.9
+jasmine_rice: kcal130 P2.7 C28 F0.3
+basmati_rice: kcal125 P2.6 C27 F0.3
+sweet_potato: kcal90 P2 C21 F0.1
+white_potato: kcal87 P2 C20 F0.1
+mashed_potatoes: kcal110 P2 C17 F4
+baked_potato: kcal93 P2.5 C21 F0.1
+fries_fried: kcal320 P3.5 C41 F15
+oats_cooked: kcal70 P2.5 C12 F1.5
+pasta_cooked: kcal131 P5 C25 F1.1
+quinoa: kcal120 P4 C21 F2
+black_beans: kcal132 P9 C24 F0.5
+lentils: kcal116 P9 C20 F0.4
+tortilla_flour: kcal300 P8 C50 F8
+bread_white: kcal265 P9 C49 F3.2
+bread_wheat: kcal250 P9 C43 F4
+burger_bun: kcal270 P9 C50 F4
+rice_cakes: kcal387 P8 C82 F3
+banana: kcal89 P1.1 C23 F0.3
+berries: kcal50 P1 C12 F0.3
+mixed_fruit: kcal60 P0.8 C15 F0.2
+(If category not listed above but is a carb, default to: kcal130 P3 C28 F1)
+
+VEGETABLES:
+vegetables_default: kcal35 P2 C7 F0.3
+(broccoli/green_beans/asparagus/spinach/kale/mixed_vegetables/salad_plain/etc use vegetables_default unless creamy slaw)
+coleslaw_creamy: kcal150 P1 C14 F10
+pickles: kcal15 P0.5 C3 F0
+
+SAUCES/FATS:
+olive_oil (per 1 tbsp): kcal120 P0 C0 F14
+butter (per 1 tbsp): kcal100 P0 C0 F11
+bbq_sauce (per 1 tbsp): kcal40 P0 C10 F0
+ketchup (per 1 tbsp): kcal20 P0 C5 F0
+hot_sauce (per 1 tbsp): kcal5 P0 C1 F0
+mayo_ranch_sauce (per 1 tbsp): kcal100 P0 C1 F11
+(If sauce_type unknown and sauce_tbsp>0, use mayo_ranch_sauce)
+
+LEAN/BULK ADJUSTMENT LAYER:
+A) Portion bias on grams.median ONLY:
+- lean: grams_median *= 0.95
+- maintenance: *= 1.00
+- bulk: *= 1.05
+
+B) Meat leanness bias (only for beef/pork/steak/ground_*):
+- lean: fatty->moderate, moderate->lean
+- maintenance: no change
+- bulk: lean->moderate, moderate->fatty
+
+C) Pan-seared oil add-on (only if pan_seared=true AND fried_breaded=false):
+Oil tbsp by mode:
+- lean: min 0, median 0.5, max 1.0
+- maintenance: min 0, median 1.0, max 1.5
+- bulk: min 0.5, median 1.5, max 2.0
+
+D) Sauce bias on sauce_tbsp.median ONLY:
+- lean *= 0.80
+- maintenance *= 1.00
+- bulk *= 1.20
+
+E) Bone-in edible grams:
+If bone_in=true, edible_grams = grams * 0.70 (apply after portion bias).
+
+CALC RULES:
+1) For each item, compute min/median/max using grams(min/median/max) with the adjustments above (median gets mode bias; min/max stay as-is except bone and oil/sauce rules).
+2) If fried_breaded=true: do NOT add oil.
+3) Add sauce macros using sauce_type and sauce_tbsp.
+4) Calorie check: ensure |(P*4 + C*4 + F*9) - kcal| / kcal <= 10%. If not, adjust oil first, then sauce, then grams within min/max and add a warning.
+
+Items: ${JSON.stringify(identifiedItems.items)}
+
+Return JSON only:
+{"mode":"${mode}","items":[{"name":"","category_used":"","kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}}],"totals":{"kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}},"confidence":0,"warnings":[]}`;
+
       const callBResponse = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
@@ -264,21 +416,10 @@ Return JSON only:
           },
           {
             role: "user",
-            content: `Using USDA-style averages, compute macros for each item and totals.
-
-Items: ${JSON.stringify(identifiedItems.items)}
-
-Rules:
-- Fried/breaded: only 60-70% of grams is meat; rest is breading/oil.
-- Pan-seared: add oil only if pan_seared=true (0/1/1.5 tbsp for min/med/max).
-- Sauce: use sauce_tbsp for calories/macros.
-- Calorie check: p*4+c*4+f*9 within ±8%; adjust fat/oil first.
-
-Return JSON only:
-{"items":[{"name":"","kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}}],"totals":{"kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}},"confidence":0,"warnings":[]}`,
+            content: promptB,
           },
         ],
-        max_tokens: 1000,
+        max_tokens: 1500,
       });
 
       const callBFinish = callBResponse.choices[0]?.finish_reason;
@@ -321,8 +462,15 @@ Return JSON only:
         const grams = sourceItem.grams || {};
         const medianGrams = grams.median || 0;
         
+        const noteParts: string[] = [];
+        if (sourceItem.fried_breaded) noteParts.push("Fried/breaded");
+        if (sourceItem.pan_seared) noteParts.push("Pan-seared");
+        if (sourceItem.bone_in) noteParts.push("Bone-in (70% edible)");
+        if (sourceItem.sauce_type && sourceItem.sauce_type !== "none") noteParts.push(`Sauce: ${sourceItem.sauce_type}`);
+
         return {
           name: item.name || sourceItem.name,
+          category: item.category_used || sourceItem.category || "",
           servingSize: `~${medianGrams} g (~${Math.round(medianGrams / 28.35)} oz)`,
           estimatedWeightGrams: medianGrams,
           confidence: identifiedItems.confidence >= 0.7 ? "high" : identifiedItems.confidence >= 0.4 ? "medium" : "low",
@@ -332,7 +480,7 @@ Return JSON only:
           fat: Math.round(item.f?.median || 0),
           fiber: 0,
           source: "ai_estimate",
-          notes: sourceItem.fried_breaded ? "Fried/breaded" : sourceItem.pan_seared ? "Pan-seared" : "",
+          notes: noteParts.join(", "),
           min: {
             calories: Math.round(item.kcal?.min || 0),
             protein: Math.round(item.p?.min || 0),
@@ -353,6 +501,7 @@ Return JSON only:
       return res.json({
         success: true,
         foods: foodsWithNutrition,
+        mode: macroData.mode || mode,
         description: `Identified ${foodsWithNutrition.length} food item(s)`,
         totalCalories: Math.round(totals.kcal?.median || foodsWithNutrition.reduce((s: number, f: any) => s + (f.calories || 0), 0)),
         totalProtein: Math.round(totals.p?.median || foodsWithNutrition.reduce((s: number, f: any) => s + (f.protein || 0), 0)),
