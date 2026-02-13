@@ -104,11 +104,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "user",
-            content: `Return nutrition data for: "${query.trim()}". Provide up to 3 relevant food items/variations.
+            content: `Return nutrition for query: "${query.trim()}". Provide up to 3 best matches (common variations), using USDA-style averages.
 
-Return JSON array: [{"name":"Food Name","servingSize":"100g","calories":int,"protein":num,"carbs":num,"fat":num}]
+Rules:
+- Output per 100g unless the food is typically counted per piece (then also give per 1 item in name, but keep servingSize as 100g).
+- Use realistic macros (no brand claims).
+- Prefer: generic category > niche variant.
+- If ambiguous, include lean and regular options.
 
-Be accurate with macros. JSON only, no markdown.`
+Return JSON array only:
+[{"name":"","servingSize":"100g","calories":0,"protein":0.0,"carbs":0.0,"fat":0.0}]`
           }
         ],
         max_completion_tokens: 500,
@@ -186,21 +191,21 @@ Be accurate with macros. JSON only, no markdown.`
             content: [
               {
                 type: "text",
-                text: `Identify each food item in this photo and estimate its nutrition. Provide min, max, and median estimates for each.
+                text: `Analyze this food photo and estimate nutrition per item with min/median/max.
 
-Guidelines:
-- Estimate portion weight using plate size, food thickness, and density
-- Min: smallest reasonable portion, leanest option, no added oil
-- Max: largest reasonable portion, fattier option, oil if food looks oily/fried
-- Median: midpoint of min and max (most likely)
-- Do not double-count cooking fat that is already part of the food
-- Cross-check: protein*4 + carbs*4 + fat*9 should approximate total calories
+Rules:
+1) Identify visible items only. Use USDA-style averages by category.
+2) Estimate grams using scale cues (plate/bowl/packaging). If weak cues, widen min/max and lower confidence.
+3) Fried/breaded foods: only 60-70% of total grams is meat; rest is breading/oil. Do NOT use grilled chicken macros.
+4) Pan-seared meat: add absorbed oil only if glossy/oily; use 0 tbsp (min), 1 tbsp (median), 1.5 tbsp (max).
+5) Sauces: estimate tbsp from visible coverage; mayo/ranch high-fat, BBQ mostly carbs.
+6) Do not double-count fat already included in fried items.
+7) Calorie check: p*4 + c*4 + f*9 must be within ±8% of calories. If not, adjust (usually fat/oil or portion grams) and note in warnings.
 
-Return JSON:
-{"foods":[{"name":"food name","estimatedWeightGrams":int,"estimatedServingSize":"Xg / about X oz","confidence":"high|medium|low","min":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}}],"description":"brief description","totalMin":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMax":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMedian":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0}}
+Return JSON only:
+{"foods":[{"name":"","estimatedWeightGrams":{"min":0,"median":0,"max":0},"estimatedServingSize":"~0 g (~0 oz)","confidence":"high|medium|low","min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"notes":"short"}],"description":"short","totals":{"min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}},"warnings":[]}
 
-If no food found: {"foods":[],"description":"Could not identify food items"}
-JSON only, no markdown.`
+If no food: {"foods":[],"description":"Could not identify food items","totals":{},"warnings":["no_food_detected"]}`
               },
               {
                 type: "image_url",
