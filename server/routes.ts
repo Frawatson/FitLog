@@ -199,7 +199,7 @@ Your task is to estimate nutrition from a food photo as realistically as possibl
 
 Do NOT assume perfect precision.
 Use realistic cooking assumptions.
-Prioritize macro realism over optimistic calorie estimates.
+Prioritize macro realism — avoid both overestimation and underestimation.
 
 STEP 1 — FOOD IDENTIFICATION
 Identify each visible food item separately.
@@ -212,47 +212,52 @@ Do NOT default to extremely lean unless visually confirmed.
 STEP 2 — PORTION ESTIMATION
 Estimate portion size in grams using plate size, food density, thickness, and volume.
 
-Use realistic adult meal sizing:
-Cooked beef strips on a full plate usually 220–320g.
-1 cup cooked white rice ≈ 200–220g.
-If food occupies half a standard dinner plate, assume 200–300g.
+Use moderate adult meal sizing — aim for the middle of the range, not the high end:
+A typical meat portion is 150–200g (about palm-sized). Only estimate 250g+ if the portion is clearly large.
+1 cup cooked white rice ≈ 200g. A side portion is often 100–150g.
+If food occupies half a standard dinner plate, assume 150–250g depending on density.
+Vegetables are light — a side of broccoli or salad is typically 80–120g.
 
-STEP 3 — COOKING FAT LOGIC (CRITICAL)
-If meat appears pan-seared or glossy:
-Assume minimum 0.5 tbsp oil absorbed.
-Most likely 1 tbsp absorbed.
-Maximum 1.5 tbsp absorbed.
+STEP 3 — COOKING FAT LOGIC
+IMPORTANT: USDA "cooked" values ALREADY include the fat retained in the meat during cooking. Do NOT add intrinsic meat fat on top of USDA cooked values — that would be double-counting.
 
-Additionally:
-Account for intrinsic beef fat separately from cooking oil.
-Do NOT ignore rendered fat from the meat.
-Calculate oil separately and add to total fat.
+Only add extra cooking oil if the food visibly appears oily, glossy, or fried:
+- Lightly glossy/pan-seared: add 0.5 tbsp oil max (~60 cal, 7g fat)
+- Visibly oily or shallow-fried: add 1 tbsp oil (~120 cal, 14g fat)
+- Deep-fried: add based on food weight (roughly 8–12% of food weight absorbed as oil)
+- If the food looks dry, grilled, baked, or steamed: add NO extra oil.
+
+Do NOT add cooking oil by default. Only add it when there is visual evidence.
 
 STEP 4 — SAUCE LOGIC
 If sauce is visibly drizzled:
-Estimate tablespoons visually.
+Estimate tablespoons visually based on actual coverage area.
 1 tbsp BBQ sauce ≈ 35–45 calories, mostly carbs.
-Do not inflate sauce calories beyond visual coverage.
+1 tbsp soy sauce ≈ 9 calories.
+Do not inflate sauce calories beyond what is visually present.
 
 STEP 5 — MACRO CALCULATION
-Use USDA average values per 100g:
-Lean cooked beef: 26g protein, 12g fat
-Moderate-fat cooked beef: 25g protein, 15g fat
-Fatty beef: 23g protein, 20g fat
-Cooked white rice: 206 kcal per 200g (44–45g carbs per cup)
-Scale macros by estimated weight.
+Use USDA average values per 100g (these are for COOKED food and already include retained fat):
+Lean cooked beef: 26g protein, 8g fat, ~180 cal
+Moderate-fat cooked beef: 25g protein, 15g fat, ~240 cal
+Fatty beef: 23g protein, 20g fat, ~280 cal
+Chicken breast (cooked, no skin): 31g protein, 3.6g fat, ~165 cal
+Chicken thigh (cooked, with skin): 24g protein, 14g fat, ~229 cal
+Cooked white rice: 130 cal per 100g (28g carbs per 100g)
+Scale macros by estimated weight. Do not add extra fat beyond USDA values unless cooking oil is visually evident (Step 3).
 
 STEP 6 — REALISM CHECK
 Before final output:
-Verify fat grams are plausible relative to meat size.
-A 250g moderate-fat beef serving should not be under 30g total fat after cooking.
-Recalculate if macros appear unrealistically lean.
+- Cross-check total calories: protein*4 + carbs*4 + fat*9 should approximately equal total calories.
+- A typical home-cooked meal is 400–700 calories. Restaurant meals may be 600–1000+.
+- If your estimate exceeds 900 calories for a simple home plate, double-check portion sizes and fat calculations for double-counting.
+- If macros seem too high, re-examine whether you added cooking oil unnecessarily on top of USDA cooked values.
 
 Return a JSON object with:
 - "foods": array of food items, each with:
   - "name": specific food name with preparation method
   - "estimatedWeightGrams": weight in grams (integer)
-  - "estimatedServingSize": human-readable (e.g., "250g / about 8.8 oz")
+  - "estimatedServingSize": human-readable (e.g., "180g / about 6.3 oz")
   - "confidence": "high", "medium", or "low"
   - "calories": calories for this exact portion (integer)
   - "protein": protein in grams (number, 1 decimal)
