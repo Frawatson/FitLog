@@ -214,7 +214,7 @@ export default function AddFoodScreen() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
-      quality: 1,
+      quality: 0.7,
       base64: false,
       exif: false,
     });
@@ -251,7 +251,7 @@ export default function AddFoodScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
-      quality: 1,
+      quality: 0.7,
       base64: false,
       exif: false,
     });
@@ -273,6 +273,8 @@ export default function AddFoodScreen() {
   const analyzePhoto = async (base64: string | null, uri: string) => {
     try {
       const url = new URL("/api/foods/analyze-photo", getApiUrl());
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
       const response = await fetch(url.toString(), {
         method: "POST",
         headers: {
@@ -282,7 +284,9 @@ export default function AddFoodScreen() {
         body: JSON.stringify({ 
           imageBase64: base64,
         }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const data = await response.json();
@@ -319,9 +323,13 @@ export default function AddFoodScreen() {
         const errData = await response.json().catch(() => null);
         setPhotoError(errData?.message || errData?.error || "Failed to analyze photo. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error analyzing photo:", error);
-      setPhotoError("Network error analyzing photo. Please try again.");
+      if (error?.name === "AbortError") {
+        setPhotoError("Analysis timed out. Please try again with a simpler photo.");
+      } else {
+        setPhotoError("Network error analyzing photo. Please try again.");
+      }
     } finally {
       setIsAnalyzingPhoto(false);
     }
