@@ -254,10 +254,14 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
         const fat = Math.round(median.fat || food.fat || 0);
         const fiber = Math.round(median.fiber || food.fiber || 0);
 
+        const weightGrams = typeof food.estimatedWeightGrams === "object"
+          ? food.estimatedWeightGrams.median || 0
+          : food.estimatedWeightGrams || 0;
+
         foodsWithNutrition.push({
           name: food.name,
           servingSize: food.estimatedServingSize,
-          estimatedWeightGrams: food.estimatedWeightGrams,
+          estimatedWeightGrams: weightGrams,
           confidence: food.confidence,
           calories,
           protein,
@@ -265,6 +269,7 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
           fat,
           fiber,
           source: "ai_estimate",
+          notes: food.notes || "",
           min: {
             calories: Math.round(minData.calories || calories * 0.75),
             protein: Math.round(minData.protein || protein * 0.75),
@@ -280,13 +285,14 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
         });
       }
 
-      const totalMin = identifiedFoods.totalMin || {
+      const totals = identifiedFoods.totals || {};
+      const totalMin = totals.min || {
         calories: foodsWithNutrition.reduce((s, f) => s + (f.min?.calories || 0), 0),
         protein: foodsWithNutrition.reduce((s, f) => s + (f.min?.protein || 0), 0),
         carbs: foodsWithNutrition.reduce((s, f) => s + (f.min?.carbs || 0), 0),
         fat: foodsWithNutrition.reduce((s, f) => s + (f.min?.fat || 0), 0),
       };
-      const totalMax = identifiedFoods.totalMax || {
+      const totalMax = totals.max || {
         calories: foodsWithNutrition.reduce((s, f) => s + (f.max?.calories || 0), 0),
         protein: foodsWithNutrition.reduce((s, f) => s + (f.max?.protein || 0), 0),
         carbs: foodsWithNutrition.reduce((s, f) => s + (f.max?.carbs || 0), 0),
@@ -303,6 +309,7 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
         totalFat: foodsWithNutrition.reduce((s, f) => s + (f.fat || 0), 0),
         totalMin,
         totalMax,
+        warnings: identifiedFoods.warnings || [],
         message: `Identified ${foodsWithNutrition.length} food item(s)`,
       });
       
