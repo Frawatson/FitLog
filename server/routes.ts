@@ -197,7 +197,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 Min = smallest reasonable portion, leanest cut, no added oil. Max = largest reasonable portion, fattier cut, cooking oil if food looks oily/fried. Median = midpoint of min and max.
 
-Use USDA cooked values per 100g. Cross-check: protein*4 + carbs*4 + fat*9 ≈ total calories.
+USDA reference values per 100g cooked (use these as anchors):
+- Chicken breast (fried, breaded): 22g protein, 12g fat, 210 cal
+- Chicken breast (grilled): 31g protein, 3.6g fat, 165 cal
+- Chicken thigh (fried): 24g protein, 15g fat, 240 cal
+- Beef (moderate-fat): 25g protein, 15g fat, 240 cal
+- French fries: 3.4g protein, 15g fat, 312 cal
+- White bread/bun: 9g protein, 3g fat, 265 cal
+- White rice (cooked): 2.7g protein, 0.3g fat, 130 cal
+- Ranch dressing: 1g protein, 35g fat, 330 cal
+
+A typical fried chicken breast in a sandwich weighs 100-130g (yielding ~25-30g protein). A burger bun is 50-60g. A serving of fries is 100-170g.
+
+Cross-check: protein*4 + carbs*4 + fat*9 ≈ total calories. If protein seems too high for the food type, re-check against USDA values above.
 
 Return JSON:
 {"foods":[{"name":"food name","estimatedWeightGrams":int,"estimatedServingSize":"Xg / about X oz","confidence":"high|medium|low","min":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}}],"description":"brief description","totalMin":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMax":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMedian":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0}}
@@ -215,7 +227,7 @@ JSON only, no markdown.`
             ],
           },
         ],
-        max_completion_tokens: 800,
+        max_completion_tokens: 1000,
       });
 
       const visionContent = visionResponse.choices[0]?.message?.content || "";
