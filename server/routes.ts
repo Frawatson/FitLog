@@ -108,7 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 Return JSON array: [{"name":"Food Name","servingSize":"100g","calories":int,"protein":num,"carbs":num,"fat":num}]
 
-Use standard USDA serving sizes. Be accurate with macros. JSON only, no markdown.`
+Be accurate with macros. JSON only, no markdown.`
           }
         ],
         max_completion_tokens: 500,
@@ -193,9 +193,8 @@ Guidelines:
 - Min: smallest reasonable portion, leanest option, no added oil
 - Max: largest reasonable portion, fattier option, oil if food looks oily/fried
 - Median: midpoint of min and max (most likely)
-- USDA cooked values already include retained cooking fat — do not double-count
-- Only add cooking oil if food visually appears oily, glossy, or fried
-- Cross-check: protein*4 + carbs*4 + fat*9 should ≈ total calories
+- Do not double-count cooking fat that is already part of the food
+- Cross-check: protein*4 + carbs*4 + fat*9 should approximate total calories
 
 Return JSON:
 {"foods":[{"name":"food name","estimatedWeightGrams":int,"estimatedServingSize":"Xg / about X oz","confidence":"high|medium|low","min":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}}],"description":"brief description","totalMin":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMax":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMedian":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0}}
