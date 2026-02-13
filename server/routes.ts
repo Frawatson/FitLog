@@ -193,78 +193,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `You are a professional sports nutritionist and food portion estimation specialist.
+                text: `Estimate nutrition from this food photo. For each food item, provide min, max, and median estimates.
 
-Your task is to estimate nutrition from a food photo by calculating THREE scenarios: minimum, maximum, and median estimates.
+Min = smallest reasonable portion, leanest cut, no added oil. Max = largest reasonable portion, fattier cut, cooking oil if food looks oily/fried. Median = midpoint of min and max.
 
-STEP 1 — FOOD IDENTIFICATION
-Identify each visible food item separately.
-Classify protein type accurately (lean beef, moderate-fat beef, fatty beef, chicken breast, chicken thigh, etc.).
-If the exact cut is unclear, consider it could range from lean to moderate-fat.
+Use USDA cooked values per 100g. Cross-check: protein*4 + carbs*4 + fat*9 ≈ total calories.
 
-STEP 2 — THREE-SCENARIO ESTIMATION
-For each food item, estimate THREE versions:
+Return JSON:
+{"foods":[{"name":"food name","estimatedWeightGrams":int,"estimatedServingSize":"Xg / about X oz","confidence":"high|medium|low","min":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}}],"description":"brief description","totalMin":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMax":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMedian":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0}}
 
-MINIMUM estimate (conservative/best case):
-- Smallest reasonable portion size for what's visible
-- Leanest plausible cut of meat
-- No added cooking oil unless clearly deep-fried
-- Minimal sauce
-- Use USDA values for lean/low-fat versions
-
-MAXIMUM estimate (generous/worst case):
-- Largest reasonable portion size for what's visible
-- Fattier plausible cut of meat
-- Cooking oil added if food appears pan-cooked or glossy
-- Full sauce coverage estimated
-- Use USDA values for higher-fat versions
-
-MEDIAN estimate (most likely):
-- Middle ground between min and max
-- Most probable portion size
-- Most likely cooking method and fat content
-- Calculate as the midpoint: (min + max) / 2
-
-STEP 3 — PORTION GUIDELINES
-Use plate size, food density, thickness, and volume to estimate portions.
-A typical meat portion ranges from 120g (min) to 280g (max) depending on visual size.
-1 cup cooked white rice ≈ 180–220g.
-Vegetables are light — a side is typically 60–150g.
-
-STEP 4 — MACRO CALCULATION
-Use USDA average values per 100g for cooked foods.
-Scale macros by estimated weight for each scenario.
-Cross-check: protein*4 + carbs*4 + fat*9 should approximately equal total calories.
-
-Return a JSON object with:
-- "foods": array of food items, each with:
-  - "name": specific food name with preparation method
-  - "estimatedWeightGrams": median weight in grams (integer)
-  - "estimatedServingSize": human-readable median (e.g., "200g / about 7 oz")
-  - "confidence": "high", "medium", or "low"
-  - "min": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal, "fiber": 1 decimal }
-  - "max": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal, "fiber": 1 decimal }
-  - "median": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal, "fiber": 1 decimal }
-- "description": brief meal description
-- "totalMin": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal }
-- "totalMax": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal }
-- "totalMedian": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal }
-
-If you cannot identify any food, return: {"foods": [], "description": "Could not identify food items"}
-
-Respond ONLY with valid JSON, no markdown or additional text.`
+If no food found: {"foods":[],"description":"Could not identify food items"}
+JSON only, no markdown.`
               },
               {
                 type: "image_url",
                 image_url: {
                   url: `data:image/jpeg;base64,${imageBase64}`,
-                  detail: "high",
+                  detail: "low",
                 },
               },
             ],
           },
         ],
-        max_completion_tokens: 1500,
+        max_completion_tokens: 800,
       });
 
       const visionContent = visionResponse.choices[0]?.message?.content || "";
