@@ -141,7 +141,7 @@ App data stored locally on device:
 - February 2026: Security, Notifications, Theme, and Heart Rate Features
   - **Enhanced Security**: Added rate limiting (5 attempts/15 min), account lockout after 5 failures, strong password validation, helmet security headers
   - **Streak Tracking**: Dashboard now displays current streak and longest streak with celebration badges
-  - **Push Notifications**: Added expo-notifications with permission handling, daily workout reminders (6 PM), streak alerts, settings UI in Profile
+  - **Push Notifications**: Added expo-notifications with permission handling, daily workout reminders with customizable time picker, streak alerts, settings UI in Profile
   - **Dark/Light Mode**: Created ThemeContext with system/light/dark options, persistent storage, toggle in Profile
   - **Heart Rate Zones**: 5-zone system based on age (220-age formula), post-run HR input modal, zone display in run history with color coding
   - Added new files: ThemeContext.tsx, notifications.ts, heartRateZones.ts
