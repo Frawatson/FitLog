@@ -436,7 +436,7 @@ export default function AddFoodScreen() {
             testID="input-food-name"
           />
           {showSuggestions ? (
-            <View style={[styles.suggestionsDropdown, { backgroundColor: theme.backgroundElevated, borderColor: theme.border }]}>
+            <View style={[styles.suggestionsDropdown, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
               {nameSuggestions.map((item) => (
                 <Pressable
                   key={item.id}
