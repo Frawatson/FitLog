@@ -177,14 +177,14 @@ Return JSON array only:
         });
       }
 
-      // Use OpenAI Vision to identify the food
       const OpenAI = (await import("openai")).default;
       const openai = new OpenAI({
         apiKey: openaiApiKey,
         baseURL: openaiBaseUrl,
       });
 
-      const visionResponse = await openai.chat.completions.create({
+      // CALL A: Vision - identify food items and estimate grams (small output)
+      const callAResponse = await openai.chat.completions.create({
         model: "gpt-5.2",
         messages: [
           {
@@ -192,21 +192,17 @@ Return JSON array only:
             content: [
               {
                 type: "text",
-                text: `Analyze this food photo and estimate nutrition per item with min/median/max.
+                text: `Identify foods in the photo and estimate grams.
 
 Rules:
-1) Identify visible items only. Use USDA-style averages by category.
-2) Estimate grams using scale cues (plate/bowl/packaging). If weak cues, widen min/max and lower confidence.
-3) Fried/breaded foods: only 60-70% of total grams is meat; rest is breading/oil. Do NOT use grilled chicken macros.
-4) Pan-seared meat: add absorbed oil only if glossy/oily; use 0 tbsp (min), 1 tbsp (median), 1.5 tbsp (max).
-5) Sauces: estimate tbsp from visible coverage; mayo/ranch high-fat, BBQ mostly carbs.
-6) Do not double-count fat already included in fried items.
-7) Calorie check: p*4 + c*4 + f*9 must be within ±8% of calories. If not, adjust (usually fat/oil or portion grams) and note in warnings.
+- Visible items only.
+- Estimate grams using plate/container cues.
+- Fried/breaded: flag "fried_breaded":true.
+- Pan-seared: flag "pan_seared":true.
+- Sauce: estimate tbsp if visible.
 
 Return JSON only:
-{"foods":[{"name":"","estimatedWeightGrams":{"min":0,"median":0,"max":0},"estimatedServingSize":"~0 g (~0 oz)","confidence":"high|medium|low","min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"notes":"short"}],"description":"short","totals":{"min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}},"warnings":[]}
-
-If no food: {"foods":[],"description":"Could not identify food items","totals":{},"warnings":["no_food_detected"]}`
+{"items":[{"name":"","grams":{"min":0,"median":0,"max":0},"fried_breaded":false,"pan_seared":false,"sauce_tbsp":{"min":0,"median":0,"max":0}}],"confidence":0}`
               },
               {
                 type: "image_url",
@@ -218,14 +214,12 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
             ],
           },
         ],
-        max_completion_tokens: 1500,
+        max_completion_tokens: 350,
       });
 
-      const finishReason = visionResponse.choices[0]?.finish_reason;
-      let visionContent = visionResponse.choices[0]?.message?.content || "";
+      let callAContent = callAResponse.choices[0]?.message?.content || "";
       
-      if (!visionContent || visionContent.trim().length === 0) {
-        console.error("Vision API returned empty response. Finish reason:", finishReason);
+      if (!callAContent || callAContent.trim().length === 0) {
         return res.json({
           success: false,
           message: "AI could not process the image. Please try a clearer photo or enter details manually.",
@@ -233,13 +227,12 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
         });
       }
       
-      visionContent = visionContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      callAContent = callAContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
       
-      let identifiedFoods;
+      let identifiedItems;
       try {
-        identifiedFoods = JSON.parse(visionContent);
+        identifiedItems = JSON.parse(callAContent);
       } catch (parseError) {
-        console.error("Failed to parse vision response:", visionContent.substring(0, 300));
         return res.json({
           success: false,
           message: "Could not identify food items. Please enter details manually.",
@@ -247,82 +240,107 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
         });
       }
 
-      if (!identifiedFoods.foods || identifiedFoods.foods.length === 0) {
+      if (!identifiedItems.items || identifiedItems.items.length === 0) {
         return res.json({
           success: false,
-          message: identifiedFoods.description || "No food items identified. Please enter details manually.",
+          message: "No food items identified. Please enter details manually.",
           requiresManualEntry: true,
         });
       }
 
-      const foodsWithNutrition = [];
+      // CALL B: Text-only - calculate macros from identified items (no image)
+      const callBResponse = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [
+          {
+            role: "user",
+            content: `Using USDA-style averages, compute macros for each item and totals.
 
-      for (const food of identifiedFoods.foods) {
-        const median = food.median || {};
-        const minData = food.min || {};
-        const maxData = food.max || {};
-        const calories = Math.round(median.calories || food.calories || 0);
-        const protein = Math.round(median.protein || food.protein || 0);
-        const carbs = Math.round(median.carbs || food.carbs || 0);
-        const fat = Math.round(median.fat || food.fat || 0);
-        const fiber = Math.round(median.fiber || food.fiber || 0);
+Items: ${JSON.stringify(identifiedItems.items)}
 
-        const weightGrams = typeof food.estimatedWeightGrams === "object"
-          ? food.estimatedWeightGrams.median || 0
-          : food.estimatedWeightGrams || 0;
+Rules:
+- Fried/breaded: only 60-70% of grams is meat; rest is breading/oil.
+- Pan-seared: add oil only if pan_seared=true (0/1/1.5 tbsp for min/med/max).
+- Sauce: use sauce_tbsp for calories/macros.
+- Calorie check: p*4+c*4+f*9 within ±8%; adjust fat/oil first.
 
-        foodsWithNutrition.push({
-          name: food.name,
-          servingSize: food.estimatedServingSize,
-          estimatedWeightGrams: weightGrams,
-          confidence: food.confidence,
-          calories,
-          protein,
-          carbs,
-          fat,
-          fiber,
-          source: "ai_estimate",
-          notes: food.notes || "",
-          min: {
-            calories: Math.round(minData.calories || calories * 0.75),
-            protein: Math.round(minData.protein || protein * 0.75),
-            carbs: Math.round(minData.carbs || carbs * 0.75),
-            fat: Math.round(minData.fat || fat * 0.75),
+Return JSON only:
+{"items":[{"name":"","kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}}],"totals":{"kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}},"confidence":0,"warnings":[]}`,
           },
-          max: {
-            calories: Math.round(maxData.calories || calories * 1.25),
-            protein: Math.round(maxData.protein || protein * 1.25),
-            carbs: Math.round(maxData.carbs || carbs * 1.25),
-            fat: Math.round(maxData.fat || fat * 1.25),
-          },
+        ],
+        max_completion_tokens: 450,
+      });
+
+      let callBContent = callBResponse.choices[0]?.message?.content || "";
+      callBContent = callBContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+
+      let macroData;
+      try {
+        macroData = JSON.parse(callBContent);
+      } catch (parseError) {
+        return res.json({
+          success: false,
+          message: "Could not calculate nutrition. Please enter details manually.",
+          requiresManualEntry: true,
         });
       }
 
-      const totals = identifiedFoods.totals || {};
-      const totalMin = totals.min || {
-        calories: foodsWithNutrition.reduce((s, f) => s + (f.min?.calories || 0), 0),
-        protein: foodsWithNutrition.reduce((s, f) => s + (f.min?.protein || 0), 0),
-        carbs: foodsWithNutrition.reduce((s, f) => s + (f.min?.carbs || 0), 0),
-        fat: foodsWithNutrition.reduce((s, f) => s + (f.min?.fat || 0), 0),
-      };
-      const totalMax = totals.max || {
-        calories: foodsWithNutrition.reduce((s, f) => s + (f.max?.calories || 0), 0),
-        protein: foodsWithNutrition.reduce((s, f) => s + (f.max?.protein || 0), 0),
-        carbs: foodsWithNutrition.reduce((s, f) => s + (f.max?.carbs || 0), 0),
-        fat: foodsWithNutrition.reduce((s, f) => s + (f.max?.fat || 0), 0),
-      };
+      // Map Call B results back to the response format the frontend expects
+      const foodsWithNutrition = (macroData.items || []).map((item: any, idx: number) => {
+        const sourceItem = identifiedItems.items[idx] || {};
+        const grams = sourceItem.grams || {};
+        const medianGrams = grams.median || 0;
+        
+        return {
+          name: item.name || sourceItem.name,
+          servingSize: `~${medianGrams} g (~${Math.round(medianGrams / 28.35)} oz)`,
+          estimatedWeightGrams: medianGrams,
+          confidence: identifiedItems.confidence >= 0.7 ? "high" : identifiedItems.confidence >= 0.4 ? "medium" : "low",
+          calories: Math.round(item.kcal?.median || 0),
+          protein: Math.round(item.p?.median || 0),
+          carbs: Math.round(item.c?.median || 0),
+          fat: Math.round(item.f?.median || 0),
+          fiber: 0,
+          source: "ai_estimate",
+          notes: sourceItem.fried_breaded ? "Fried/breaded" : sourceItem.pan_seared ? "Pan-seared" : "",
+          min: {
+            calories: Math.round(item.kcal?.min || 0),
+            protein: Math.round(item.p?.min || 0),
+            carbs: Math.round(item.c?.min || 0),
+            fat: Math.round(item.f?.min || 0),
+          },
+          max: {
+            calories: Math.round(item.kcal?.max || 0),
+            protein: Math.round(item.p?.max || 0),
+            carbs: Math.round(item.c?.max || 0),
+            fat: Math.round(item.f?.max || 0),
+          },
+        };
+      });
+
+      const totals = macroData.totals || {};
 
       return res.json({
         success: true,
         foods: foodsWithNutrition,
-        description: identifiedFoods.description,
-        totalCalories: foodsWithNutrition.reduce((s, f) => s + (f.calories || 0), 0),
-        totalProtein: foodsWithNutrition.reduce((s, f) => s + (f.protein || 0), 0),
-        totalCarbs: foodsWithNutrition.reduce((s, f) => s + (f.carbs || 0), 0),
-        totalFat: foodsWithNutrition.reduce((s, f) => s + (f.fat || 0), 0),
-        totalMin,
-        totalMax,
-        warnings: identifiedFoods.warnings || [],
+        description: `Identified ${foodsWithNutrition.length} food item(s)`,
+        totalCalories: Math.round(totals.kcal?.median || foodsWithNutrition.reduce((s: number, f: any) => s + (f.calories || 0), 0)),
+        totalProtein: Math.round(totals.p?.median || foodsWithNutrition.reduce((s: number, f: any) => s + (f.protein || 0), 0)),
+        totalCarbs: Math.round(totals.c?.median || foodsWithNutrition.reduce((s: number, f: any) => s + (f.carbs || 0), 0)),
+        totalFat: Math.round(totals.f?.median || foodsWithNutrition.reduce((s: number, f: any) => s + (f.fat || 0), 0)),
+        totalMin: {
+          calories: Math.round(totals.kcal?.min || foodsWithNutrition.reduce((s: number, f: any) => s + (f.min?.calories || 0), 0)),
+          protein: Math.round(totals.p?.min || foodsWithNutrition.reduce((s: number, f: any) => s + (f.min?.protein || 0), 0)),
+          carbs: Math.round(totals.c?.min || foodsWithNutrition.reduce((s: number, f: any) => s + (f.min?.carbs || 0), 0)),
+          fat: Math.round(totals.f?.min || foodsWithNutrition.reduce((s: number, f: any) => s + (f.min?.fat || 0), 0)),
+        },
+        totalMax: {
+          calories: Math.round(totals.kcal?.max || foodsWithNutrition.reduce((s: number, f: any) => s + (f.max?.calories || 0), 0)),
+          protein: Math.round(totals.p?.max || foodsWithNutrition.reduce((s: number, f: any) => s + (f.max?.protein || 0), 0)),
+          carbs: Math.round(totals.c?.max || foodsWithNutrition.reduce((s: number, f: any) => s + (f.max?.carbs || 0), 0)),
+          fat: Math.round(totals.f?.max || foodsWithNutrition.reduce((s: number, f: any) => s + (f.max?.fat || 0), 0)),
+        },
+        warnings: macroData.warnings || [],
         message: `Identified ${foodsWithNutrition.length} food item(s)`,
       });
       
