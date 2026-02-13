@@ -131,10 +131,21 @@ App data stored locally on device:
 - **WorkoutAPI** (exercises): Uses WORKOUT_API_KEY secret, 30-min cache
 - **OpenAI gpt-5.2** (all nutrition features): Uses Replit AI Integrations (AI_INTEGRATIONS_OPENAI_API_KEY, AI_INTEGRATIONS_OPENAI_BASE_URL)
   - Food search: Returns up to 3 food variations with USDA-accurate macros
-  - Photo analysis: Vision-based food identification with min/max/median nutrition estimates
+  - Photo analysis: Two-call architecture (Call A: gpt-5.2 vision identifies items with 200+ approved categories, Call B: gpt-4o-mini calculates macros using built-in USDA macro table)
+  - Photo analysis supports lean/maintenance/bulk mode (derived from user's fitness goal) with portion bias, meat leanness adjustment, oil/sauce estimation
+  - Approved food categories: 50 proteins, 50 carbs, 50 fats/sauces, 50 vegetables
+  - Flags: bone_in, fried_breaded, pan_seared, oil_present, sauce_type with min/median/max estimates
   - Falls back to local food database (85+ foods) when AI is unavailable
 
 ## Recent Changes
+- February 2026: Bodybuilding-Focused Photo Analysis Upgrade
+  - Prompt A: 200+ approved food categories (50 proteins, 50 carbs, 50 fats/sauces, 50 vegetables) with strict category matching
+  - Added bone_in, fried_breaded, pan_seared, oil_present flags and sauce_type enum (bbq, mayo_ranch, ketchup, hot_sauce, unknown)
+  - Prompt B: Built-in USDA macro lookup table (no external lookups) with lean/maintenance/bulk mode adjustments
+  - Mode auto-derived from user's fitness goal (lose fat → lean, build muscle → bulk, others → maintenance)
+  - Portion bias, meat leanness shifting, pan-seared oil add-on, sauce bias, bone-in edible gram reduction
+  - Calorie cross-check: |(P*4+C*4+F*9)-kcal|/kcal <= 10% with auto-adjustment
+  - Call A: gpt-5.2 vision, max_completion_tokens: 500; Call B: gpt-4o-mini text, max_tokens: 1500
 - February 2026: OpenAI-Only Nutrition Migration
   - Removed CalorieNinjas dependency from all nutrition features
   - Food search now powered by OpenAI gpt-5.2 with USDA-accurate macro data
