@@ -212,7 +212,7 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
                 type: "image_url",
                 image_url: {
                   url: `data:image/jpeg;base64,${imageBase64}`,
-                  detail: "low",
+                  detail: "auto",
                 },
               },
             ],
@@ -221,14 +221,25 @@ If no food: {"foods":[],"description":"Could not identify food items","totals":{
         max_completion_tokens: 1500,
       });
 
+      const finishReason = visionResponse.choices[0]?.finish_reason;
       let visionContent = visionResponse.choices[0]?.message?.content || "";
+      
+      if (!visionContent || visionContent.trim().length === 0) {
+        console.error("Vision API returned empty response. Finish reason:", finishReason);
+        return res.json({
+          success: false,
+          message: "AI could not process the image. Please try a clearer photo or enter details manually.",
+          requiresManualEntry: true,
+        });
+      }
+      
       visionContent = visionContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
       
       let identifiedFoods;
       try {
         identifiedFoods = JSON.parse(visionContent);
       } catch (parseError) {
-        console.error("Failed to parse vision response:", visionContent);
+        console.error("Failed to parse vision response:", visionContent.substring(0, 300));
         return res.json({
           success: false,
           message: "Could not identify food items. Please enter details manually.",
