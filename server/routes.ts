@@ -217,7 +217,9 @@ Return JSON only:
         max_completion_tokens: 350,
       });
 
+      const callAFinish = callAResponse.choices[0]?.finish_reason;
       let callAContent = callAResponse.choices[0]?.message?.content || "";
+      console.log("[Photo] Call A finish_reason:", callAFinish, "length:", callAContent.length);
       
       if (!callAContent || callAContent.trim().length === 0) {
         return res.json({
@@ -233,12 +235,15 @@ Return JSON only:
       try {
         identifiedItems = JSON.parse(callAContent);
       } catch (parseError) {
+        console.error("[Photo] Call A parse failed:", callAContent.substring(0, 500));
         return res.json({
           success: false,
           message: "Could not identify food items. Please enter details manually.",
           requiresManualEntry: true,
         });
       }
+
+      console.log("[Photo] Call A identified", identifiedItems.items?.length, "items");
 
       if (!identifiedItems.items || identifiedItems.items.length === 0) {
         return res.json({
@@ -264,25 +269,45 @@ Rules:
 - Sauce: use sauce_tbsp for calories/macros.
 - Calorie check: p*4+c*4+f*9 within ±8%; adjust fat/oil first.
 
-Return JSON only:
+Return JSON only, no explanation:
 {"items":[{"name":"","kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}}],"totals":{"kcal":{"min":0,"median":0,"max":0},"p":{"min":0,"median":0,"max":0},"c":{"min":0,"median":0,"max":0},"f":{"min":0,"median":0,"max":0}},"confidence":0,"warnings":[]}`,
           },
         ],
-        max_completion_tokens: 450,
+        max_completion_tokens: 800,
       });
 
+      const callBFinish = callBResponse.choices[0]?.finish_reason;
       let callBContent = callBResponse.choices[0]?.message?.content || "";
+      console.log("[Photo] Call B finish_reason:", callBFinish, "length:", callBContent.length);
       callBContent = callBContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
 
       let macroData;
       try {
         macroData = JSON.parse(callBContent);
       } catch (parseError) {
-        return res.json({
-          success: false,
-          message: "Could not calculate nutrition. Please enter details manually.",
-          requiresManualEntry: true,
-        });
+        console.error("[Photo] Call B parse failed. Raw:", callBContent.substring(0, 500));
+        // Try to recover truncated JSON by closing open brackets/braces
+        let recovered = callBContent;
+        const openBraces = (recovered.match(/\{/g) || []).length;
+        const closeBraces = (recovered.match(/\}/g) || []).length;
+        const openBrackets = (recovered.match(/\[/g) || []).length;
+        const closeBrackets = (recovered.match(/\]/g) || []).length;
+        // Remove trailing incomplete key-value pairs
+        recovered = recovered.replace(/,\s*"[^"]*"?\s*:?\s*[^}\]]*$/, "");
+        recovered = recovered.replace(/,\s*\{[^}]*$/, "");
+        for (let i = 0; i < openBrackets - closeBrackets; i++) recovered += "]";
+        for (let i = 0; i < openBraces - closeBraces; i++) recovered += "}";
+        try {
+          macroData = JSON.parse(recovered);
+          console.log("[Photo] Call B recovered from truncated JSON");
+        } catch (e2) {
+          console.error("[Photo] Call B recovery also failed");
+          return res.json({
+            success: false,
+            message: "Could not calculate nutrition. Please enter details manually.",
+            requiresManualEntry: true,
+          });
+        }
       }
 
       // Map Call B results back to the response format the frontend expects
