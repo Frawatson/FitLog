@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator, Platform, Image, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { HeaderButton, useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -61,6 +61,33 @@ export default function AddFoodScreen() {
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
   const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
   
+  const resetForm = useCallback(() => {
+    setShowForm(false);
+    setFoodImage(null);
+    setPhotoError(null);
+    setName("");
+    setCalories("");
+    setProtein("");
+    setCarbs("");
+    setFat("");
+  }, []);
+
+  useEffect(() => {
+    if (showForm) {
+      navigation.setOptions({
+        headerLeft: () => (
+          <HeaderButton onPress={resetForm}>
+            <Feather name="arrow-left" size={24} color={theme.text} />
+          </HeaderButton>
+        ),
+      });
+    } else {
+      navigation.setOptions({
+        headerLeft: undefined,
+      });
+    }
+  }, [showForm, navigation, theme.text, resetForm]);
+
   useEffect(() => {
     loadSavedFoods();
   }, []);
@@ -354,22 +381,6 @@ export default function AddFoodScreen() {
           paddingHorizontal: Spacing.lg,
         }}
       >
-        <View style={styles.header}>
-          <Pressable onPress={() => {
-            setShowForm(false);
-            setFoodImage(null);
-            setName("");
-            setCalories("");
-            setProtein("");
-            setCarbs("");
-            setFat("");
-          }}>
-            <Feather name="arrow-left" size={24} color={theme.text} />
-          </Pressable>
-          <ThemedText type="h3">Add Food</ThemedText>
-          <View style={{ width: 24 }} />
-        </View>
-        
         {foodImage ? (
           <View style={styles.imagePreviewContainer}>
             <Image source={{ uri: foodImage }} style={styles.imagePreview} />
