@@ -543,6 +543,7 @@ export default function ProfileScreen() {
               }}>
                 <Feather name="chevron-down" size={28} color={theme.text} />
               </Pressable>
+              <ThemedText type="small" style={{ opacity: 0 }}>Hour</ThemedText>
             </View>
           </View>
 
