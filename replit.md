@@ -46,7 +46,7 @@ MVP completed with the following features:
   - `POST /api/auth/reset-password` - Reset password with code verification
   - `GET /api/exercises` - Fetches exercises from WorkoutAPI by muscle group
   - `POST /api/generate-routine` - AI-powered workout routine generation (OpenAI gpt-5-mini) with equipment, goal, and notes parameters. Falls back to WorkoutAPI + local database
-  - `GET /api/foods/search` - Searches FatSecret food database (falls back to local DB if API unavailable)
+  - `GET /api/foods/search` - AI-powered food nutrition search (falls back to local DB if API unavailable)
 
 ### Shared
 - **Location**: `shared/`

@@ -617,7 +617,7 @@ export default function AddFoodScreen() {
                 Search for any food to get nutritional info
               </ThemedText>
               <ThemedText type="small" style={[styles.tipSubtext, { color: theme.textSecondary }]}>
-                Powered by FatSecret food database
+                AI-powered nutrition data
               </ThemedText>
             </View>
           ) : null}
