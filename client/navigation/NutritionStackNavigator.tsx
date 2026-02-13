@@ -1,8 +1,8 @@
 import React from "react";
-import { Pressable } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { HeaderButton } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 
 import NutritionScreen from "@/screens/NutritionScreen";
@@ -30,12 +30,11 @@ export default function NutritionStackNavigator() {
         options={{
           headerTitle: "Nutrition",
           headerRight: () => (
-            <Pressable
+            <HeaderButton
               onPress={() => navigation.navigate("AddFood")}
-              hitSlop={8}
             >
               <Feather name="plus" size={24} color={Colors.light.primary} />
-            </Pressable>
+            </HeaderButton>
           ),
         }}
       />
