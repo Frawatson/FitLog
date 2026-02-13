@@ -185,18 +185,28 @@ Return JSON array only:
       });
 
       const visionResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Food photo→JSON. Per item: min/median/max nutrition.
-Rules: visible items only, USDA averages, estimate grams from plate/bowl scale. Fried food=60-70% meat rest breading/oil. No double-count fat. p*4+c*4+f*9≈calories±8%.
-{"foods":[{"name":"","estimatedWeightGrams":{"min":0,"median":0,"max":0},"estimatedServingSize":"~0g","confidence":"high|medium|low","min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"notes":""}],"description":"","totals":{"min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0}},"warnings":[]}
-No food:{"foods":[],"description":"no food","totals":{},"warnings":["no_food_detected"]}
-JSON only.`
+                text: `Analyze this food photo and estimate nutrition per item with min/median/max.
+
+Rules:
+1) Identify visible items only. Use USDA-style averages by category.
+2) Estimate grams using scale cues (plate/bowl/packaging). If weak cues, widen min/max and lower confidence.
+3) Fried/breaded foods: only 60-70% of total grams is meat; rest is breading/oil. Do NOT use grilled chicken macros.
+4) Pan-seared meat: add absorbed oil only if glossy/oily; use 0 tbsp (min), 1 tbsp (median), 1.5 tbsp (max).
+5) Sauces: estimate tbsp from visible coverage; mayo/ranch high-fat, BBQ mostly carbs.
+6) Do not double-count fat already included in fried items.
+7) Calorie check: p*4 + c*4 + f*9 must be within ±8% of calories. If not, adjust (usually fat/oil or portion grams) and note in warnings.
+
+Return JSON only:
+{"foods":[{"name":"","estimatedWeightGrams":{"min":0,"median":0,"max":0},"estimatedServingSize":"~0 g (~0 oz)","confidence":"high|medium|low","min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"notes":"short"}],"description":"short","totals":{"min":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":0,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}},"warnings":[]}
+
+If no food: {"foods":[],"description":"Could not identify food items","totals":{},"warnings":["no_food_detected"]}`
               },
               {
                 type: "image_url",
@@ -208,7 +218,7 @@ JSON only.`
             ],
           },
         ],
-        max_completion_tokens: 1200,
+        max_completion_tokens: 2000,
       });
 
       let visionContent = visionResponse.choices[0]?.message?.content || "";
