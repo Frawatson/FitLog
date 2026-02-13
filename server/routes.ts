@@ -195,80 +195,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 type: "text",
                 text: `You are a professional sports nutritionist and food portion estimation specialist.
 
-Your task is to estimate nutrition from a food photo as realistically as possible using evidence-based reasoning.
-
-Do NOT assume perfect precision.
-Use realistic cooking assumptions.
-Prioritize macro realism — avoid both overestimation and underestimation.
+Your task is to estimate nutrition from a food photo by calculating THREE scenarios: minimum, maximum, and median estimates.
 
 STEP 1 — FOOD IDENTIFICATION
 Identify each visible food item separately.
 Classify protein type accurately (lean beef, moderate-fat beef, fatty beef, chicken breast, chicken thigh, etc.).
+If the exact cut is unclear, consider it could range from lean to moderate-fat.
 
-If the exact cut is unclear:
-Default beef to "moderate-fat cooked beef" (approx 22–26g protein, 12–18g fat per 100g).
-Do NOT default to extremely lean unless visually confirmed.
+STEP 2 — THREE-SCENARIO ESTIMATION
+For each food item, estimate THREE versions:
 
-STEP 2 — PORTION ESTIMATION
-Estimate portion size in grams using plate size, food density, thickness, and volume.
+MINIMUM estimate (conservative/best case):
+- Smallest reasonable portion size for what's visible
+- Leanest plausible cut of meat
+- No added cooking oil unless clearly deep-fried
+- Minimal sauce
+- Use USDA values for lean/low-fat versions
 
-Use moderate adult meal sizing — aim for the middle of the range, not the high end:
-A typical meat portion is 150–200g (about palm-sized). Only estimate 250g+ if the portion is clearly large.
-1 cup cooked white rice ≈ 200g. A side portion is often 100–150g.
-If food occupies half a standard dinner plate, assume 150–250g depending on density.
-Vegetables are light — a side of broccoli or salad is typically 80–120g.
+MAXIMUM estimate (generous/worst case):
+- Largest reasonable portion size for what's visible
+- Fattier plausible cut of meat
+- Cooking oil added if food appears pan-cooked or glossy
+- Full sauce coverage estimated
+- Use USDA values for higher-fat versions
 
-STEP 3 — COOKING FAT LOGIC
-IMPORTANT: USDA "cooked" values ALREADY include the fat retained in the meat during cooking. Do NOT add intrinsic meat fat on top of USDA cooked values — that would be double-counting.
+MEDIAN estimate (most likely):
+- Middle ground between min and max
+- Most probable portion size
+- Most likely cooking method and fat content
+- Calculate as the midpoint: (min + max) / 2
 
-Only add extra cooking oil if the food visibly appears oily, glossy, or fried:
-- Lightly glossy/pan-seared: add 0.5 tbsp oil max (~60 cal, 7g fat)
-- Visibly oily or shallow-fried: add 1 tbsp oil (~120 cal, 14g fat)
-- Deep-fried: add based on food weight (roughly 8–12% of food weight absorbed as oil)
-- If the food looks dry, grilled, baked, or steamed: add NO extra oil.
+STEP 3 — PORTION GUIDELINES
+Use plate size, food density, thickness, and volume to estimate portions.
+A typical meat portion ranges from 120g (min) to 280g (max) depending on visual size.
+1 cup cooked white rice ≈ 180–220g.
+Vegetables are light — a side is typically 60–150g.
 
-Do NOT add cooking oil by default. Only add it when there is visual evidence.
-
-STEP 4 — SAUCE LOGIC
-If sauce is visibly drizzled:
-Estimate tablespoons visually based on actual coverage area.
-1 tbsp BBQ sauce ≈ 35–45 calories, mostly carbs.
-1 tbsp soy sauce ≈ 9 calories.
-Do not inflate sauce calories beyond what is visually present.
-
-STEP 5 — MACRO CALCULATION
-Use USDA average values per 100g (these are for COOKED food and already include retained fat):
-Lean cooked beef: 26g protein, 8g fat, ~180 cal
-Moderate-fat cooked beef: 25g protein, 15g fat, ~240 cal
-Fatty beef: 23g protein, 20g fat, ~280 cal
-Chicken breast (cooked, no skin): 31g protein, 3.6g fat, ~165 cal
-Chicken thigh (cooked, with skin): 24g protein, 14g fat, ~229 cal
-Cooked white rice: 130 cal per 100g (28g carbs per 100g)
-Scale macros by estimated weight. Do not add extra fat beyond USDA values unless cooking oil is visually evident (Step 3).
-
-STEP 6 — REALISM CHECK
-Before final output:
-- Cross-check total calories: protein*4 + carbs*4 + fat*9 should approximately equal total calories.
-- A typical home-cooked meal is 400–700 calories. Restaurant meals may be 600–1000+.
-- If your estimate exceeds 900 calories for a simple home plate, double-check portion sizes and fat calculations for double-counting.
-- If macros seem too high, re-examine whether you added cooking oil unnecessarily on top of USDA cooked values.
+STEP 4 — MACRO CALCULATION
+Use USDA average values per 100g for cooked foods.
+Scale macros by estimated weight for each scenario.
+Cross-check: protein*4 + carbs*4 + fat*9 should approximately equal total calories.
 
 Return a JSON object with:
 - "foods": array of food items, each with:
   - "name": specific food name with preparation method
-  - "estimatedWeightGrams": weight in grams (integer)
-  - "estimatedServingSize": human-readable (e.g., "180g / about 6.3 oz")
+  - "estimatedWeightGrams": median weight in grams (integer)
+  - "estimatedServingSize": human-readable median (e.g., "200g / about 7 oz")
   - "confidence": "high", "medium", or "low"
-  - "calories": calories for this exact portion (integer)
-  - "protein": protein in grams (number, 1 decimal)
-  - "carbs": net carbohydrates in grams (number, 1 decimal)
-  - "fat": total fat in grams (number, 1 decimal)
-  - "fiber": dietary fiber in grams (number, 1 decimal)
+  - "min": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal, "fiber": 1 decimal }
+  - "max": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal, "fiber": 1 decimal }
+  - "median": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal, "fiber": 1 decimal }
 - "description": brief meal description
-- "totalCalories": sum of all calories (integer)
-- "totalProtein": sum of all protein (1 decimal)
-- "totalCarbs": sum of all carbs (1 decimal)
-- "totalFat": sum of all fat (1 decimal)
+- "totalMin": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal }
+- "totalMax": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal }
+- "totalMedian": { "calories": int, "protein": 1 decimal, "carbs": 1 decimal, "fat": 1 decimal }
 
 If you cannot identify any food, return: {"foods": [], "description": "Could not identify food items"}
 
@@ -313,11 +293,12 @@ Respond ONLY with valid JSON, no markdown or additional text.`
       const foodsWithNutrition = [];
 
       for (const food of identifiedFoods.foods) {
-        let calories = Math.round(food.calories || 0);
-        let protein = Math.round(food.protein || 0);
-        let carbs = Math.round(food.carbs || 0);
-        let fat = Math.round(food.fat || 0);
-        let fiber = Math.round(food.fiber || 0);
+        const median = food.median || {};
+        let calories = Math.round(median.calories || food.calories || 0);
+        let protein = Math.round(median.protein || food.protein || 0);
+        let carbs = Math.round(median.carbs || food.carbs || 0);
+        let fat = Math.round(median.fat || food.fat || 0);
+        let fiber = Math.round(median.fiber || food.fiber || 0);
         let source = "ai_estimate";
 
         if (calorieNinjasKey && food.estimatedWeightGrams) {
@@ -356,6 +337,9 @@ Respond ONLY with valid JSON, no markdown or additional text.`
           }
         }
 
+        const minData = food.min || {};
+        const maxData = food.max || {};
+
         foodsWithNutrition.push({
           name: food.name,
           servingSize: food.estimatedServingSize,
@@ -367,17 +351,44 @@ Respond ONLY with valid JSON, no markdown or additional text.`
           fat,
           fiber,
           source,
+          min: {
+            calories: Math.round(minData.calories || calories * 0.75),
+            protein: Math.round(minData.protein || protein * 0.75),
+            carbs: Math.round(minData.carbs || carbs * 0.75),
+            fat: Math.round(minData.fat || fat * 0.75),
+          },
+          max: {
+            calories: Math.round(maxData.calories || calories * 1.25),
+            protein: Math.round(maxData.protein || protein * 1.25),
+            carbs: Math.round(maxData.carbs || carbs * 1.25),
+            fat: Math.round(maxData.fat || fat * 1.25),
+          },
         });
       }
+
+      const totalMin = identifiedFoods.totalMin || {
+        calories: foodsWithNutrition.reduce((s, f) => s + (f.min?.calories || 0), 0),
+        protein: foodsWithNutrition.reduce((s, f) => s + (f.min?.protein || 0), 0),
+        carbs: foodsWithNutrition.reduce((s, f) => s + (f.min?.carbs || 0), 0),
+        fat: foodsWithNutrition.reduce((s, f) => s + (f.min?.fat || 0), 0),
+      };
+      const totalMax = identifiedFoods.totalMax || {
+        calories: foodsWithNutrition.reduce((s, f) => s + (f.max?.calories || 0), 0),
+        protein: foodsWithNutrition.reduce((s, f) => s + (f.max?.protein || 0), 0),
+        carbs: foodsWithNutrition.reduce((s, f) => s + (f.max?.carbs || 0), 0),
+        fat: foodsWithNutrition.reduce((s, f) => s + (f.max?.fat || 0), 0),
+      };
 
       return res.json({
         success: true,
         foods: foodsWithNutrition,
         description: identifiedFoods.description,
-        totalCalories: identifiedFoods.totalCalories || foodsWithNutrition.reduce((s, f) => s + (f.calories || 0), 0),
-        totalProtein: identifiedFoods.totalProtein || foodsWithNutrition.reduce((s, f) => s + (f.protein || 0), 0),
-        totalCarbs: identifiedFoods.totalCarbs || foodsWithNutrition.reduce((s, f) => s + (f.carbs || 0), 0),
-        totalFat: identifiedFoods.totalFat || foodsWithNutrition.reduce((s, f) => s + (f.fat || 0), 0),
+        totalCalories: foodsWithNutrition.reduce((s, f) => s + (f.calories || 0), 0),
+        totalProtein: foodsWithNutrition.reduce((s, f) => s + (f.protein || 0), 0),
+        totalCarbs: foodsWithNutrition.reduce((s, f) => s + (f.carbs || 0), 0),
+        totalFat: foodsWithNutrition.reduce((s, f) => s + (f.fat || 0), 0),
+        totalMin,
+        totalMax,
         message: `Identified ${foodsWithNutrition.length} food item(s)`,
       });
       

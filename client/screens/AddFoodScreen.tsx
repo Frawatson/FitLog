@@ -253,6 +253,9 @@ export default function AddFoodScreen() {
           setProtein(Math.round(totalProtein).toString());
           setCarbs(Math.round(totalCarbs).toString());
           setFat(Math.round(totalFat).toString());
+          if (data.totalMin && data.totalMax) {
+            console.log(`Nutrition range — Min: ${data.totalMin.calories} cal | Max: ${data.totalMax.calories} cal | Median: ${Math.round(totalCals)} cal`);
+          }
           if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
