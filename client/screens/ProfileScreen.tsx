@@ -40,6 +40,7 @@ export default function ProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
     workoutReminders: false,
     streakAlerts: false,
@@ -97,7 +98,24 @@ export default function ProfileScreen() {
     await notifications.saveNotificationSettings(updated);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-  
+
+  const handleReminderTimeChange = async (hour: number, minute: number) => {
+    const updated = { ...notifSettings, reminderTime: { hour, minute } };
+    setNotifSettings(updated);
+    await notifications.saveNotificationSettings(updated);
+    if (notifSettings.workoutReminders) {
+      await notifications.scheduleWorkoutReminder(hour, minute);
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const formatTime = (hour: number, minute: number) => {
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const displayMin = minute.toString().padStart(2, "0");
+    return `${displayHour}:${displayMin} ${period}`;
+  };
+
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -358,7 +376,7 @@ export default function ProfileScreen() {
             <View style={styles.notificationText}>
               <ThemedText type="body">Workout Reminders</ThemedText>
               <ThemedText type="small" style={{ opacity: 0.6 }}>
-                Daily reminder at 6:00 PM
+                Daily reminder at {formatTime(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute)}
               </ThemedText>
             </View>
           </View>
@@ -369,6 +387,20 @@ export default function ProfileScreen() {
             thumbColor="#FFFFFF"
           />
         </View>
+        
+        <Pressable
+          onPress={() => setShowTimePicker(true)}
+          style={({ pressed }) => [
+            styles.timePickerButton,
+            { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", opacity: pressed ? 0.7 : 1 },
+          ]}
+          testID="button-change-reminder-time"
+        >
+          <Feather name="clock" size={16} color={Colors.light.primary} />
+          <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: Colors.light.primary }}>
+            Change Reminder Time
+          </ThemedText>
+        </Pressable>
         
         <View style={[styles.notificationRow, { marginTop: Spacing.md }]}>
           <View style={styles.notificationInfo}>
@@ -435,6 +467,94 @@ export default function ProfileScreen() {
         <View style={{ width: 20 }} />
       </Pressable>
     </ScrollView>
+
+    <Modal
+      visible={showTimePicker}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={() => setShowTimePicker(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+          <ThemedText type="h3" style={styles.modalTitle}>Set Reminder Time</ThemedText>
+          
+          <View style={styles.timePickerContainer}>
+            <View style={styles.timeColumn}>
+              <Pressable onPress={() => {
+                const newHour = (notifSettings.reminderTime.hour + 1) % 24;
+                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
+              }}>
+                <Feather name="chevron-up" size={28} color={theme.text} />
+              </Pressable>
+              <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
+                <ThemedText type="h2">
+                  {(notifSettings.reminderTime.hour === 0 ? 12 : notifSettings.reminderTime.hour > 12 ? notifSettings.reminderTime.hour - 12 : notifSettings.reminderTime.hour).toString().padStart(2, "0")}
+                </ThemedText>
+              </View>
+              <Pressable onPress={() => {
+                const newHour = (notifSettings.reminderTime.hour - 1 + 24) % 24;
+                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
+              }}>
+                <Feather name="chevron-down" size={28} color={theme.text} />
+              </Pressable>
+              <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>Hour</ThemedText>
+            </View>
+
+            <ThemedText type="h2" style={{ marginHorizontal: Spacing.sm }}>:</ThemedText>
+
+            <View style={styles.timeColumn}>
+              <Pressable onPress={() => {
+                const newMin = (notifSettings.reminderTime.minute + 15) % 60;
+                handleReminderTimeChange(notifSettings.reminderTime.hour, newMin);
+              }}>
+                <Feather name="chevron-up" size={28} color={theme.text} />
+              </Pressable>
+              <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
+                <ThemedText type="h2">
+                  {notifSettings.reminderTime.minute.toString().padStart(2, "0")}
+                </ThemedText>
+              </View>
+              <Pressable onPress={() => {
+                const newMin = (notifSettings.reminderTime.minute - 15 + 60) % 60;
+                handleReminderTimeChange(notifSettings.reminderTime.hour, newMin);
+              }}>
+                <Feather name="chevron-down" size={28} color={theme.text} />
+              </Pressable>
+              <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>Minute</ThemedText>
+            </View>
+
+            <View style={[styles.timeColumn, { marginLeft: Spacing.md }]}>
+              <Pressable onPress={() => {
+                const currentHour = notifSettings.reminderTime.hour;
+                const newHour = currentHour >= 12 ? currentHour - 12 : currentHour + 12;
+                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
+              }}>
+                <Feather name="chevron-up" size={28} color={theme.text} />
+              </Pressable>
+              <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
+                <ThemedText type="h2">
+                  {notifSettings.reminderTime.hour >= 12 ? "PM" : "AM"}
+                </ThemedText>
+              </View>
+              <Pressable onPress={() => {
+                const currentHour = notifSettings.reminderTime.hour;
+                const newHour = currentHour >= 12 ? currentHour - 12 : currentHour + 12;
+                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
+              }}>
+                <Feather name="chevron-down" size={28} color={theme.text} />
+              </Pressable>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={() => setShowTimePicker(false)}
+            style={[styles.modalButton, { backgroundColor: Colors.light.primary, marginTop: Spacing.lg, alignSelf: "center", minWidth: 120 }]}
+          >
+            <ThemedText type="body" style={{ color: "#FFFFFF", textAlign: "center" }}>Done</ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
 
     <Modal
       visible={showDeleteModal}
@@ -629,5 +749,31 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.sm,
     marginTop: Spacing.md,
     alignSelf: "flex-start",
+  },
+  timePickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.sm,
+    alignSelf: "flex-start",
+  },
+  timePickerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.lg,
+  },
+  timeColumn: {
+    alignItems: "center",
+  },
+  timeDisplay: {
+    width: 64,
+    height: 64,
+    borderRadius: BorderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: Spacing.sm,
   },
 });

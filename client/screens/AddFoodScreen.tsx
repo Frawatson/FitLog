@@ -234,15 +234,25 @@ export default function AddFoodScreen() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.foods && data.foods.length > 0) {
-          const food = data.foods[0];
-          const foodName = food.servingSize 
-            ? `${food.servingSize} ${food.name}`
-            : food.name;
-          setName(foodName);
-          setCalories(food.calories?.toString() || "0");
-          setProtein(food.protein?.toString() || "0");
-          setCarbs(food.carbs?.toString() || "0");
-          setFat(food.fat?.toString() || "0");
+          let totalCals = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0;
+          const foodNames: string[] = [];
+          for (const food of data.foods) {
+            totalCals += food.calories || 0;
+            totalProtein += food.protein || 0;
+            totalCarbs += food.carbs || 0;
+            totalFat += food.fat || 0;
+            const label = food.estimatedWeightGrams
+              ? `${food.name} (${food.estimatedWeightGrams}g)`
+              : food.servingSize
+                ? `${food.servingSize} ${food.name}`
+                : food.name;
+            foodNames.push(label);
+          }
+          setName(foodNames.join(", "));
+          setCalories(Math.round(totalCals).toString());
+          setProtein(Math.round(totalProtein).toString());
+          setCarbs(Math.round(totalCarbs).toString());
+          setFat(Math.round(totalFat).toString());
           if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }

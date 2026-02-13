@@ -193,12 +193,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `Analyze this food image and identify the food items. Return a JSON object with:
+                text: `You are an expert nutritionist analyzing a food photo. Carefully estimate the portion sizes by comparing food items to standard references (plate size ~10 inches, fork ~7 inches, etc.).
+
+Return a JSON object with:
 - "foods": array of identified food items, each with:
-  - "name": common food name (e.g., "grilled chicken breast", "steamed rice")
-  - "estimatedServingSize": estimated serving size (e.g., "1 cup", "6 oz", "1 medium")
+  - "name": specific food name (e.g., "grilled chicken breast", "white rice", "steamed broccoli")
+  - "estimatedWeightGrams": estimated weight in grams (be precise - use visual cues like plate size, thickness, spread area)
+  - "estimatedServingSize": human-readable serving (e.g., "150g / ~5.3 oz", "1 cup / ~200g")
   - "confidence": confidence level (high, medium, low)
+  - "calories": estimated calories for this portion
+  - "protein": estimated protein in grams
+  - "carbs": estimated carbohydrates in grams
+  - "fat": estimated fat in grams
+  - "fiber": estimated fiber in grams
 - "description": brief description of the meal
+- "totalCalories": sum of all food item calories
+- "totalProtein": sum of all protein
+- "totalCarbs": sum of all carbs
+- "totalFat": sum of all fat
+
+Important guidelines for accuracy:
+- A typical chicken breast is 120-170g, a cup of rice is ~180g cooked, a tablespoon of oil is ~14g
+- Estimate portions conservatively based on visual size relative to the plate/container
+- Account for cooking oils, sauces, and dressings that add hidden calories
+- If a food appears to have a coating (breaded, fried), factor that into macros
 
 If you cannot identify any food, return: {"foods": [], "description": "Could not identify food items"}
 
@@ -213,7 +231,7 @@ Respond ONLY with valid JSON, no markdown or additional text.`
             ],
           },
         ],
-        max_completion_tokens: 500,
+        max_completion_tokens: 1500,
       });
 
       const visionContent = visionResponse.choices[0]?.message?.content || "";
@@ -238,15 +256,20 @@ Respond ONLY with valid JSON, no markdown or additional text.`
         });
       }
 
-      // Look up nutrition data for identified foods using CalorieNinjas
       const calorieNinjasKey = process.env.CALORIENINJA_API_KEY;
       const foodsWithNutrition = [];
 
       for (const food of identifiedFoods.foods) {
-        const searchQuery = `${food.estimatedServingSize || ''} ${food.name}`.trim();
-        
-        if (calorieNinjasKey) {
+        let calories = Math.round(food.calories || 0);
+        let protein = Math.round(food.protein || 0);
+        let carbs = Math.round(food.carbs || 0);
+        let fat = Math.round(food.fat || 0);
+        let fiber = Math.round(food.fiber || 0);
+        let source = "ai_estimate";
+
+        if (calorieNinjasKey && food.estimatedWeightGrams) {
           try {
+            const searchQuery = `${food.estimatedWeightGrams}g ${food.name}`.trim();
             const nutritionResponse = await fetch(
               `https://api.calorieninjas.com/v1/nutrition?query=${encodeURIComponent(searchQuery)}`,
               {
@@ -257,33 +280,40 @@ Respond ONLY with valid JSON, no markdown or additional text.`
             if (nutritionResponse.ok) {
               const nutritionData = await nutritionResponse.json();
               if (nutritionData.items && nutritionData.items.length > 0) {
-                const item = nutritionData.items[0];
-                foodsWithNutrition.push({
-                  name: food.name,
-                  servingSize: food.estimatedServingSize,
-                  confidence: food.confidence,
-                  calories: Math.round(item.calories || 0),
-                  protein: Math.round(item.protein_g || 0),
-                  carbs: Math.round(item.carbohydrates_total_g || 0),
-                  fat: Math.round(item.fat_total_g || 0),
-                });
-                continue;
+                let apiCals = 0, apiProtein = 0, apiCarbs = 0, apiFat = 0, apiFiber = 0;
+                for (const item of nutritionData.items) {
+                  apiCals += item.calories || 0;
+                  apiProtein += item.protein_g || 0;
+                  apiCarbs += item.carbohydrates_total_g || 0;
+                  apiFat += item.fat_total_g || 0;
+                  apiFiber += item.fiber_g || 0;
+                }
+                if (apiCals > 0) {
+                  calories = Math.round(apiCals);
+                  protein = Math.round(apiProtein);
+                  carbs = Math.round(apiCarbs);
+                  fat = Math.round(apiFat);
+                  fiber = Math.round(apiFiber);
+                  source = "calorieninjas";
+                }
               }
             }
           } catch (nutritionError) {
-            console.error("CalorieNinjas lookup failed:", nutritionError);
+            console.error("CalorieNinjas lookup failed, using AI estimates:", nutritionError);
           }
         }
 
-        // If nutrition lookup failed, still include the identified food
         foodsWithNutrition.push({
           name: food.name,
           servingSize: food.estimatedServingSize,
+          estimatedWeightGrams: food.estimatedWeightGrams,
           confidence: food.confidence,
-          calories: null,
-          protein: null,
-          carbs: null,
-          fat: null,
+          calories,
+          protein,
+          carbs,
+          fat,
+          fiber,
+          source,
         });
       }
 
@@ -291,6 +321,10 @@ Respond ONLY with valid JSON, no markdown or additional text.`
         success: true,
         foods: foodsWithNutrition,
         description: identifiedFoods.description,
+        totalCalories: identifiedFoods.totalCalories || foodsWithNutrition.reduce((s, f) => s + (f.calories || 0), 0),
+        totalProtein: identifiedFoods.totalProtein || foodsWithNutrition.reduce((s, f) => s + (f.protein || 0), 0),
+        totalCarbs: identifiedFoods.totalCarbs || foodsWithNutrition.reduce((s, f) => s + (f.carbs || 0), 0),
+        totalFat: identifiedFoods.totalFat || foodsWithNutrition.reduce((s, f) => s + (f.fat || 0), 0),
         message: `Identified ${foodsWithNutrition.length} food item(s)`,
       });
       
