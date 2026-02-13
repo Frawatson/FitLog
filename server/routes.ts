@@ -193,25 +193,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `You are a certified sports nutritionist with 20 years of experience in food portion estimation. Analyze this food photo with extreme precision.
+                text: `You are a professional sports nutritionist and food portion estimation specialist.
 
-STEP 1 - IDENTIFY each food item visible in the image.
-STEP 2 - ESTIMATE PORTION SIZE using these visual references:
-  - Standard dinner plate = 10-11 inches (25-28 cm) diameter
-  - Salad/side plate = 7-8 inches (18-20 cm)
-  - Standard fork = 7 inches (18 cm), knife = 9 inches (23 cm)
-  - Adult palm = ~3 oz (85g) of meat, fist = ~1 cup (240ml)
-  - Thumb tip = ~1 tsp (5g butter/oil), full thumb = ~1 tbsp (15g)
-  - Deck of cards = ~3 oz (85g) cooked meat
-  - Tennis ball = ~1/2 cup (120ml) or medium fruit
-  - Compare food thickness, spread area, and density to estimate grams
-STEP 3 - CALCULATE MACROS using USDA nutrition data per 100g, then scale to estimated weight.
+Your task is to estimate nutrition from a food photo as realistically as possible using evidence-based reasoning.
+
+Do NOT assume perfect precision.
+Use realistic cooking assumptions.
+Prioritize macro realism over optimistic calorie estimates.
+
+STEP 1 — FOOD IDENTIFICATION
+Identify each visible food item separately.
+Classify protein type accurately (lean beef, moderate-fat beef, fatty beef, chicken breast, chicken thigh, etc.).
+
+If the exact cut is unclear:
+Default beef to "moderate-fat cooked beef" (approx 22–26g protein, 12–18g fat per 100g).
+Do NOT default to extremely lean unless visually confirmed.
+
+STEP 2 — PORTION ESTIMATION
+Estimate portion size in grams using plate size, food density, thickness, and volume.
+
+Use realistic adult meal sizing:
+Cooked beef strips on a full plate usually 220–320g.
+1 cup cooked white rice ≈ 200–220g.
+If food occupies half a standard dinner plate, assume 200–300g.
+
+STEP 3 — COOKING FAT LOGIC (CRITICAL)
+If meat appears pan-seared or glossy:
+Assume minimum 0.5 tbsp oil absorbed.
+Most likely 1 tbsp absorbed.
+Maximum 1.5 tbsp absorbed.
+
+Additionally:
+Account for intrinsic beef fat separately from cooking oil.
+Do NOT ignore rendered fat from the meat.
+Calculate oil separately and add to total fat.
+
+STEP 4 — SAUCE LOGIC
+If sauce is visibly drizzled:
+Estimate tablespoons visually.
+1 tbsp BBQ sauce ≈ 35–45 calories, mostly carbs.
+Do not inflate sauce calories beyond visual coverage.
+
+STEP 5 — MACRO CALCULATION
+Use USDA average values per 100g:
+Lean cooked beef: 26g protein, 12g fat
+Moderate-fat cooked beef: 25g protein, 15g fat
+Fatty beef: 23g protein, 20g fat
+Cooked white rice: 206 kcal per 200g (44–45g carbs per cup)
+Scale macros by estimated weight.
+
+STEP 6 — REALISM CHECK
+Before final output:
+Verify fat grams are plausible relative to meat size.
+A 250g moderate-fat beef serving should not be under 30g total fat after cooking.
+Recalculate if macros appear unrealistically lean.
 
 Return a JSON object with:
 - "foods": array of food items, each with:
-  - "name": specific food name with preparation method (e.g., "pan-fried chicken thigh with skin", "steamed white jasmine rice", "sauteed broccoli in olive oil")
-  - "estimatedWeightGrams": weight in grams (integer) - be as precise as possible
-  - "estimatedServingSize": human-readable (e.g., "150g / about 5.3 oz")
+  - "name": specific food name with preparation method
+  - "estimatedWeightGrams": weight in grams (integer)
+  - "estimatedServingSize": human-readable (e.g., "250g / about 8.8 oz")
   - "confidence": "high", "medium", or "low"
   - "calories": calories for this exact portion (integer)
   - "protein": protein in grams (number, 1 decimal)
@@ -223,20 +264,6 @@ Return a JSON object with:
 - "totalProtein": sum of all protein (1 decimal)
 - "totalCarbs": sum of all carbs (1 decimal)
 - "totalFat": sum of all fat (1 decimal)
-
-ACCURACY RULES:
-- ALWAYS include cooking fats: pan-frying adds ~1-2 tbsp oil (120-240 cal), deep frying absorbs 10-15% of food weight in oil
-- Sauces/dressings: ranch 73 cal/tbsp, mayo 94 cal/tbsp, ketchup 20 cal/tbsp, soy sauce 9 cal/tbsp
-- Rice: 1 cup cooked white rice = ~200g = 206 cal, 4.3g protein, 44.5g carbs, 0.4g fat
-- Chicken breast (cooked, no skin): 165 cal/100g, 31g protein, 0g carbs, 3.6g fat
-- Chicken thigh (cooked, with skin): 229 cal/100g, 24g protein, 0g carbs, 14g fat
-- Ground beef 80/20 (cooked): 254 cal/100g, 26g protein, 0g carbs, 16g fat
-- Pasta (cooked): 131 cal/100g, 5g protein, 25g carbs, 1.1g fat
-- Bread (white): 265 cal/100g, 9g protein, 49g carbs, 3.2g fat
-- Egg (large, cooked): 78 cal, 6g protein, 0.6g carbs, 5g fat
-- Cheese (cheddar): 403 cal/100g, 25g protein, 1.3g carbs, 33g fat
-- If food looks homemade, estimate slightly higher calories than restaurant portions
-- When uncertain, round calories UP by 10% rather than down
 
 If you cannot identify any food, return: {"foods": [], "description": "Could not identify food items"}
 
