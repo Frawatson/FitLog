@@ -15,20 +15,6 @@ import {
 } from "./db";
 import { requireAuth } from "./auth";
 
-interface CalorieNinjaFood {
-  name: string;
-  calories: number;
-  serving_size_g: number;
-  fat_total_g: number;
-  fat_saturated_g: number;
-  protein_g: number;
-  sodium_mg: number;
-  potassium_mg: number;
-  cholesterol_mg: number;
-  carbohydrates_total_g: number;
-  fiber_g: number;
-  sugar_g: number;
-}
 
 interface WorkoutAPIExercise {
   id: string;
@@ -89,7 +75,6 @@ async function fetchAllExercises(apiKey: string): Promise<WorkoutAPIExercise[]> 
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // CalorieNinjas Food Search API
   app.get("/api/foods/search", requireAuth, async (req, res) => {
     try {
       const { query } = req.query;
@@ -98,64 +83,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Search query must be at least 2 characters" });
       }
 
-      const apiKey = process.env.CALORIENINJA_API_KEY;
-      if (!apiKey) {
+      const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
+      const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
+
+      if (!openaiApiKey || !openaiBaseUrl) {
         return res.status(503).json({ 
-          error: "Food API not configured", 
+          error: "AI service not configured", 
           useLocalDatabase: true 
         });
       }
 
-      const response = await fetch(
-        `https://api.calorieninjas.com/v1/nutrition?query=${encodeURIComponent(query.trim())}`,
-        {
-          headers: {
-            "X-Api-Key": apiKey,
-          },
-        }
-      );
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: openaiApiKey,
+        baseURL: openaiBaseUrl,
+      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("CalorieNinjas search error:", errorText);
-        return res.status(503).json({ 
-          error: "Food API temporarily unavailable", 
-          useLocalDatabase: true 
-        });
+      const completion = await openai.chat.completions.create({
+        model: "gpt-5.2",
+        messages: [
+          {
+            role: "user",
+            content: `Return nutrition data for: "${query.trim()}". Provide up to 3 relevant food items/variations.
+
+Return JSON array: [{"name":"Food Name","servingSize":"100g","calories":int,"protein":num,"carbs":num,"fat":num}]
+
+Use standard USDA serving sizes. Be accurate with macros. JSON only, no markdown.`
+          }
+        ],
+        max_completion_tokens: 500,
+      });
+
+      const content = completion.choices[0]?.message?.content || "[]";
+      let foods;
+      try {
+        const parsed = JSON.parse(content);
+        foods = (Array.isArray(parsed) ? parsed : parsed.foods || []).map((food: any, index: number) => ({
+          id: `ai-${Date.now()}-${index}`,
+          name: food.name || query.trim(),
+          brand: null,
+          type: "ai",
+          servingSize: food.servingSize || "100g",
+          calories: Math.round(food.calories || 0),
+          fat: Math.round(food.fat || 0),
+          carbs: Math.round(food.carbs || 0),
+          protein: Math.round(food.protein || 0),
+        }));
+      } catch {
+        foods = [];
       }
-
-      const data = await response.json();
-      const items: CalorieNinjaFood[] = data.items || [];
-      
-      // Transform to our format
-      const results = items.map((food, index) => ({
-        id: `cn-${Date.now()}-${index}`,
-        name: food.name.charAt(0).toUpperCase() + food.name.slice(1),
-        brand: null,
-        type: "api",
-        servingSize: `${food.serving_size_g}g`,
-        calories: Math.round(food.calories),
-        fat: Math.round(food.fat_total_g),
-        carbs: Math.round(food.carbohydrates_total_g),
-        protein: Math.round(food.protein_g),
-      }));
 
       res.json({
-        foods: results,
+        foods,
         page: 0,
-        totalResults: results.length,
+        totalResults: foods.length,
       });
     } catch (error) {
       console.error("Error searching foods:", error);
       res.status(503).json({ 
-        error: "Food API temporarily unavailable", 
+        error: "Food search temporarily unavailable", 
         useLocalDatabase: true 
       });
     }
   });
 
   // Photo-based food analysis endpoint
-  // Uses OpenAI Vision to identify food, then CalorieNinjas for nutrition lookup
+  // Uses OpenAI Vision to identify and estimate nutrition from food photos
   app.post("/api/foods/analyze-photo", requireAuth, async (req, res) => {
     try {
       const { imageBase64 } = req.body;
@@ -193,11 +186,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: [
               {
                 type: "text",
-                text: `Estimate nutrition from this food photo. For each food item, provide min, max, and median estimates.
+                text: `Identify each food item in this photo and estimate its nutrition. Provide min, max, and median estimates for each.
 
-Min = smallest reasonable portion, leanest cut, no added oil. Max = largest reasonable portion, fattier cut, cooking oil if food looks oily/fried. Median = midpoint of min and max.
-
-Use USDA cooked values per 100g. Cross-check: protein*4 + carbs*4 + fat*9 ≈ total calories.
+Guidelines:
+- Estimate portion weight using plate size, food thickness, and density
+- Min: smallest reasonable portion, leanest option, no added oil
+- Max: largest reasonable portion, fattier option, oil if food looks oily/fried
+- Median: midpoint of min and max (most likely)
+- USDA cooked values already include retained cooking fat — do not double-count
+- Only add cooking oil if food visually appears oily, glossy, or fried
+- Cross-check: protein*4 + carbs*4 + fat*9 should ≈ total calories
 
 Return JSON:
 {"foods":[{"name":"food name","estimatedWeightGrams":int,"estimatedServingSize":"Xg / about X oz","confidence":"high|medium|low","min":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"max":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0},"median":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0,"fiber":0.0}}],"description":"brief description","totalMin":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMax":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0},"totalMedian":{"calories":int,"protein":0.0,"carbs":0.0,"fat":0.0}}
@@ -240,56 +238,17 @@ JSON only, no markdown.`
         });
       }
 
-      const calorieNinjasKey = process.env.CALORIENINJA_API_KEY;
       const foodsWithNutrition = [];
 
       for (const food of identifiedFoods.foods) {
         const median = food.median || {};
-        let calories = Math.round(median.calories || food.calories || 0);
-        let protein = Math.round(median.protein || food.protein || 0);
-        let carbs = Math.round(median.carbs || food.carbs || 0);
-        let fat = Math.round(median.fat || food.fat || 0);
-        let fiber = Math.round(median.fiber || food.fiber || 0);
-        let source = "ai_estimate";
-
-        if (calorieNinjasKey && food.estimatedWeightGrams) {
-          try {
-            const searchQuery = `${food.estimatedWeightGrams}g ${food.name}`.trim();
-            const nutritionResponse = await fetch(
-              `https://api.calorieninjas.com/v1/nutrition?query=${encodeURIComponent(searchQuery)}`,
-              {
-                headers: { "X-Api-Key": calorieNinjasKey },
-              }
-            );
-
-            if (nutritionResponse.ok) {
-              const nutritionData = await nutritionResponse.json();
-              if (nutritionData.items && nutritionData.items.length > 0) {
-                let apiCals = 0, apiProtein = 0, apiCarbs = 0, apiFat = 0, apiFiber = 0;
-                for (const item of nutritionData.items) {
-                  apiCals += item.calories || 0;
-                  apiProtein += item.protein_g || 0;
-                  apiCarbs += item.carbohydrates_total_g || 0;
-                  apiFat += item.fat_total_g || 0;
-                  apiFiber += item.fiber_g || 0;
-                }
-                if (apiCals > 0) {
-                  calories = Math.round(apiCals);
-                  protein = Math.round(apiProtein);
-                  carbs = Math.round(apiCarbs);
-                  fat = Math.round(apiFat);
-                  fiber = Math.round(apiFiber);
-                  source = "calorieninjas";
-                }
-              }
-            }
-          } catch (nutritionError) {
-            console.error("CalorieNinjas lookup failed, using AI estimates:", nutritionError);
-          }
-        }
-
         const minData = food.min || {};
         const maxData = food.max || {};
+        const calories = Math.round(median.calories || food.calories || 0);
+        const protein = Math.round(median.protein || food.protein || 0);
+        const carbs = Math.round(median.carbs || food.carbs || 0);
+        const fat = Math.round(median.fat || food.fat || 0);
+        const fiber = Math.round(median.fiber || food.fiber || 0);
 
         foodsWithNutrition.push({
           name: food.name,
@@ -301,7 +260,7 @@ JSON only, no markdown.`
           carbs,
           fat,
           fiber,
-          source,
+          source: "ai_estimate",
           min: {
             calories: Math.round(minData.calories || calories * 0.75),
             protein: Math.round(minData.protein || protein * 0.75),

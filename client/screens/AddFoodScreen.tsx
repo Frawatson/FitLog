@@ -110,7 +110,7 @@ export default function AddFoodScreen() {
         const url = new URL("/api/foods/search", getApiUrl());
         url.searchParams.set("query", searchQuery.trim());
         
-        const response = await fetch(url.toString());
+        const response = await fetch(url.toString(), { credentials: "include" });
         if (response.ok) {
           const data = await response.json();
           if (data.foods && data.foods.length > 0) {
