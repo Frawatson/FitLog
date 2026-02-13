@@ -7,6 +7,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -181,6 +182,20 @@ export default function AddFoodScreen() {
     setSavedFoods(foods);
   };
   
+  const compressImage = async (uri: string): Promise<string | null> => {
+    try {
+      const manipulated = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      return manipulated.base64 || null;
+    } catch (error) {
+      console.error("Image compression failed:", error);
+      return null;
+    }
+  };
+
   const takePhoto = async () => {
     if (!cameraPermission?.granted) {
       const result = await requestCameraPermission();
@@ -200,7 +215,7 @@ export default function AddFoodScreen() {
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 1,
-      base64: true,
+      base64: false,
       exif: false,
     });
     
@@ -211,7 +226,8 @@ export default function AddFoodScreen() {
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      await analyzePhoto(asset.base64 || null, asset.uri);
+      const compressedBase64 = await compressImage(asset.uri);
+      await analyzePhoto(compressedBase64, asset.uri);
     }
   };
   
@@ -234,7 +250,7 @@ export default function AddFoodScreen() {
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 1,
-      base64: true,
+      base64: false,
       exif: false,
     });
     
@@ -245,7 +261,8 @@ export default function AddFoodScreen() {
       if (Platform.OS !== "web") {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-      await analyzePhoto(asset.base64 || null, asset.uri);
+      const compressedBase64 = await compressImage(asset.uri);
+      await analyzePhoto(compressedBase64, asset.uri);
     }
   };
   
