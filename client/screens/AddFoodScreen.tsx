@@ -313,6 +313,12 @@ export default function AddFoodScreen() {
           if (data.totalMin && data.totalMax) {
             console.log(`Nutrition range — Min: ${data.totalMin.calories} cal | Max: ${data.totalMax.calories} cal | Median: ${Math.round(totalCals)} cal`);
           }
+          if (data.mode) {
+            console.log(`[Photo] Mode: ${data.mode}`);
+          }
+          if (data.warnings && data.warnings.length > 0) {
+            console.log(`[Photo] Warnings: ${data.warnings.join(", ")}`);
+          }
           if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
