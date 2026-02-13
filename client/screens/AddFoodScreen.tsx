@@ -55,6 +55,7 @@ export default function AddFoodScreen() {
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
   const [foodImage, setFoodImage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
@@ -219,6 +220,7 @@ export default function AddFoodScreen() {
   
   const analyzePhoto = async (base64: string | null, uri: string) => {
     setIsAnalyzingPhoto(true);
+    setPhotoError(null);
     try {
       const url = new URL("/api/foods/analyze-photo", getApiUrl());
       const response = await fetch(url.toString(), {
@@ -226,6 +228,7 @@ export default function AddFoodScreen() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ 
           imageBase64: base64,
         }),
@@ -260,11 +263,15 @@ export default function AddFoodScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
         } else {
-          console.log("Could not identify food:", data.message);
+          setPhotoError(data.message || "Could not identify food. Please enter details manually.");
         }
+      } else {
+        const errData = await response.json().catch(() => null);
+        setPhotoError(errData?.message || errData?.error || "Failed to analyze photo. Please try again.");
       }
     } catch (error) {
       console.error("Error analyzing photo:", error);
+      setPhotoError("Network error analyzing photo. Please try again.");
     } finally {
       setIsAnalyzingPhoto(false);
     }
@@ -373,6 +380,10 @@ export default function AddFoodScreen() {
               </View>
             ) : null}
           </View>
+        ) : null}
+        
+        {photoError ? (
+          <ThemedText style={styles.photoErrorText}>{photoError}</ThemedText>
         ) : null}
         
         <Input
@@ -753,5 +764,11 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     marginTop: Spacing.md,
     fontWeight: "600",
+  },
+  photoErrorText: {
+    color: "#FF3B30",
+    fontSize: 14,
+    textAlign: "center" as const,
+    marginBottom: Spacing.md,
   },
 });
