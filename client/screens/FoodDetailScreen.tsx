@@ -31,7 +31,6 @@ export default function FoodDetailScreen() {
 
   const { entry } = route.params;
   const imageUri = entry.imageUri || entry.food.imageUri;
-  console.log(`[FoodDetail] entry.imageUri: ${entry.imageUri}, food.imageUri: ${entry.food.imageUri}, resolved: ${imageUri}`);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(entry.food.name);
@@ -168,7 +167,7 @@ export default function FoodDetailScreen() {
     >
       {imageUri ? (
         <View style={[styles.heroImageContainer, { marginTop: 0 }]}>
-          <Image source={{ uri: imageUri }} style={styles.heroImage} />
+          <Image source={{ uri: imageUri }} style={styles.heroImage} resizeMode="cover" />
           <View style={styles.heroOverlay} />
           <View style={[styles.heroCalories, { top: headerHeight + Spacing.sm }]}>
             <ThemedText type="h1" style={styles.heroCaloriesText}>
@@ -264,7 +263,6 @@ const styles = StyleSheet.create({
   heroImage: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -344,7 +342,6 @@ const styles = StyleSheet.create({
   editImage: {
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
   },
   editField: {
     marginBottom: Spacing.md,

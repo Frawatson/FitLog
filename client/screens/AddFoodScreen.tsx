@@ -402,6 +402,22 @@ export default function AddFoodScreen() {
     navigation.goBack();
   };
   
+  const createPersistentImageUri = async (uri: string): Promise<string | undefined> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 600 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      if (result.base64) {
+        return `data:image/jpeg;base64,${result.base64}`;
+      }
+    } catch (error) {
+      console.error("Failed to create persistent image:", error);
+    }
+    return undefined;
+  };
+
   const handleSubmit = async () => {
     if (!name.trim() || !calories) {
       return;
@@ -427,8 +443,13 @@ export default function AddFoodScreen() {
       });
     }
     
+    let persistentImageUri: string | undefined;
+    if (foodImage) {
+      persistentImageUri = await createPersistentImageUri(foodImage);
+    }
+    
     const today = new Date().toISOString().split("T")[0];
-    await storage.addFoodLogEntry(food, today, foodImage || undefined);
+    await storage.addFoodLogEntry(food, today, persistentImageUri);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();
   };

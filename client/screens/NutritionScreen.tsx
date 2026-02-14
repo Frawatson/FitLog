@@ -52,7 +52,6 @@ export default function NutritionScreen() {
   );
 
   const openDetail = (entry: FoodLogEntry) => {
-    console.log(`[Nutrition] Opening detail, imageUri: ${entry.imageUri}, food.imageUri: ${entry.food?.imageUri}`);
     Haptics.selectionAsync();
     navigation.navigate("FoodDetail", { entry });
   };
