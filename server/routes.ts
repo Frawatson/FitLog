@@ -262,6 +262,7 @@ Return JSON only:
       }
 
       console.log("[Photo] Call A identified", identifiedItems.items?.length, "items");
+      console.log("[Photo] Call A raw JSON:", JSON.stringify(identifiedItems, null, 2));
 
       if (!identifiedItems.items || identifiedItems.items.length === 0) {
         return res.json({
@@ -426,6 +427,7 @@ Return JSON only:
       let callBContent = callBResponse.choices[0]?.message?.content || "";
       console.log("[Photo] Call B finish_reason:", callBFinish, "length:", callBContent.length);
       callBContent = callBContent.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      console.log("[Photo] Call B raw JSON:", callBContent);
 
       let macroData;
       try {
