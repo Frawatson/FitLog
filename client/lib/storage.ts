@@ -478,6 +478,7 @@ export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
           }
         }
         const entries: FoodLogEntry[] = result.data.map(log => {
+          const serverImage = log.imageUri;
           const localImage = localImageMap.get(log.clientId);
           return {
             id: log.clientId,
@@ -485,7 +486,7 @@ export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
             food: log.foodData,
             date: log.date,
             createdAt: log.createdAt,
-            ...(localImage ? { imageUri: localImage } : {}),
+            ...(serverImage ? { imageUri: serverImage } : localImage ? { imageUri: localImage } : {}),
           };
         });
         const allLocal = [...localEntries];
@@ -540,6 +541,7 @@ export async function addFoodLogEntry(food: Food, date: string, imageUri?: strin
       foodData: food,
       date,
       createdAt: entry.createdAt,
+      ...(imageUri ? { imageUri } : {}),
     });
   }
   
