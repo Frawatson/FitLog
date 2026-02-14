@@ -183,6 +183,7 @@ export default function RootStackNavigator() {
         options={{
           headerTitle: "Food Details",
           presentation: "modal",
+          headerLeft: () => null,
         }}
       />
       <Stack.Screen
