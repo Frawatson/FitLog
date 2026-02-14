@@ -45,6 +45,7 @@ export default function AddFoodScreen() {
   const { theme } = useTheme();
   
   const [savedFoods, setSavedFoods] = useState<Food[]>([]);
+  const [recentMeals, setRecentMeals] = useState<import("@/types").FoodLogEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<APIFoodResult[]>([]);
@@ -96,7 +97,22 @@ export default function AddFoodScreen() {
 
   useEffect(() => {
     loadSavedFoods();
+    loadRecentMeals();
   }, []);
+
+  const loadRecentMeals = async () => {
+    const meals = await storage.getRecentMeals(5);
+    setRecentMeals(meals);
+  };
+
+  const handleRelogMeal = async (entry: import("@/types").FoodLogEntry) => {
+    const today = new Date().toISOString().split("T")[0];
+    await storage.addFoodLogEntry(entry.food, today, entry.imageUri);
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    navigation.goBack();
+  };
   
   // Debounced search - tries API first, falls back to local database
   useEffect(() => {
@@ -292,37 +308,18 @@ export default function AddFoodScreen() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.foods && data.foods.length > 0) {
-          let totalCals = 0, totalProtein = 0, totalCarbs = 0, totalFat = 0;
-          const foodNames: string[] = [];
-          for (const food of data.foods) {
-            totalCals += food.calories || 0;
-            totalProtein += food.protein || 0;
-            totalCarbs += food.carbs || 0;
-            totalFat += food.fat || 0;
-            const label = food.estimatedWeightGrams
-              ? `${food.name} (${food.estimatedWeightGrams}g)`
-              : food.servingSize
-                ? `${food.servingSize} ${food.name}`
-                : food.name;
-            foodNames.push(label);
-          }
-          setName(foodNames.join(", "));
-          setCalories(Math.round(totalCals).toString());
-          setProtein(Math.round(totalProtein).toString());
-          setCarbs(Math.round(totalCarbs).toString());
-          setFat(Math.round(totalFat).toString());
-          if (data.totalMin && data.totalMax) {
-            console.log(`Nutrition range — Min: ${data.totalMin.calories} cal | Max: ${data.totalMax.calories} cal | Median: ${Math.round(totalCals)} cal`);
-          }
-          if (data.mode) {
-            console.log(`[Photo] Mode: ${data.mode}`);
-          }
-          if (data.warnings && data.warnings.length > 0) {
-            console.log(`[Photo] Warnings: ${data.warnings.join(", ")}`);
-          }
           if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
+          setIsAnalyzingPhoto(false);
+          navigation.navigate("PhotoReview", {
+            foods: data.foods,
+            imageUri: uri,
+            imageBase64: base64 || undefined,
+            mode: data.mode,
+          });
+          resetForm();
+          return;
         } else {
           setPhotoError(data.message || "Could not identify food. Please enter details manually.");
         }
@@ -683,6 +680,42 @@ export default function AddFoodScreen() {
           >
             Add Custom Food
           </Button>
+
+          {recentMeals.length > 0 ? (
+            <>
+              <ThemedText type="h4" style={styles.sectionTitle}>
+                Recent Meals
+              </ThemedText>
+              {recentMeals.map((entry) => (
+                <Card
+                  key={entry.id}
+                  onPress={() => handleRelogMeal(entry)}
+                  style={[styles.foodCard, { marginBottom: Spacing.sm }]}
+                >
+                  <View style={styles.foodContent}>
+                    {entry.imageUri ? (
+                      <Image
+                        source={{ uri: entry.imageUri }}
+                        style={styles.recentMealThumb}
+                      />
+                    ) : null}
+                    <View style={styles.foodInfo}>
+                      <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={1}>
+                        {entry.food.name}
+                      </ThemedText>
+                      <ThemedText type="small" style={styles.foodMacros}>
+                        {entry.food.calories} cal | P: {entry.food.protein}g | C: {entry.food.carbs}g | F: {entry.food.fat}g
+                      </ThemedText>
+                      <ThemedText type="small" style={{ opacity: 0.4, marginTop: 2 }}>
+                        {new Date(entry.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </ThemedText>
+                    </View>
+                    <Feather name="refresh-cw" size={20} color={Colors.light.primary} />
+                  </View>
+                </Card>
+              ))}
+            </>
+          ) : null}
           
           {savedFoods.length > 0 ? (
             <>
@@ -835,6 +868,12 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: Spacing.lg,
+  },
+  recentMealThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.md,
+    marginRight: Spacing.sm,
   },
   addButtonsRow: {
     flexDirection: "row",

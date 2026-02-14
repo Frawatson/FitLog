@@ -19,6 +19,7 @@ import RegisterScreen from "@/screens/RegisterScreen";
 import EditProfileScreen from "@/screens/EditProfileScreen";
 import ForgotPasswordScreen from "@/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
+import PhotoReviewScreen from "@/screens/PhotoReviewScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import * as storage from "@/lib/storage";
@@ -36,6 +37,7 @@ export type RootStackParamList = {
   ActiveWorkout: { routineId: string };
   WorkoutComplete: { workoutId: string };
   AddFood: undefined;
+  PhotoReview: { foods: any[]; imageUri: string; imageBase64?: string; mode?: string };
   FoodDetail: { entry: import("@/types").FoodLogEntry };
   WorkoutHistory: undefined;
   WorkoutDetail: { workoutId: string };
@@ -174,6 +176,14 @@ export default function RootStackNavigator() {
         component={AddFoodScreen}
         options={{
           headerTitle: "Add Food",
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="PhotoReview"
+        component={PhotoReviewScreen}
+        options={{
+          headerTitle: "Review Food",
           presentation: "modal",
         }}
       />

@@ -572,6 +572,17 @@ export async function deleteFoodLogEntry(entryId: string): Promise<void> {
   }
 }
 
+export async function getRecentMeals(limit: number = 5): Promise<FoodLogEntry[]> {
+  try {
+    const entries = await getFoodLogLocal();
+    return entries
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
 // Get daily totals
 export async function getDailyTotals(date: string): Promise<MacroTargets> {
   const entries = await getFoodLog(date);
