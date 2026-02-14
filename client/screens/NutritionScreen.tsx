@@ -226,16 +226,35 @@ export default function NutritionScreen() {
                       source={{ uri: entry.imageUri || entry.food.imageUri }}
                       style={styles.foodThumbnail}
                     />
-                  ) : null}
+                  ) : (
+                    <View style={[styles.foodIconPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
+                      <Feather name="coffee" size={20} color={theme.textSecondary} />
+                    </View>
+                  )}
                   <View style={styles.foodInfo}>
-                    <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={2}>
+                    <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={1}>
                       {entry.food.name}
                     </ThemedText>
-                    <ThemedText type="small" style={styles.foodMacros}>
-                      {entry.food.calories} cal | P: {entry.food.protein}g | C: {entry.food.carbs}g | F: {entry.food.fat}g
-                    </ThemedText>
+                    <View style={styles.macroRow}>
+                      <ThemedText type="small" style={{ fontWeight: "700", color: Colors.light.primary }}>
+                        {entry.food.calories}
+                      </ThemedText>
+                      <ThemedText type="small" style={{ opacity: 0.5 }}> cal</ThemedText>
+                      <View style={styles.macroDot} />
+                      <ThemedText type="small" style={{ color: Colors.light.success, fontWeight: "600" }}>
+                        P {entry.food.protein}g
+                      </ThemedText>
+                      <View style={styles.macroDot} />
+                      <ThemedText type="small" style={{ color: "#FFA500", fontWeight: "600" }}>
+                        C {entry.food.carbs}g
+                      </ThemedText>
+                      <View style={styles.macroDot} />
+                      <ThemedText type="small" style={{ color: "#9B59B6", fontWeight: "600" }}>
+                        F {entry.food.fat}g
+                      </ThemedText>
+                    </View>
                   </View>
-                  <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                  <Feather name="chevron-right" size={18} color={theme.textSecondary} />
                 </View>
               </Card>
             ))}
@@ -278,7 +297,7 @@ export default function NutritionScreen() {
 
       {isAnalyzing ? (
         <View style={[styles.analyzingBanner, { bottom: tabBarHeight + Spacing.lg + 68 }]}>
-          <View style={[styles.analyzingBannerInner, { backgroundColor: (theme as any).backgroundElevated || theme.backgroundSecondary }]}>
+          <View style={[styles.analyzingBannerInner, { backgroundColor: theme.backgroundSecondary }]}>
             <ActivityIndicator size="small" color={Colors.light.primary} />
             <ThemedText type="small" style={{ fontWeight: "600" }}>Analyzing photo...</ThemedText>
           </View>
@@ -320,16 +339,31 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   foodThumbnail: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.md,
+    width: 52,
+    height: 52,
+    borderRadius: BorderRadius.lg,
+  },
+  foodIconPlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    justifyContent: "center",
   },
   foodInfo: {
     flex: 1,
+    gap: 4,
   },
-  foodMacros: {
-    opacity: 0.6,
-    marginTop: Spacing.xs,
+  macroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  macroDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "#999",
+    marginHorizontal: 5,
   },
   addButton: {
     marginTop: Spacing.lg,
