@@ -19,11 +19,10 @@ interface ButtonProps {
 }
 
 const springConfig: WithSpringConfig = {
-  damping: 15,
-  mass: 0.3,
-  stiffness: 150,
-  overshootClamping: true,
-  energyThreshold: 0.001,
+  damping: 18,
+  mass: 0.4,
+  stiffness: 180,
+  overshootClamping: false,
 };
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -35,20 +34,26 @@ export function Button({
   disabled = false,
 }: ButtonProps) {
   const { theme } = useTheme();
+  const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
   const handlePressIn = () => {
     if (!disabled) {
+      translateY.value = withSpring(-4, springConfig);
       scale.value = withSpring(0.98, springConfig);
     }
   };
 
   const handlePressOut = () => {
     if (!disabled) {
+      translateY.value = withSpring(0, springConfig);
       scale.value = withSpring(1, springConfig);
     }
   };

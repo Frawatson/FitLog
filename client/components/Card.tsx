@@ -21,11 +21,10 @@ interface CardProps {
 }
 
 const springConfig: WithSpringConfig = {
-  damping: 15,
-  mass: 0.3,
-  stiffness: 150,
-  overshootClamping: true,
-  energyThreshold: 0.001,
+  damping: 18,
+  mass: 0.4,
+  stiffness: 180,
+  overshootClamping: false,
 };
 
 const getBackgroundColorForElevation = (
@@ -55,20 +54,30 @@ export function Card({
   style,
 }: CardProps) {
   const { theme } = useTheme();
+  const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
 
   const cardBackgroundColor = getBackgroundColorForElevation(elevation, theme);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
+    transform: [
+      { translateY: translateY.value },
+      { scale: scale.value },
+    ],
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.98, springConfig);
+    if (onPress) {
+      translateY.value = withSpring(-4, springConfig);
+      scale.value = withSpring(0.98, springConfig);
+    }
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, springConfig);
+    if (onPress) {
+      translateY.value = withSpring(0, springConfig);
+      scale.value = withSpring(1, springConfig);
+    }
   };
 
   return (
