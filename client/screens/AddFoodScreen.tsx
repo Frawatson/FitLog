@@ -599,40 +599,36 @@ export default function AddFoodScreen() {
                 Search Results
               </ThemedText>
               {searchResults.map((item) => (
-                <Pressable
+                <Card
                   key={item.id}
                   onPress={() => handleSelectApiFood(item)}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, marginBottom: Spacing.sm })}
+                  style={[styles.foodCard, { marginBottom: Spacing.sm }]}
                 >
-                  <Card style={styles.foodCard}>
-                    <View style={styles.foodContent}>
-                      <View style={styles.foodInfo}>
-                        <ThemedText type="body" style={{ fontWeight: "600" }}>
-                          {item.name}
+                  <View style={styles.foodContent}>
+                    <View style={styles.foodInfo}>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>
+                        {item.name}
+                      </ThemedText>
+                      {item.brand ? (
+                        <ThemedText type="small" style={styles.brandName}>
+                          {item.brand}
                         </ThemedText>
-                        {item.brand ? (
-                          <ThemedText type="small" style={styles.brandName}>
-                            {item.brand}
-                          </ThemedText>
-                        ) : null}
-                        <ThemedText type="small" style={styles.foodMacros}>
-                          {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
-                        </ThemedText>
-                        <ThemedText type="small" style={styles.servingSize}>
-                          {item.servingSize}
-                        </ThemedText>
-                      </View>
-                      <View style={styles.actionButtons}>
-                        <Pressable
-                          onPress={() => handleQuickAddApiFood(item)}
-                          hitSlop={8}
-                        >
-                          <Feather name="plus-circle" size={24} color={Colors.light.primary} />
-                        </Pressable>
-                      </View>
+                      ) : null}
+                      <ThemedText type="small" style={styles.foodMacros}>
+                        {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                      </ThemedText>
+                      <ThemedText type="small" style={styles.servingSize}>
+                        {item.servingSize}
+                      </ThemedText>
                     </View>
-                  </Card>
-                </Pressable>
+                    <Pressable
+                      onPress={() => handleQuickAddApiFood(item)}
+                      hitSlop={8}
+                    >
+                      <Feather name="plus-circle" size={24} color={Colors.light.primary} />
+                    </Pressable>
+                  </View>
+                </Card>
               ))}
             </View>
           ) : searchQuery.length >= 2 ? (
@@ -673,25 +669,23 @@ export default function AddFoodScreen() {
                 Saved Foods
               </ThemedText>
               {savedFoods.map((item) => (
-                <Pressable
+                <Card
                   key={item.id}
                   onPress={() => handleQuickAdd(item)}
-                  style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1, marginBottom: Spacing.sm })}
+                  style={[styles.foodCard, { marginBottom: Spacing.sm }]}
                 >
-                  <Card style={styles.foodCard}>
-                    <View style={styles.foodContent}>
-                      <View style={styles.foodInfo}>
-                        <ThemedText type="body" style={{ fontWeight: "600" }}>
-                          {item.name}
-                        </ThemedText>
-                        <ThemedText type="small" style={styles.foodMacros}>
-                          {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
-                        </ThemedText>
-                      </View>
-                      <Feather name="plus-circle" size={24} color={Colors.light.primary} />
+                  <View style={styles.foodContent}>
+                    <View style={styles.foodInfo}>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>
+                        {item.name}
+                      </ThemedText>
+                      <ThemedText type="small" style={styles.foodMacros}>
+                        {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                      </ThemedText>
                     </View>
-                  </Card>
-                </Pressable>
+                    <Feather name="plus-circle" size={24} color={Colors.light.primary} />
+                  </View>
+                </Card>
               ))}
             </>
           ) : null}

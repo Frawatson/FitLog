@@ -188,26 +188,23 @@ export default function NutritionScreen() {
         {foodLog.length > 0 ? (
           <View style={styles.foodList}>
             {foodLog.map((entry) => (
-              <Pressable
+              <Card
                 key={entry.id}
                 onPress={() => openDetail(entry)}
-                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-                testID={`food-entry-${entry.id}`}
+                style={styles.foodCard}
               >
-                <Card style={styles.foodCard}>
-                  <View style={styles.foodRow}>
-                    <View style={styles.foodInfo}>
-                      <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={2}>
-                        {entry.food.name}
-                      </ThemedText>
-                      <ThemedText type="small" style={styles.foodMacros}>
-                        {entry.food.calories} cal | P: {entry.food.protein}g | C: {entry.food.carbs}g | F: {entry.food.fat}g
-                      </ThemedText>
-                    </View>
-                    <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                <View style={styles.foodRow}>
+                  <View style={styles.foodInfo}>
+                    <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={2}>
+                      {entry.food.name}
+                    </ThemedText>
+                    <ThemedText type="small" style={styles.foodMacros}>
+                      {entry.food.calories} cal | P: {entry.food.protein}g | C: {entry.food.carbs}g | F: {entry.food.fat}g
+                    </ThemedText>
                   </View>
-                </Card>
-              </Pressable>
+                  <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+                </View>
+              </Card>
             ))}
           </View>
         ) : (
