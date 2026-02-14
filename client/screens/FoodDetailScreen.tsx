@@ -75,7 +75,7 @@ export default function FoodDetailScreen() {
     return (
       <KeyboardAwareScrollViewCompat
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl }}
+        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: insets.bottom + 120 }}
       >
         <View style={styles.editField}>
           <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: 4 }}>Name</ThemedText>
