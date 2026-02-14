@@ -470,12 +470,20 @@ export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
       const endpoint = date ? `/api/food-logs?date=${date}` : "/api/food-logs";
       const result = await syncToServer<any[]>(endpoint, "GET");
       if (result.success && result.data) {
+        const localEntries = await getFoodLogLocal();
+        const localImageMap = new Map<string, string>();
+        for (const le of localEntries) {
+          if (le.imageUri) {
+            localImageMap.set(le.id, le.imageUri);
+          }
+        }
         const entries: FoodLogEntry[] = result.data.map(log => ({
           id: log.clientId,
           foodId: log.foodData.id,
           food: log.foodData,
           date: log.date,
           createdAt: log.createdAt,
+          ...(localImageMap.get(log.clientId) ? { imageUri: localImageMap.get(log.clientId) } : {}),
         }));
         if (!date) {
           await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(entries));
