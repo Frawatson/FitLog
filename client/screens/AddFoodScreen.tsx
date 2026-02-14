@@ -428,7 +428,7 @@ export default function AddFoodScreen() {
     }
     
     const today = new Date().toISOString().split("T")[0];
-    await storage.addFoodLogEntry(food, today);
+    await storage.addFoodLogEntry(food, today, foodImage || undefined);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();
   };

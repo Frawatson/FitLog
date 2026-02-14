@@ -503,7 +503,7 @@ async function getFoodLogLocal(): Promise<FoodLogEntry[]> {
   }
 }
 
-export async function addFoodLogEntry(food: Food, date: string): Promise<FoodLogEntry> {
+export async function addFoodLogEntry(food: Food, date: string, imageUri?: string): Promise<FoodLogEntry> {
   const entries = await getFoodLogLocal();
   const entry: FoodLogEntry = {
     id: uuidv4(),
@@ -511,6 +511,7 @@ export async function addFoodLogEntry(food: Food, date: string): Promise<FoodLog
     food,
     date,
     createdAt: new Date().toISOString(),
+    ...(imageUri ? { imageUri } : {}),
   };
   entries.push(entry);
   await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(entries));

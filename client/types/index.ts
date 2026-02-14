@@ -93,6 +93,8 @@ export interface Food {
   carbs: number;
   fat: number;
   isSaved: boolean;
+  serving?: string;
+  imageUri?: string;
 }
 
 export interface FoodLogEntry {
@@ -101,6 +103,7 @@ export interface FoodLogEntry {
   food: Food;
   date: string;
   createdAt: string;
+  imageUri?: string;
 }
 
 // Progression Suggestion
