@@ -477,17 +477,27 @@ export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
             localImageMap.set(le.id, le.imageUri);
           }
         }
-        const entries: FoodLogEntry[] = result.data.map(log => ({
-          id: log.clientId,
-          foodId: log.foodData.id,
-          food: log.foodData,
-          date: log.date,
-          createdAt: log.createdAt,
-          ...(localImageMap.get(log.clientId) ? { imageUri: localImageMap.get(log.clientId) } : {}),
-        }));
-        if (!date) {
-          await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(entries));
+        const entries: FoodLogEntry[] = result.data.map(log => {
+          const localImage = localImageMap.get(log.clientId);
+          return {
+            id: log.clientId,
+            foodId: log.foodData.id,
+            food: log.foodData,
+            date: log.date,
+            createdAt: log.createdAt,
+            ...(localImage ? { imageUri: localImage } : {}),
+          };
+        });
+        const allLocal = [...localEntries];
+        for (const entry of entries) {
+          const idx = allLocal.findIndex(le => le.id === entry.id);
+          if (idx !== -1) {
+            allLocal[idx] = entry;
+          } else {
+            allLocal.push(entry);
+          }
         }
+        await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(allLocal));
         return entries;
       }
     }

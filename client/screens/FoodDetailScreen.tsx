@@ -31,6 +31,7 @@ export default function FoodDetailScreen() {
 
   const { entry } = route.params;
   const imageUri = entry.imageUri || entry.food.imageUri;
+  console.log(`[FoodDetail] entry.imageUri: ${entry.imageUri}, food.imageUri: ${entry.food.imageUri}, resolved: ${imageUri}`);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(entry.food.name);
