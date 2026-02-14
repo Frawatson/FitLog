@@ -8,6 +8,7 @@ import SelectRoutineScreen from "@/screens/SelectRoutineScreen";
 import ActiveWorkoutScreen from "@/screens/ActiveWorkoutScreen";
 import WorkoutCompleteScreen from "@/screens/WorkoutCompleteScreen";
 import AddFoodScreen from "@/screens/AddFoodScreen";
+import FoodDetailScreen from "@/screens/FoodDetailScreen";
 import WorkoutHistoryScreen from "@/screens/WorkoutHistoryScreen";
 import WorkoutDetailScreen from "@/screens/WorkoutDetailScreen";
 import EditMacrosScreen from "@/screens/EditMacrosScreen";
@@ -35,6 +36,7 @@ export type RootStackParamList = {
   ActiveWorkout: { routineId: string };
   WorkoutComplete: { workoutId: string };
   AddFood: undefined;
+  FoodDetail: { entry: import("@/types").FoodLogEntry };
   WorkoutHistory: undefined;
   WorkoutDetail: { workoutId: string };
   EditMacros: undefined;
@@ -172,6 +174,14 @@ export default function RootStackNavigator() {
         component={AddFoodScreen}
         options={{
           headerTitle: "Add Food",
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="FoodDetail"
+        component={FoodDetailScreen}
+        options={{
+          headerTitle: "Food Details",
           presentation: "modal",
         }}
       />
