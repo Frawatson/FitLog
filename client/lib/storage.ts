@@ -527,6 +527,20 @@ export async function addFoodLogEntry(food: Food, date: string): Promise<FoodLog
   return entry;
 }
 
+export async function updateFoodLogEntry(entryId: string, updatedFood: Food): Promise<void> {
+  const entries = await getFoodLogLocal();
+  const idx = entries.findIndex((e) => e.id === entryId);
+  if (idx !== -1) {
+    entries[idx].food = updatedFood;
+    entries[idx].foodId = updatedFood.id;
+    await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(entries));
+  }
+
+  if (await isAuthenticated()) {
+    await syncWithRetry(`/api/food-logs/${entryId}`, "PUT", { foodData: updatedFood });
+  }
+}
+
 export async function deleteFoodLogEntry(entryId: string): Promise<void> {
   const entries = await getFoodLogLocal();
   const filtered = entries.filter((e) => e.id !== entryId);

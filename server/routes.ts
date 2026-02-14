@@ -7,7 +7,7 @@ import {
   getRoutines, saveRoutine, deleteRoutine,
   getWorkouts, saveWorkout,
   getRuns, saveRun,
-  getFoodLogs, saveFoodLog, deleteFoodLog,
+  getFoodLogs, saveFoodLog, updateFoodLog, deleteFoodLog,
   getUserStreak, updateUserStreak,
   getCustomExercises, saveCustomExercise, deleteCustomExercise,
   getSavedFoods, saveSavedFood, deleteSavedFood,
@@ -795,6 +795,24 @@ Respond ONLY with valid JSON in this exact format:
     } catch (error) {
       console.error("Error saving food log:", error);
       res.status(500).json({ error: "Failed to save food log" });
+    }
+  });
+
+  app.put("/api/food-logs/:clientId", requireAuth, async (req: Request<{ clientId: string }>, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { foodData } = req.body;
+      if (!foodData) {
+        return res.status(400).json({ error: "foodData is required" });
+      }
+      const updated = await updateFoodLog(userId, req.params.clientId, foodData);
+      if (!updated) {
+        return res.status(404).json({ error: "Food log not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating food log:", error);
+      res.status(500).json({ error: "Failed to update food log" });
     }
   });
 

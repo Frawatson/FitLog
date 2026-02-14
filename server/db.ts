@@ -575,6 +575,14 @@ export async function saveFoodLog(userId: number, log: FoodLogData): Promise<voi
   );
 }
 
+export async function updateFoodLog(userId: number, clientId: string, foodData: any): Promise<boolean> {
+  const result = await pool.query(
+    "UPDATE food_logs SET food_data = $3 WHERE user_id = $1 AND client_id = $2 RETURNING id",
+    [userId, clientId, JSON.stringify(foodData)]
+  );
+  return result.rowCount !== null && result.rowCount > 0;
+}
+
 export async function deleteFoodLog(userId: number, clientId: string): Promise<boolean> {
   const result = await pool.query(
     "DELETE FROM food_logs WHERE user_id = $1 AND client_id = $2 RETURNING id",
