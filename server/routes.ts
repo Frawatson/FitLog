@@ -188,12 +188,24 @@ Return JSON array only:
       const promptA = `Analyze this food photo for a bodybuilding-focused macro tracker.
 
 STRICT RULES:
-- Identify visible items only.
+- Identify visible items only. Do NOT double-count (e.g. meatballs are ground_beef, don't add separate "meat" entry).
 - Output COOKED edible grams (exclude bones, shells, packaging). If bone-in, set bone_in=true.
 - Choose category ONLY from APPROVED_LIST. If uncertain, choose the closest match. Do NOT invent categories.
 - If fried/breaded, set fried_breaded=true.
 - If pan-seared meat and visible oil sheen/pooling, set pan_seared=true and oil_present=true.
 - If sauce is visible, estimate sauce_tbsp (min/median/max) and set sauce_type from ["none","bbq","mayo_ranch","ketchup","hot_sauce","unknown"].
+
+PORTION SIZE REFERENCE (use these to calibrate your gram estimates):
+- A standard dinner plate is ~25-27cm (10-11 inches) diameter. Use the plate as a ruler.
+- 1 fist-sized portion of meat/protein ≈ 100-120g cooked
+- 1 palm-sized chicken breast ≈ 120-150g cooked
+- 1 cup of cooked rice/pasta ≈ 150-200g
+- 1 medium meatball ≈ 25-35g
+- 1 cup of vegetables ≈ 80-120g
+- A typical single-serving restaurant plate of pasta = 200-280g cooked pasta
+- A typical home-cooked plate of pasta = 150-220g cooked pasta
+- 1 tablespoon of sauce ≈ 15g
+- Total weight of a SINGLE MEAL on one plate is typically 300-600g. Over 800g total is very unusual for one plate.
 
 APPROVED_LIST:
 
@@ -203,8 +215,8 @@ chicken_breast_grilled, chicken_breast_pan_seared, chicken_thigh, chicken_fried_
 CARBS (50):
 white_rice, brown_rice, jasmine_rice, basmati_rice, rice_mix, sweet_potato, white_potato, mashed_potatoes, baked_potato, fries_fried, oats_cooked, oats_overnight, pasta_cooked, quinoa, couscous, black_beans, kidney_beans, lentils, chickpeas, tortilla_flour, tortilla_corn, bagel_plain, bread_white, bread_wheat, wrap_flatbread, burger_bun, english_muffin, pancakes, waffles, cereal, granola, rice_cakes, banana, apple, berries, grapes, orange, mango, pineapple, mixed_fruit, yogurt_parfait, protein_cookie, pretzels, popcorn, crackers, ramen_noodles, udon_noodles, sushi_rice, honey, jam_jelly, dates
 
-FATS/SAUCES (50):
-olive_oil, avocado_oil, butter, ghee, cheese_generic, cheddar_cheese, mozzarella, parmesan, cream_cheese, sour_cream, bbq_sauce, ketchup, mayo, ranch, aioli, hot_sauce, mustard, soy_sauce, teriyaki_sauce, sriracha, peanut_butter, almond_butter, nuts_mixed, walnuts, almonds, cashews, trail_mix, avocado, guacamole, pesto, hummus, tahini, olive_tapenade, coconut_oil, sesame_oil, vinaigrette, italian_dressing, caesar_dressing, blue_cheese_dressing, honey_mustard, buffalo_sauce, gravy, cheese_sauce, chili_oil, maple_syrup, chocolate_sauce, ice_cream, whipped_cream, bacon_bits, croutons, butter_sauce, garlic_butter
+FATS/SAUCES (54):
+olive_oil, avocado_oil, butter, ghee, cheese_generic, cheddar_cheese, mozzarella, parmesan, cream_cheese, sour_cream, tomato_sauce, marinara, alfredo_sauce, bolognese, bbq_sauce, ketchup, mayo, ranch, aioli, hot_sauce, mustard, soy_sauce, teriyaki_sauce, sriracha, peanut_butter, almond_butter, nuts_mixed, walnuts, almonds, cashews, trail_mix, avocado, guacamole, pesto, hummus, tahini, olive_tapenade, coconut_oil, sesame_oil, vinaigrette, italian_dressing, caesar_dressing, blue_cheese_dressing, honey_mustard, buffalo_sauce, gravy, cheese_sauce, chili_oil, maple_syrup, chocolate_sauce, ice_cream, whipped_cream, bacon_bits, croutons, butter_sauce, garlic_butter
 
 VEGETABLES (50):
 broccoli, green_beans, asparagus, spinach, kale, mixed_vegetables, salad_plain, carrots, zucchini, brussels_sprouts, cauliflower, cabbage, bell_peppers, onions, mushrooms, tomatoes, cucumber, lettuce, arugula, bok_choy, broccolini, snap_peas, peas, corn, sweet_corn, eggplant, okra, beets, celery, radish, sauerkraut, pickles, jalapenos, garlic, ginger, spring_mix, coleslaw_plain, coleslaw_creamy, salsa, pico_de_gallo, kimchi, seaweed_salad, edamame_side, butternut_squash, pumpkin, parsnips, turnips, artichoke, leeks, fajita_veggies, stir_fry_veggies
@@ -232,7 +244,7 @@ Return JSON only:
             ],
           },
         ],
-        max_completion_tokens: 500,
+        max_completion_tokens: 800,
       });
 
       const callAFinish = callAResponse.choices[0]?.finish_reason;
@@ -262,6 +274,9 @@ Return JSON only:
       }
 
       console.log("[Photo] Call A identified", identifiedItems.items?.length, "items");
+      for (const item of (identifiedItems.items || [])) {
+        console.log(`[Photo] Item: "${item.name}" category=${item.category} grams=${JSON.stringify(item.grams)} bone_in=${item.bone_in} pan_seared=${item.pan_seared} sauce=${item.sauce_type} sauce_tbsp=${JSON.stringify(item.sauce_tbsp)}`);
+      }
 
       if (!identifiedItems.items || identifiedItems.items.length === 0) {
         return res.json({

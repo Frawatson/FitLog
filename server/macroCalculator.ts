@@ -220,6 +220,10 @@ const MACRO_TABLE: Record<string, MacroEntry> = {
   butter_sauce: { kcal: 100, p: 0, c: 0, f: 11, per: "1tbsp" },
   garlic_butter: { kcal: 100, p: 0, c: 0, f: 11, per: "1tbsp" },
 
+  tomato_sauce: { kcal: 30, p: 1, c: 5, f: 0.5, per: "100g" },
+  marinara: { kcal: 60, p: 2, c: 9, f: 1.5, per: "100g" },
+  alfredo_sauce: { kcal: 180, p: 4, c: 4, f: 16, per: "100g" },
+  bolognese: { kcal: 100, p: 7, c: 8, f: 5, per: "100g" },
   bbq_sauce: { kcal: 40, p: 0, c: 10, f: 0, per: "1tbsp" },
   ketchup: { kcal: 20, p: 0, c: 5, f: 0, per: "1tbsp" },
   mayo: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
