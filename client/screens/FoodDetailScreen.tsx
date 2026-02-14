@@ -144,13 +144,8 @@ export default function FoodDetailScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button title="Save" onPress={handleSaveEdit} testID="button-save-food" />
-          <Button
-            title="Cancel"
-            variant="secondary"
-            onPress={() => setIsEditing(false)}
-            testID="button-cancel-edit"
-          />
+          <Button onPress={handleSaveEdit}>Save</Button>
+          <Button onPress={() => setIsEditing(false)}>Cancel</Button>
         </View>
       </KeyboardAwareScrollViewCompat>
     );
