@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -152,6 +152,12 @@ export default function NutritionScreen() {
                 style={styles.foodCard}
               >
                 <View style={styles.foodRow}>
+                  {(entry.imageUri || entry.food.imageUri) ? (
+                    <Image
+                      source={{ uri: entry.imageUri || entry.food.imageUri }}
+                      style={styles.foodThumbnail}
+                    />
+                  ) : null}
                   <View style={styles.foodInfo}>
                     <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={2}>
                       {entry.food.name}
@@ -218,6 +224,12 @@ const styles = StyleSheet.create({
   foodRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Spacing.md,
+  },
+  foodThumbnail: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.md,
   },
   foodInfo: {
     flex: 1,
