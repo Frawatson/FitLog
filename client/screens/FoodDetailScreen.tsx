@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect } from "react";
-import { View, StyleSheet, TextInput, ScrollView, Alert } from "react-native";
+import { View, StyleSheet, TextInput, ScrollView, Image, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -13,9 +13,11 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Food, FoodLogEntry } from "@/types";
+import type { Food } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRouteProp = RouteProp<RootStackParamList, "FoodDetail">;
@@ -28,6 +30,7 @@ export default function FoodDetailScreen() {
   const { theme } = useTheme();
 
   const { entry } = route.params;
+  const imageUri = entry.imageUri || entry.food.imageUri;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(entry.food.name);
@@ -77,6 +80,12 @@ export default function FoodDetailScreen() {
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: insets.bottom + 120 }}
       >
+        {imageUri ? (
+          <View style={styles.editImageContainer}>
+            <Image source={{ uri: imageUri }} style={styles.editImage} />
+          </View>
+        ) : null}
+
         <View style={styles.editField}>
           <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: 4 }}>Name</ThemedText>
           <TextInput
@@ -154,64 +163,89 @@ export default function FoodDetailScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: insets.bottom + Spacing.xl }}
+      contentContainerStyle={{ paddingTop: imageUri ? 0 : headerHeight + Spacing.lg, paddingBottom: insets.bottom + Spacing.xl }}
     >
-      <View style={styles.macroGrid}>
-        <View style={[styles.macroBox, { backgroundColor: theme.backgroundCard }]}>
-          <ThemedText type="h1" style={{ color: Colors.light.primary }}>
-            {entry.food.calories}
-          </ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>Calories</ThemedText>
-        </View>
-      </View>
-
-      <View style={styles.macroRow}>
-        <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
-          <ThemedText type="h3" style={{ color: Colors.light.success }}>
-            {entry.food.protein}g
-          </ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>Protein</ThemedText>
-        </View>
-        <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
-          <ThemedText type="h3" style={{ color: "#FFA500" }}>
-            {entry.food.carbs}g
-          </ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>Carbs</ThemedText>
-        </View>
-        <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
-          <ThemedText type="h3" style={{ color: "#9B59B6" }}>
-            {entry.food.fat}g
-          </ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>Fat</ThemedText>
-        </View>
-      </View>
-
-      {entry.food.serving ? (
-        <View style={[styles.servingBox, { backgroundColor: theme.backgroundCard }]}>
-          <Feather name="info" size={16} color={theme.textSecondary} />
-          <ThemedText type="body" style={{ color: theme.textSecondary, flex: 1 }}>
-            {entry.food.serving}
-          </ThemedText>
+      {imageUri ? (
+        <View style={[styles.heroImageContainer, { marginTop: 0 }]}>
+          <Image source={{ uri: imageUri }} style={styles.heroImage} />
+          <View style={styles.heroOverlay} />
+          <View style={[styles.heroCalories, { top: headerHeight + Spacing.sm }]}>
+            <ThemedText type="h1" style={styles.heroCaloriesText}>
+              {entry.food.calories}
+            </ThemedText>
+            <ThemedText type="small" style={styles.heroCaloriesLabel}>cal</ThemedText>
+          </View>
         </View>
       ) : null}
 
-      <View style={styles.actions}>
-        <AnimatedPress
-          onPress={startEditing}
-          style={[styles.actionButton, { backgroundColor: Colors.light.primary }]}
-          testID="button-edit-food"
-        >
-          <Feather name="edit-2" size={18} color="#FFFFFF" />
-          <ThemedText type="body" style={styles.actionButtonText}>Edit</ThemedText>
-        </AnimatedPress>
-        <AnimatedPress
-          onPress={handleDelete}
-          style={[styles.actionButton, { backgroundColor: "#EF4444" }]}
-          testID="button-delete-food"
-        >
-          <Feather name="trash-2" size={18} color="#FFFFFF" />
-          <ThemedText type="body" style={styles.actionButtonText}>Delete</ThemedText>
-        </AnimatedPress>
+      <View style={{ paddingHorizontal: Spacing.lg }}>
+        {imageUri ? null : (
+          <View style={styles.macroGrid}>
+            <View style={[styles.macroBox, { backgroundColor: theme.backgroundCard }]}>
+              <ThemedText type="h1" style={{ color: Colors.light.primary }}>
+                {entry.food.calories}
+              </ThemedText>
+              <ThemedText type="body" style={{ color: theme.textSecondary }}>Calories</ThemedText>
+            </View>
+          </View>
+        )}
+
+        {imageUri ? (
+          <View style={styles.foodNameRow}>
+            <ThemedText type="h3" style={{ color: theme.text, flex: 1 }}>
+              {entry.food.name}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        <View style={styles.macroRow}>
+          <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
+            <ThemedText type="h3" style={{ color: Colors.light.success }}>
+              {entry.food.protein}g
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>Protein</ThemedText>
+          </View>
+          <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
+            <ThemedText type="h3" style={{ color: "#FFA500" }}>
+              {entry.food.carbs}g
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>Carbs</ThemedText>
+          </View>
+          <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
+            <ThemedText type="h3" style={{ color: "#9B59B6" }}>
+              {entry.food.fat}g
+            </ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>Fat</ThemedText>
+          </View>
+        </View>
+
+        {entry.food.serving ? (
+          <View style={[styles.servingBox, { backgroundColor: theme.backgroundCard }]}>
+            <Feather name="info" size={16} color={theme.textSecondary} />
+            <ThemedText type="body" style={{ color: theme.textSecondary, flex: 1 }}>
+              {entry.food.serving}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        <View style={styles.actions}>
+          <AnimatedPress
+            onPress={startEditing}
+            style={[styles.actionButton, { backgroundColor: Colors.light.primary }]}
+            testID="button-edit-food"
+          >
+            <Feather name="edit-2" size={18} color="#FFFFFF" />
+            <ThemedText type="body" style={styles.actionButtonText}>Edit</ThemedText>
+          </AnimatedPress>
+          <AnimatedPress
+            onPress={handleDelete}
+            style={[styles.actionButton, { backgroundColor: "#EF4444" }]}
+            testID="button-delete-food"
+          >
+            <Feather name="trash-2" size={18} color="#FFFFFF" />
+            <ThemedText type="body" style={styles.actionButtonText}>Delete</ThemedText>
+          </AnimatedPress>
+        </View>
       </View>
     </ScrollView>
   );
@@ -220,6 +254,43 @@ export default function FoodDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  heroImageContainer: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_WIDTH * 0.75,
+    position: "relative",
+  },
+  heroImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.15)",
+  },
+  heroCalories: {
+    position: "absolute",
+    right: Spacing.lg,
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  heroCaloriesText: {
+    color: "#FFFFFF",
+    fontSize: 22,
+  },
+  heroCaloriesLabel: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+  },
+  foodNameRow: {
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
   },
   macroGrid: {
     marginBottom: Spacing.lg,
@@ -262,6 +333,17 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: "#FFFFFF",
     fontWeight: "600",
+  },
+  editImageContainer: {
+    borderRadius: BorderRadius.lg,
+    overflow: "hidden",
+    marginBottom: Spacing.lg,
+    height: 160,
+  },
+  editImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   editField: {
     marginBottom: Spacing.md,
