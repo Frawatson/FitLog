@@ -9,10 +9,7 @@ import {
   Modal,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
-import { ThemedView } from "@/components/ThemedView";
-import { ThemedText } from "@/components/ThemedText";
-import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Fonts, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 
 export type ErrorFallbackProps = {
   error: Error;
@@ -20,7 +17,6 @@ export type ErrorFallbackProps = {
 };
 
 export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
-  const { theme } = useTheme();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const handleRestart = async () => {
@@ -41,19 +37,19 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
       {__DEV__ ? (
         <Pressable
           onPress={() => setIsModalVisible(true)}
           style={({ pressed }) => [
             styles.topButton,
             {
-              backgroundColor: theme.backgroundDefault,
+              backgroundColor: "#F0F0F0",
               opacity: pressed ? 0.8 : 1,
             },
           ]}
         >
-          <Feather name="alert-circle" size={20} color={theme.text} />
+          <Feather name="alert-circle" size={20} color="#1A1A1A" />
         </Pressable>
       ) : null}
 
@@ -62,13 +58,13 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           <Feather name="alert-triangle" size={32} color="#FFFFFF" />
         </View>
         
-        <ThemedText type="h1" style={styles.title}>
+        <Text style={styles.title}>
           Merge hit a snag
-        </ThemedText>
+        </Text>
 
-        <ThemedText type="body" style={styles.message}>
+        <Text style={styles.message}>
           Don't worry, your workout data is safe. Let's get you back on track.
-        </ThemedText>
+        </Text>
 
         <Pressable
           onPress={handleRestart}
@@ -81,12 +77,9 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             },
           ]}
         >
-          <ThemedText
-            type="body"
-            style={[styles.buttonText, { color: "#FFFFFF" }]}
-          >
+          <Text style={styles.buttonText}>
             Back to the Gym
-          </ThemedText>
+          </Text>
         </Pressable>
       </View>
 
@@ -98,11 +91,11 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           onRequestClose={() => setIsModalVisible(false)}
         >
           <View style={styles.modalOverlay}>
-            <ThemedView style={styles.modalContainer}>
+            <View style={styles.modalContainer}>
               <View style={styles.modalHeader}>
-                <ThemedText type="h2" style={styles.modalTitle}>
+                <Text style={styles.modalTitle}>
                   Error Details
-                </ThemedText>
+                </Text>
                 <Pressable
                   onPress={() => setIsModalVisible(false)}
                   style={({ pressed }) => [
@@ -110,7 +103,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                     { opacity: pressed ? 0.6 : 1 },
                   ]}
                 >
-                  <Feather name="x" size={24} color={theme.text} />
+                  <Feather name="x" size={24} color="#1A1A1A" />
                 </Pressable>
               </View>
 
@@ -119,31 +112,17 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
                 contentContainerStyle={styles.modalScrollContent}
                 showsVerticalScrollIndicator
               >
-                <View
-                  style={[
-                    styles.errorContainer,
-                    { backgroundColor: theme.backgroundDefault },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.errorText,
-                      {
-                        color: theme.text,
-                        fontFamily: Fonts?.mono || "monospace",
-                      },
-                    ]}
-                    selectable
-                  >
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText} selectable>
                     {formatErrorDetails()}
                   </Text>
                 </View>
               </ScrollView>
-            </ThemedView>
+            </View>
           </View>
         </Modal>
       ) : null}
-    </ThemedView>
+    </View>
   );
 }
 
@@ -155,6 +134,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: Spacing["2xl"],
+    backgroundColor: "#FFFFFF",
   },
   content: {
     alignItems: "center",
@@ -174,11 +154,16 @@ const styles = StyleSheet.create({
   title: {
     textAlign: "center",
     lineHeight: 40,
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#1A1A1A",
   },
   message: {
     textAlign: "center",
     opacity: 0.7,
     lineHeight: 24,
+    fontSize: 16,
+    color: "#1A1A1A",
   },
   topButton: {
     position: "absolute",
@@ -203,6 +188,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
     fontSize: 16,
+    color: "#FFFFFF",
   },
   modalOverlay: {
     flex: 1,
@@ -214,6 +200,7 @@ const styles = StyleSheet.create({
     height: "90%",
     borderTopLeftRadius: BorderRadius.lg,
     borderTopRightRadius: BorderRadius.lg,
+    backgroundColor: "#FFFFFF",
   },
   modalHeader: {
     flexDirection: "row",
@@ -227,6 +214,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontWeight: "600",
+    fontSize: 20,
+    color: "#1A1A1A",
   },
   closeButton: {
     padding: Spacing.xs,
@@ -242,10 +231,13 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     overflow: "hidden",
     padding: Spacing.lg,
+    backgroundColor: "#F0F0F0",
   },
   errorText: {
     fontSize: 12,
     lineHeight: 18,
     width: "100%",
+    color: "#1A1A1A",
+    fontFamily: "monospace",
   },
 });
