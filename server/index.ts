@@ -11,6 +11,7 @@ import * as fs from "fs";
 import * as path from "path";
 
 const app = express();
+app.set("trust proxy", 1);
 const log = console.log;
 const PgSession = connectPgSimple(session);
 
