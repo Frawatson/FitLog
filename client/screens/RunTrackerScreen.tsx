@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
-  Pressable,
   Platform,
   ScrollView,
   Modal,
@@ -19,6 +18,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { MapDisplay } from "@/components/MapDisplay";
 import { RunCompleteAnimation } from "@/components/RunCompleteAnimation";
 import { useTheme } from "@/hooks/useTheme";
@@ -525,18 +525,18 @@ export default function RunTrackerScreen() {
             ) : null}
             
             <View style={styles.hrModalButtons}>
-              <Pressable
+              <AnimatedPress
                 onPress={handleSkipHeartRate}
                 style={[styles.hrModalButton, { borderColor: theme.border, borderWidth: 1 }]}
               >
                 <ThemedText type="body">Skip</ThemedText>
-              </Pressable>
-              <Pressable
+              </AnimatedPress>
+              <AnimatedPress
                 onPress={handleSaveHeartRate}
                 style={[styles.hrModalButton, { backgroundColor: Colors.light.primary }]}
               >
                 <ThemedText type="body" style={{ color: "#FFFFFF" }}>Save</ThemedText>
-              </Pressable>
+              </AnimatedPress>
             </View>
           </View>
         </View>
@@ -630,31 +630,31 @@ export default function RunTrackerScreen() {
         <View style={styles.controlsContainer}>
           {!isRunning ? (
             <View style={styles.startControls}>
-              <Pressable onPress={() => navigation.navigate("RunGoal")} style={[styles.goalButton, { backgroundColor: theme.backgroundSecondary }]}>
+              <AnimatedPress onPress={() => navigation.navigate("RunGoal")} style={[styles.goalButton, { backgroundColor: theme.backgroundSecondary }]}>
                 <Feather name="target" size={20} color={ACCENT_COLOR} />
                 <ThemedText style={[styles.goalButtonText, { color: theme.text }]}>Set Goal</ThemedText>
-              </Pressable>
-              <Pressable onPress={startRun} style={styles.startButton}>
+              </AnimatedPress>
+              <AnimatedPress onPress={startRun} style={styles.startButton}>
                 <Feather name="play" size={32} color="#FFFFFF" />
                 <ThemedText style={styles.startButtonText}>
                   {goal ? `START ${goal.type === "distance" ? `${goal.value} MI` : `${goal.value} MIN`} RUN` : "FREE RUN"}
                 </ThemedText>
-              </Pressable>
+              </AnimatedPress>
             </View>
           ) : (
             <View style={styles.activeControls}>
               {isPaused ? (
-                <Pressable onPress={resumeRun} style={[styles.controlButton, styles.resumeButton]}>
+                <AnimatedPress onPress={resumeRun} style={[styles.controlButton, styles.resumeButton]}>
                   <Feather name="play" size={28} color="#FFFFFF" />
-                </Pressable>
+                </AnimatedPress>
               ) : (
-                <Pressable onPress={pauseRun} style={[styles.controlButton, styles.pauseButton]}>
+                <AnimatedPress onPress={pauseRun} style={[styles.controlButton, styles.pauseButton]}>
                   <Feather name="pause" size={28} color="#FFFFFF" />
-                </Pressable>
+                </AnimatedPress>
               )}
-              <Pressable onPress={stopRun} style={[styles.controlButton, styles.stopButton]}>
+              <AnimatedPress onPress={stopRun} style={[styles.controlButton, styles.stopButton]}>
                 <Feather name="square" size={28} color="#FFFFFF" />
-              </Pressable>
+              </AnimatedPress>
             </View>
           )}
         </View>

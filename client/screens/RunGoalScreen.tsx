@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { RunStackParamList } from "@/navigation/RunStackNavigator";
@@ -58,7 +59,7 @@ export default function RunGoalScreen() {
         </View>
         
         <View style={styles.goalTypeContainer}>
-          <Pressable
+          <AnimatedPress
             onPress={() => {
               Haptics.selectionAsync();
               setGoalType("free");
@@ -88,10 +89,10 @@ export default function RunGoalScreen() {
             >
               No goal, just run
             </ThemedText>
-          </Pressable>
+          </AnimatedPress>
           
           <View style={styles.goalTypeRow}>
-            <Pressable
+            <AnimatedPress
               onPress={() => {
                 Haptics.selectionAsync();
                 setGoalType("distance");
@@ -115,9 +116,9 @@ export default function RunGoalScreen() {
               >
                 Distance
               </ThemedText>
-            </Pressable>
+            </AnimatedPress>
             
-            <Pressable
+            <AnimatedPress
               onPress={() => {
                 Haptics.selectionAsync();
                 setGoalType("time");
@@ -141,7 +142,7 @@ export default function RunGoalScreen() {
               >
                 Time
               </ThemedText>
-            </Pressable>
+            </AnimatedPress>
           </View>
         </View>
         
@@ -152,7 +153,7 @@ export default function RunGoalScreen() {
             </ThemedText>
             <View style={styles.optionsRow}>
               {DISTANCE_OPTIONS.map((dist) => (
-                <Pressable
+                <AnimatedPress
                   key={dist}
                   onPress={() => {
                     Haptics.selectionAsync();
@@ -178,7 +179,7 @@ export default function RunGoalScreen() {
                   >
                     mi
                   </ThemedText>
-                </Pressable>
+                </AnimatedPress>
               ))}
             </View>
           </View>
@@ -191,7 +192,7 @@ export default function RunGoalScreen() {
             </ThemedText>
             <View style={styles.optionsRow}>
               {TIME_OPTIONS.map((time) => (
-                <Pressable
+                <AnimatedPress
                   key={time}
                   onPress={() => {
                     Haptics.selectionAsync();
@@ -217,7 +218,7 @@ export default function RunGoalScreen() {
                   >
                     min
                   </ThemedText>
-                </Pressable>
+                </AnimatedPress>
               ))}
             </View>
           </View>

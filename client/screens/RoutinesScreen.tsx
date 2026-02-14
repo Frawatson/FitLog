@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine } from "@/types";
@@ -172,12 +173,12 @@ export default function RoutinesScreen() {
               >
                 <ThemedText type="body" style={{ fontWeight: "600", color: "#1F2937" }}>Cancel</ThemedText>
               </Pressable>
-              <Pressable
+              <AnimatedPress
                 style={[styles.modalButton, styles.deleteButton]}
                 onPress={confirmDelete}
               >
                 <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Delete</ThemedText>
-              </Pressable>
+              </AnimatedPress>
             </View>
           </Pressable>
         </Pressable>

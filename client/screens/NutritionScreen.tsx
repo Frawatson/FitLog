@@ -13,6 +13,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { ProgressRing } from "@/components/ProgressRing";
 import { EmptyState } from "@/components/EmptyState";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { MacroTargets, FoodLogEntry, Food } from "@/types";
@@ -281,22 +282,22 @@ export default function NutritionScreen() {
                 </View>
 
                 <View style={styles.modalActions}>
-                  <Pressable
+                  <AnimatedPress
                     onPress={startEditing}
                     style={[styles.actionButton, { backgroundColor: Colors.light.primary }]}
                     testID="button-edit-food"
                   >
                     <Feather name="edit-2" size={18} color="#FFFFFF" />
                     <ThemedText type="body" style={styles.actionButtonText}>Edit</ThemedText>
-                  </Pressable>
-                  <Pressable
+                  </AnimatedPress>
+                  <AnimatedPress
                     onPress={() => handleDeleteEntry(selectedEntry.id)}
                     style={[styles.actionButton, { backgroundColor: "#EF4444" }]}
                     testID="button-delete-food"
                   >
                     <Feather name="trash-2" size={18} color="#FFFFFF" />
                     <ThemedText type="body" style={styles.actionButtonText}>Delete</ThemedText>
-                  </Pressable>
+                  </AnimatedPress>
                 </View>
               </>
             ) : null}
@@ -372,21 +373,21 @@ export default function NutritionScreen() {
                 </View>
 
                 <View style={styles.modalActions}>
-                  <Pressable
+                  <AnimatedPress
                     onPress={handleSaveEdit}
                     style={[styles.actionButton, { backgroundColor: Colors.light.primary, flex: 1 }]}
                     testID="button-save-food"
                   >
                     <Feather name="check" size={18} color="#FFFFFF" />
                     <ThemedText type="body" style={styles.actionButtonText}>Save</ThemedText>
-                  </Pressable>
-                  <Pressable
+                  </AnimatedPress>
+                  <AnimatedPress
                     onPress={() => setIsEditing(false)}
                     style={[styles.actionButton, { backgroundColor: theme.backgroundRoot, flex: 1 }]}
                     testID="button-cancel-edit"
                   >
                     <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>Cancel</ThemedText>
-                  </Pressable>
+                  </AnimatedPress>
                 </View>
               </>
             ) : null}

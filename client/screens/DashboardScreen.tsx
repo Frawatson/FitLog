@@ -10,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { WorkoutCalendar } from "@/components/WorkoutCalendar";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -139,13 +140,12 @@ export default function DashboardScreen() {
       </ThemedText>
       
       {routines.length > 0 ? (
-        <Pressable
+        <AnimatedPress
           onPress={() => navigation.navigate("SelectRoutine")}
-          style={({ pressed }) => [
+          style={[
             styles.workoutCard,
             {
               backgroundColor: Colors.light.primary,
-              opacity: pressed ? 0.9 : 1,
             },
           ]}
         >
@@ -160,17 +160,16 @@ export default function DashboardScreen() {
           <View style={styles.workoutCardIcon}>
             <Feather name="play" size={32} color="#FFFFFF" />
           </View>
-        </Pressable>
+        </AnimatedPress>
       ) : (
-        <Pressable
+        <AnimatedPress
           onPress={() => navigation.navigate("Main", { screen: "RoutinesTab" })}
-          style={({ pressed }) => [
+          style={[
             styles.workoutCard,
             {
               backgroundColor: theme.backgroundDefault,
               borderColor: theme.border,
               borderWidth: 2,
-              opacity: pressed ? 0.9 : 1,
             },
           ]}
         >
@@ -181,7 +180,7 @@ export default function DashboardScreen() {
             </ThemedText>
           </View>
           <Feather name="plus" size={32} color={theme.text} />
-        </Pressable>
+        </AnimatedPress>
       )}
       
       <View style={styles.statsGrid}>

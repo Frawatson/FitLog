@@ -14,6 +14,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine, RoutineExercise, Exercise } from "@/types";
@@ -149,20 +150,19 @@ export default function EditRoutineScreen() {
                 {group}
               </ThemedText>
               {exs.map((ex, idx) => (
-                <Pressable
+                <AnimatedPress
                   key={`${ex.id}-${idx}`}
                   onPress={() => addExercise(ex)}
-                  style={({ pressed }) => [
+                  style={[
                     styles.exerciseOption,
                     {
                       backgroundColor: theme.backgroundDefault,
-                      opacity: pressed ? 0.7 : 1,
                     },
                   ]}
                 >
                   <ThemedText type="body">{ex.name}</ThemedText>
                   <Feather name="plus" size={20} color={Colors.light.primary} />
-                </Pressable>
+                </AnimatedPress>
               ))}
             </View>
           )}
@@ -237,13 +237,13 @@ export default function EditRoutineScreen() {
               You have unsaved changes. Are you sure you want to leave?
             </ThemedText>
             <View style={styles.modalButtons}>
-              <Pressable
+              <AnimatedPress
                 onPress={() => setShowDiscardModal(false)}
                 style={[styles.modalButton, { backgroundColor: theme.backgroundSecondary }]}
               >
                 <ThemedText type="body" style={{ fontWeight: "600" }}>Stay</ThemedText>
-              </Pressable>
-              <Pressable
+              </AnimatedPress>
+              <AnimatedPress
                 onPress={() => {
                   setShowDiscardModal(false);
                   navigation.goBack();
@@ -251,7 +251,7 @@ export default function EditRoutineScreen() {
                 style={[styles.modalButton, { backgroundColor: Colors.light.error }]}
               >
                 <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Discard</ThemedText>
-              </Pressable>
+              </AnimatedPress>
             </View>
           </View>
         </Pressable>

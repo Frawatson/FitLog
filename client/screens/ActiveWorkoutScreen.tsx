@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Pressable, Alert } from "react-native";
+import { View, StyleSheet, ScrollView, TextInput, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -13,6 +13,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine, Workout, WorkoutExercise, WorkoutSet } from "@/types";
@@ -221,11 +222,11 @@ export default function ActiveWorkoutScreen() {
               {formatTime(restTimer)}
             </ThemedText>
           </View>
-          <Pressable onPress={stopRestTimer} style={styles.skipButton}>
+          <AnimatedPress onPress={stopRestTimer} style={styles.skipButton}>
             <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
               Skip
             </ThemedText>
-          </Pressable>
+          </AnimatedPress>
         </View>
       ) : null}
       
@@ -295,7 +296,7 @@ export default function ActiveWorkoutScreen() {
                   placeholder="0"
                   placeholderTextColor={theme.textSecondary}
                 />
-                <Pressable
+                <AnimatedPress
                   onPress={() => toggleSetComplete(exerciseIndex, setIndex)}
                   style={[
                     styles.checkButton,
@@ -311,11 +312,11 @@ export default function ActiveWorkoutScreen() {
                     size={20}
                     color={set.completed ? "#FFFFFF" : theme.textSecondary}
                   />
-                </Pressable>
+                </AnimatedPress>
               </View>
             ))}
             
-            <Pressable
+            <AnimatedPress
               onPress={() => addSet(exerciseIndex)}
               style={styles.addSetButton}
             >
@@ -323,7 +324,7 @@ export default function ActiveWorkoutScreen() {
               <ThemedText type="small" style={{ color: Colors.light.primary, marginLeft: Spacing.xs }}>
                 Add Set
               </ThemedText>
-            </Pressable>
+            </AnimatedPress>
           </Card>
         ))}
       </ScrollView>

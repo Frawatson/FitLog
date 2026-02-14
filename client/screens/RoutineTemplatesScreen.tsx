@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, FlatList, Pressable } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { ROUTINE_TEMPLATES, RoutineTemplate } from "@/lib/routineTemplates";
@@ -63,7 +64,7 @@ export default function RoutineTemplatesScreen() {
   };
   
   const renderFilter = (category: FilterCategory, label: string) => (
-    <Pressable
+    <AnimatedPress
       onPress={() => {
         Haptics.selectionAsync();
         setFilter(category);
@@ -81,7 +82,7 @@ export default function RoutineTemplatesScreen() {
       >
         {label}
       </ThemedText>
-    </Pressable>
+    </AnimatedPress>
   );
   
   const renderTemplate = ({ item }: { item: RoutineTemplate }) => (

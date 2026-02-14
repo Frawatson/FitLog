@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -350,21 +351,21 @@ export default function ProfileScreen() {
           />
         </View>
         
-        <Pressable
+        <AnimatedPress
           onPress={() => {
             setThemePreference("system");
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }}
-          style={({ pressed }) => [
+          style={[
             styles.systemThemeButton,
-            { backgroundColor: themePreference === "system" ? Colors.light.primary + "20" : "transparent", opacity: pressed ? 0.7 : 1 },
+            { backgroundColor: themePreference === "system" ? Colors.light.primary + "20" : "transparent" },
           ]}
         >
           <Feather name="smartphone" size={16} color={themePreference === "system" ? Colors.light.primary : theme.textSecondary} />
           <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: themePreference === "system" ? Colors.light.primary : theme.textSecondary }}>
             Use System Setting
           </ThemedText>
-        </Pressable>
+        </AnimatedPress>
       </Card>
       
       <Card style={styles.sectionCard}>
@@ -388,11 +389,11 @@ export default function ProfileScreen() {
           />
         </View>
         
-        <Pressable
+        <AnimatedPress
           onPress={() => setShowTimePicker(true)}
-          style={({ pressed }) => [
+          style={[
             styles.timePickerButton,
-            { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", opacity: pressed ? 0.7 : 1 },
+            { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" },
           ]}
           testID="button-change-reminder-time"
         >
@@ -400,7 +401,7 @@ export default function ProfileScreen() {
           <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: Colors.light.primary }}>
             Change Reminder Time
           </ThemedText>
-        </Pressable>
+        </AnimatedPress>
         
         <View style={[styles.notificationRow, { marginTop: Spacing.md }]}>
           <View style={styles.notificationInfo}>
@@ -427,23 +428,23 @@ export default function ProfileScreen() {
         ) : null}
       </Card>
       
-      <Pressable
+      <AnimatedPress
         onPress={() => navigation.navigate("WorkoutHistory")}
-        style={({ pressed }) => [
+        style={[
           styles.menuItem,
-          { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.7 : 1 },
+          { backgroundColor: theme.backgroundDefault },
         ]}
       >
         <Feather name="clock" size={20} color={theme.text} />
         <ThemedText type="body" style={styles.menuLabel}>Workout History</ThemedText>
         <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-      </Pressable>
+      </AnimatedPress>
       
-      <Pressable
+      <AnimatedPress
         onPress={handleDeleteAccount}
-        style={({ pressed }) => [
+        style={[
           styles.menuItem,
-          { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.7 : 1 },
+          { backgroundColor: theme.backgroundDefault },
         ]}
       >
         <Feather name="trash-2" size={20} color={Colors.light.error} />
@@ -451,13 +452,13 @@ export default function ProfileScreen() {
           Delete Account
         </ThemedText>
         <Feather name="chevron-right" size={20} color={Colors.light.error} />
-      </Pressable>
+      </AnimatedPress>
       
-      <Pressable
+      <AnimatedPress
         onPress={handleLogout}
-        style={({ pressed }) => [
+        style={[
           styles.menuItem,
-          { backgroundColor: theme.backgroundDefault, opacity: pressed ? 0.7 : 1 },
+          { backgroundColor: theme.backgroundDefault },
         ]}
       >
         <Feather name="log-out" size={20} color={theme.text} />
@@ -465,7 +466,7 @@ export default function ProfileScreen() {
           Log Out
         </ThemedText>
         <View style={{ width: 20 }} />
-      </Pressable>
+      </AnimatedPress>
     </ScrollView>
 
     <Modal

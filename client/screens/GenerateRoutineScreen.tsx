@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   ScrollView,
-  Pressable,
   ActivityIndicator,
   TextInput,
 } from "react-native";
@@ -19,6 +18,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
@@ -90,7 +90,7 @@ function CollapsibleSection({
 }) {
   return (
     <View style={[sectionStyles.wrapper, { borderColor: theme.border }]}>
-      <Pressable
+      <AnimatedPress
         onPress={onToggle}
         style={sectionStyles.header}
         testID={`section-toggle-${title.toLowerCase().replace(/\s+/g, "-")}`}
@@ -110,7 +110,7 @@ function CollapsibleSection({
           size={20}
           color={theme.textSecondary}
         />
-      </Pressable>
+      </AnimatedPress>
       {subtitle && !isExpanded ? (
         <ThemedText type="caption" style={{ color: theme.textSecondary, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
           {subtitle}
@@ -304,7 +304,7 @@ export default function GenerateRoutineScreen() {
             {MUSCLE_GROUPS.map((muscle) => {
               const isSelected = selectedMuscles.includes(muscle.id);
               return (
-                <Pressable
+                <AnimatedPress
                   key={muscle.id}
                   style={[
                     styles.chip,
@@ -330,7 +330,7 @@ export default function GenerateRoutineScreen() {
                   >
                     {muscle.label}
                   </ThemedText>
-                </Pressable>
+                </AnimatedPress>
               );
             })}
           </View>
@@ -347,7 +347,7 @@ export default function GenerateRoutineScreen() {
             {GOAL_OPTIONS.map((goal) => {
               const isSelected = selectedGoal === goal.id;
               return (
-                <Pressable
+                <AnimatedPress
                   key={goal.id}
                   style={[
                     styles.chip,
@@ -373,7 +373,7 @@ export default function GenerateRoutineScreen() {
                   >
                     {goal.label}
                   </ThemedText>
-                </Pressable>
+                </AnimatedPress>
               );
             })}
           </View>
@@ -396,7 +396,7 @@ export default function GenerateRoutineScreen() {
             {EQUIPMENT_OPTIONS.map((equip) => {
               const isSelected = selectedEquipment.includes(equip.id);
               return (
-                <Pressable
+                <AnimatedPress
                   key={equip.id}
                   style={[
                     styles.chip,
@@ -417,7 +417,7 @@ export default function GenerateRoutineScreen() {
                   >
                     {equip.label}
                   </ThemedText>
-                </Pressable>
+                </AnimatedPress>
               );
             })}
           </View>
@@ -434,7 +434,7 @@ export default function GenerateRoutineScreen() {
             {DIFFICULTY_LEVELS.map((level) => {
               const isSelected = selectedDifficulty === level.id;
               return (
-                <Pressable
+                <AnimatedPress
                   key={level.id}
                   style={[
                     styles.difficultyCard,
@@ -458,7 +458,7 @@ export default function GenerateRoutineScreen() {
                   >
                     {level.description}
                   </ThemedText>
-                </Pressable>
+                </AnimatedPress>
               );
             })}
           </View>

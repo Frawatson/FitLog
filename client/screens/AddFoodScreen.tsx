@@ -14,6 +14,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -471,13 +472,12 @@ export default function AddFoodScreen() {
           {showSuggestions ? (
             <View style={[styles.suggestionsDropdown, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
               {nameSuggestions.map((item) => (
-                <Pressable
+                <AnimatedPress
                   key={item.id}
                   onPress={() => handleSelectSuggestion(item)}
-                  style={({ pressed }) => [
+                  style={[
                     styles.suggestionItem,
                     { borderBottomColor: theme.border },
-                    pressed ? { backgroundColor: theme.backgroundRoot } : undefined,
                   ]}
                   testID={`suggestion-${item.id}`}
                 >
@@ -485,7 +485,7 @@ export default function AddFoodScreen() {
                   <ThemedText type="small" style={{ opacity: 0.6 }}>
                     {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
                   </ThemedText>
-                </Pressable>
+                </AnimatedPress>
               ))}
             </View>
           ) : null}
@@ -529,7 +529,7 @@ export default function AddFoodScreen() {
           </View>
         </View>
         
-        <Pressable
+        <AnimatedPress
           onPress={() => {
             Haptics.selectionAsync();
             setSaveAsFavorite(!saveAsFavorite);
@@ -550,7 +550,7 @@ export default function AddFoodScreen() {
             ) : null}
           </View>
           <ThemedText type="body">Save to favorites</ThemedText>
-        </Pressable>
+        </AnimatedPress>
         
         <Button onPress={handleSubmit} style={styles.submitButton}>
           Add to Log
@@ -640,20 +640,20 @@ export default function AddFoodScreen() {
           ) : null}
           
           <View style={styles.addButtonsRow}>
-            <Pressable 
+            <AnimatedPress 
               onPress={takePhoto}
               style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
             >
               <Feather name="camera" size={24} color={Colors.light.primary} />
               <ThemedText type="small" style={{ color: theme.text }}>Take Photo</ThemedText>
-            </Pressable>
-            <Pressable 
+            </AnimatedPress>
+            <AnimatedPress 
               onPress={pickImage}
               style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
             >
               <Feather name="image" size={24} color={Colors.light.primary} />
               <ThemedText type="small" style={{ color: theme.text }}>Pick Photo</ThemedText>
-            </Pressable>
+            </AnimatedPress>
           </View>
           
           <Button
