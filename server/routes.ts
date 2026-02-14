@@ -784,13 +784,13 @@ Respond ONLY with valid JSON in this exact format:
   app.post("/api/food-logs", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const { clientId, foodData, date, createdAt } = req.body;
+      const { clientId, foodData, date, createdAt, imageUri } = req.body;
       
       if (!clientId || !foodData || !date) {
         return res.status(400).json({ error: "clientId, foodData, and date are required" });
       }
       
-      await saveFoodLog(userId, { clientId, foodData, date, createdAt: createdAt || new Date().toISOString() });
+      await saveFoodLog(userId, { clientId, foodData, date, createdAt: createdAt || new Date().toISOString(), imageUri });
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving food log:", error);

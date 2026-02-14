@@ -133,6 +133,14 @@ export async function initializeDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS IDX_food_logs_user_id ON food_logs (user_id);
       CREATE INDEX IF NOT EXISTS IDX_food_logs_date ON food_logs (user_id, date DESC);
       
+      -- Add image_data column to food_logs if it doesn't exist
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'food_logs' AND column_name = 'image_data') THEN
+          ALTER TABLE food_logs ADD COLUMN image_data TEXT;
+        END IF;
+      END $$;
+
       -- Login attempts table for account lockout
       CREATE TABLE IF NOT EXISTS login_attempts (
         id SERIAL PRIMARY KEY,
@@ -545,7 +553,7 @@ export interface FoodLogData {
 }
 
 export async function getFoodLogs(userId: number, date?: string): Promise<FoodLogData[]> {
-  let query = `SELECT client_id, food_data, date, created_at FROM food_logs WHERE user_id = $1`;
+  let query = `SELECT client_id, food_data, date, created_at, image_data FROM food_logs WHERE user_id = $1`;
   const params: any[] = [userId];
   
   if (date) {
@@ -561,17 +569,19 @@ export async function getFoodLogs(userId: number, date?: string): Promise<FoodLo
     foodData: row.food_data,
     date: row.date.toISOString().split('T')[0],
     createdAt: row.created_at.toISOString(),
+    ...(row.image_data ? { imageUri: row.image_data } : {}),
   }));
 }
 
-export async function saveFoodLog(userId: number, log: FoodLogData): Promise<void> {
+export async function saveFoodLog(userId: number, log: FoodLogData & { imageUri?: string }): Promise<void> {
   await pool.query(
-    `INSERT INTO food_logs (user_id, client_id, food_data, date, created_at)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO food_logs (user_id, client_id, food_data, date, created_at, image_data)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (user_id, client_id) DO UPDATE SET
        food_data = EXCLUDED.food_data,
-       date = EXCLUDED.date`,
-    [userId, log.clientId, JSON.stringify(log.foodData), log.date, log.createdAt]
+       date = EXCLUDED.date,
+       image_data = COALESCE(EXCLUDED.image_data, food_logs.image_data)`,
+    [userId, log.clientId, JSON.stringify(log.foodData), log.date, log.createdAt, log.imageUri || null]
   );
 }
 
