@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect } from "react";
-import { View, StyleSheet, TextInput, ScrollView, Image, Dimensions } from "react-native";
+import { View, StyleSheet, TextInput, ScrollView, Image, Dimensions, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -45,10 +45,23 @@ export default function FoodDetailScreen() {
     });
   }, [isEditing, entry.food.name]);
 
-  const handleDelete = async () => {
-    await storage.deleteFoodLogEntry(entry.id);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.goBack();
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Food",
+      `Are you sure you want to delete "${entry.food.name}"? This action cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            await storage.deleteFoodLogEntry(entry.id);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
   };
 
   const startEditing = () => {

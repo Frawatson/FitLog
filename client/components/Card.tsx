@@ -6,6 +6,7 @@ import Animated, {
   withSpring,
   WithSpringConfig,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -68,6 +69,7 @@ export function Card({
 
   const handlePressIn = () => {
     if (onPress) {
+      Haptics.selectionAsync();
       translateY.value = withSpring(-4, springConfig);
       scale.value = withSpring(0.98, springConfig);
     }

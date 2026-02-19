@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator, Platform, Image, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HeaderButton, useHeaderHeight } from "@react-navigation/elements";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -25,6 +25,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type AddFoodRouteProp = RouteProp<RootStackParamList, "AddFood">;
 
 interface APIFoodResult {
   id: string;
@@ -42,19 +43,22 @@ export default function AddFoodScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<AddFoodRouteProp>();
   const { theme } = useTheme();
-  
+
+  const prefill = route.params?.prefill;
+
   const [savedFoods, setSavedFoods] = useState<Food[]>([]);
   const [recentMeals, setRecentMeals] = useState<import("@/types").FoodLogEntry[]>([]);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(!!prefill);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<APIFoodResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [name, setName] = useState("");
-  const [calories, setCalories] = useState("");
-  const [protein, setProtein] = useState("");
-  const [carbs, setCarbs] = useState("");
-  const [fat, setFat] = useState("");
+  const [name, setName] = useState(prefill?.name || "");
+  const [calories, setCalories] = useState(prefill?.calories || "");
+  const [protein, setProtein] = useState(prefill?.protein || "");
+  const [carbs, setCarbs] = useState(prefill?.carbs || "");
+  const [fat, setFat] = useState(prefill?.fat || "");
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
   const [foodImage, setFoodImage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
@@ -62,7 +66,7 @@ export default function AddFoodScreen() {
   const [nameSuggestions, setNameSuggestions] = useState<FoodDatabaseItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
   const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
   
@@ -203,8 +207,8 @@ export default function AddFoodScreen() {
     try {
       const manipulated = await ImageManipulator.manipulateAsync(
         uri,
-        [{ resize: { width: 1024 } }],
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        [{ resize: { width: 1536 } }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
       return manipulated.base64 || null;
     } catch (error) {
@@ -231,7 +235,7 @@ export default function AddFoodScreen() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
-      quality: 0.7,
+      quality: 1,
       base64: false,
       exif: false,
     });
@@ -268,7 +272,7 @@ export default function AddFoodScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
-      quality: 0.7,
+      quality: 1,
       base64: false,
       exif: false,
     });
@@ -658,19 +662,26 @@ export default function AddFoodScreen() {
           ) : null}
           
           <View style={styles.addButtonsRow}>
-            <AnimatedPress 
+            <AnimatedPress
               onPress={takePhoto}
               style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
             >
               <Feather name="camera" size={24} color={Colors.light.primary} />
               <ThemedText type="small" style={{ color: theme.text }}>Take Photo</ThemedText>
             </AnimatedPress>
-            <AnimatedPress 
+            <AnimatedPress
               onPress={pickImage}
               style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
             >
               <Feather name="image" size={24} color={Colors.light.primary} />
               <ThemedText type="small" style={{ color: theme.text }}>Pick Photo</ThemedText>
+            </AnimatedPress>
+            <AnimatedPress
+              onPress={() => navigation.navigate("BarcodeScanner")}
+              style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
+            >
+              <Feather name="maximize" size={24} color={Colors.light.primary} />
+              <ThemedText type="small" style={{ color: theme.text }}>Scan Barcode</ThemedText>
             </AnimatedPress>
           </View>
           

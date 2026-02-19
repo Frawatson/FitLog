@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { View, StyleSheet, ScrollView, Pressable, Image, Platform, Linking, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -16,6 +16,7 @@ import { Button } from "@/components/Button";
 import { ProgressRing } from "@/components/ProgressRing";
 import { EmptyState } from "@/components/EmptyState";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { MacroTargets, FoodLogEntry } from "@/types";
@@ -24,6 +25,61 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type PeriodMode = "day" | "week" | "month";
+
+function getDateRange(date: string, mode: PeriodMode): { start: string; end: string; days: number } {
+  const d = new Date(date);
+  if (mode === "day") {
+    return { start: date, end: date, days: 1 };
+  }
+  if (mode === "week") {
+    const dayOfWeek = d.getDay();
+    const start = new Date(d);
+    start.setDate(d.getDate() - dayOfWeek);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const actualEnd = end > today ? today : end;
+    const dayCount = Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
+    return {
+      start: start.toISOString().split("T")[0],
+      end: actualEnd.toISOString().split("T")[0],
+      days: Math.max(dayCount, 1),
+    };
+  }
+  // month
+  const start = new Date(d.getFullYear(), d.getMonth(), 1);
+  const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const actualEnd = endOfMonth > today ? today : endOfMonth;
+  const dayCount = Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
+  return {
+    start: start.toISOString().split("T")[0],
+    end: actualEnd.toISOString().split("T")[0],
+    days: Math.max(dayCount, 1),
+  };
+}
+
+function formatPeriodLabel(date: string, mode: PeriodMode): string {
+  const d = new Date(date);
+  if (mode === "day") {
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date === today.toISOString().split("T")[0]) return "Today";
+    if (date === yesterday.toISOString().split("T")[0]) return "Yesterday";
+    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+  }
+  if (mode === "week") {
+    const range = getDateRange(date, "week");
+    const s = new Date(range.start);
+    const e = new Date(range.end);
+    return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+  }
+  return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
 
 export default function NutritionScreen() {
   const insets = useSafeAreaInsets();
@@ -31,52 +87,112 @@ export default function NutritionScreen() {
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  
+
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("day");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
   const [macroTargets, setMacroTargets] = useState<MacroTargets | null>(null);
   const [todayTotals, setTodayTotals] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const [periodAverages, setPeriodAverages] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const [periodDaysLogged, setPeriodDaysLogged] = useState(0);
   const [foodLog, setFoodLog] = useState<FoodLogEntry[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+
   const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
-  
+
   const loadData = async () => {
-    const [targets, totals, log] = await Promise.all([
-      storage.getMacroTargets(),
-      storage.getDailyTotals(selectedDate),
-      storage.getFoodLog(selectedDate),
-    ]);
-    setMacroTargets(targets);
-    setTodayTotals(totals);
-    setFoodLog(log);
+    if (periodMode === "day") {
+      const [targets, totals, log] = await Promise.all([
+        storage.getMacroTargets(),
+        storage.getDailyTotals(selectedDate),
+        storage.getFoodLog(selectedDate),
+      ]);
+      setMacroTargets(targets);
+      setTodayTotals(totals);
+      setFoodLog(log);
+    } else {
+      const range = getDateRange(selectedDate, periodMode);
+      const [targets, allEntries] = await Promise.all([
+        storage.getMacroTargets(),
+        storage.getFoodLog(),
+      ]);
+      setMacroTargets(targets);
+      const periodEntries = allEntries.filter(
+        (e) => e.date >= range.start && e.date <= range.end
+      );
+
+      // Group by date and sum
+      const dailyMap = new Map<string, MacroTargets>();
+      for (const entry of periodEntries) {
+        const existing = dailyMap.get(entry.date) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+        existing.calories += entry.food.calories;
+        existing.protein += entry.food.protein;
+        existing.carbs += entry.food.carbs;
+        existing.fat += entry.food.fat;
+        dailyMap.set(entry.date, existing);
+      }
+
+      const daysWithData = dailyMap.size;
+      const divisor = Math.max(daysWithData, 1);
+      const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      for (const day of dailyMap.values()) {
+        totals.calories += day.calories;
+        totals.protein += day.protein;
+        totals.carbs += day.carbs;
+        totals.fat += day.fat;
+      }
+
+      setPeriodAverages({
+        calories: Math.round(totals.calories / divisor),
+        protein: Math.round(totals.protein / divisor),
+        carbs: Math.round(totals.carbs / divisor),
+        fat: Math.round(totals.fat / divisor),
+      });
+      setPeriodDaysLogged(daysWithData);
+      setFoodLog(periodEntries);
+    }
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      setIsLoading(false);
+    }
   };
-  
+
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [selectedDate])
+    }, [selectedDate, periodMode])
   );
 
   const openDetail = (entry: FoodLogEntry) => {
     Haptics.selectionAsync();
     navigation.navigate("FoodDetail", { entry });
   };
-  
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (dateStr === today.toISOString().split("T")[0]) return "Today";
-    if (dateStr === yesterday.toISOString().split("T")[0]) return "Yesterday";
-    return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-  };
-  
+
   const navigateDate = (direction: number) => {
     const current = new Date(selectedDate);
-    current.setDate(current.getDate() + direction);
+    if (periodMode === "day") {
+      current.setDate(current.getDate() + direction);
+    } else if (periodMode === "week") {
+      current.setDate(current.getDate() + direction * 7);
+    } else {
+      current.setMonth(current.getMonth() + direction);
+    }
     setSelectedDate(current.toISOString().split("T")[0]);
+  };
+
+  const isAtToday = (() => {
+    const today = new Date().toISOString().split("T")[0];
+    if (periodMode === "day") return selectedDate === today;
+    const range = getDateRange(selectedDate, periodMode);
+    return range.end >= today;
+  })();
+
+  const macroColor = (actual: number, target: number): string => {
+    if (target === 0) return theme.text;
+    const ratio = actual / target;
+    if (ratio >= 0.85 && ratio <= 1.15) return Colors.light.success;
+    return Colors.light.error;
   };
 
   const handleCameraFAB = async () => {
@@ -92,7 +208,7 @@ export default function NutritionScreen() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: false,
-      quality: 0.7,
+      quality: 1,
       base64: false,
       exif: false,
     });
@@ -103,8 +219,8 @@ export default function NutritionScreen() {
       try {
         const manipulated = await ImageManipulator.manipulateAsync(
           asset.uri,
-          [{ resize: { width: 1024 } }],
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          [{ resize: { width: 1536 } }],
+          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
         const base64 = manipulated.base64 || null;
         const url = new URL("/api/foods/analyze-photo", getApiUrl());
@@ -153,29 +269,69 @@ export default function NutritionScreen() {
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
       >
+        {isLoading ? (
+          <View style={{ gap: Spacing.xl }}>
+            <SkeletonLoader variant="line" width="50%" height={32} style={{ alignSelf: "center" }} />
+            <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
+              <SkeletonLoader variant="circle" height={90} />
+              <SkeletonLoader variant="circle" height={90} />
+              <SkeletonLoader variant="circle" height={90} />
+              <SkeletonLoader variant="circle" height={90} />
+            </View>
+            <SkeletonLoader variant="card" />
+            <SkeletonLoader variant="card" />
+          </View>
+        ) : (
+        <>
+        {/* Period Toggle */}
+        <View style={styles.periodToggle}>
+          {(["day", "week", "month"] as PeriodMode[]).map((mode) => (
+            <Pressable
+              key={mode}
+              onPress={() => {
+                setPeriodMode(mode);
+                setSelectedDate(new Date().toISOString().split("T")[0]);
+              }}
+              style={[
+                styles.periodButton,
+                {
+                  backgroundColor:
+                    periodMode === mode ? Colors.light.primary : theme.backgroundSecondary,
+                },
+              ]}
+            >
+              <ThemedText
+                type="small"
+                style={{
+                  fontWeight: "600",
+                  color: periodMode === mode ? "#FFFFFF" : theme.textSecondary,
+                }}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </ThemedText>
+            </Pressable>
+          ))}
+        </View>
+
         <View style={styles.dateSelector}>
           <Pressable onPress={() => navigateDate(-1)} hitSlop={8}>
             <Feather name="chevron-left" size={24} color={theme.text} />
           </Pressable>
-          <ThemedText type="h3">{formatDate(selectedDate)}</ThemedText>
+          <ThemedText type="h3">{formatPeriodLabel(selectedDate, periodMode)}</ThemedText>
           <Pressable
             onPress={() => navigateDate(1)}
             hitSlop={8}
-            disabled={selectedDate === new Date().toISOString().split("T")[0]}
+            disabled={isAtToday}
           >
             <Feather
               name="chevron-right"
               size={24}
-              color={
-                selectedDate === new Date().toISOString().split("T")[0]
-                  ? theme.textSecondary
-                  : theme.text
-              }
+              color={isAtToday ? theme.textSecondary : theme.text}
             />
           </Pressable>
         </View>
-        
-        {macroTargets ? (
+
+        {macroTargets && periodMode === "day" ? (
           <View style={styles.macroRings}>
             <ProgressRing
               progress={todayTotals.calories / macroTargets.calories}
@@ -207,9 +363,72 @@ export default function NutritionScreen() {
             />
           </View>
         ) : null}
-        
+
+        {macroTargets && periodMode !== "day" ? (
+          <Card style={styles.summaryCard}>
+            <View style={styles.summaryHeader}>
+              <ThemedText type="h4">Daily Averages</ThemedText>
+              <ThemedText type="caption" style={{ opacity: 0.5 }}>
+                {periodDaysLogged} day{periodDaysLogged !== 1 ? "s" : ""} logged
+              </ThemedText>
+            </View>
+            <View style={styles.summaryGrid}>
+              <View style={styles.summaryItem}>
+                <ThemedText type="caption" style={{ opacity: 0.6 }}>Calories</ThemedText>
+                <ThemedText
+                  type="h3"
+                  style={{ color: macroColor(periodAverages.calories, macroTargets.calories) }}
+                >
+                  {periodAverages.calories}
+                </ThemedText>
+                <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                  / {macroTargets.calories}
+                </ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText type="caption" style={{ opacity: 0.6 }}>Protein</ThemedText>
+                <ThemedText
+                  type="h3"
+                  style={{ color: macroColor(periodAverages.protein, macroTargets.protein) }}
+                >
+                  {periodAverages.protein}g
+                </ThemedText>
+                <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                  / {macroTargets.protein}g
+                </ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText type="caption" style={{ opacity: 0.6 }}>Carbs</ThemedText>
+                <ThemedText
+                  type="h3"
+                  style={{ color: macroColor(periodAverages.carbs, macroTargets.carbs) }}
+                >
+                  {periodAverages.carbs}g
+                </ThemedText>
+                <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                  / {macroTargets.carbs}g
+                </ThemedText>
+              </View>
+              <View style={styles.summaryItem}>
+                <ThemedText type="caption" style={{ opacity: 0.6 }}>Fat</ThemedText>
+                <ThemedText
+                  type="h3"
+                  style={{ color: macroColor(periodAverages.fat, macroTargets.fat) }}
+                >
+                  {periodAverages.fat}g
+                </ThemedText>
+                <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                  / {macroTargets.fat}g
+                </ThemedText>
+              </View>
+            </View>
+          </Card>
+        ) : null}
+
         <View style={styles.sectionHeader}>
-          <ThemedText type="h4">Food Log</ThemedText>
+          <ThemedText type="h4">
+            {periodMode === "day" ? "Food Log" : "All Foods This Period"}
+          </ThemedText>
         </View>
         
         {foodLog.length > 0 ? (
@@ -262,14 +481,14 @@ export default function NutritionScreen() {
         ) : (
           <EmptyState
             image={require("../../assets/images/empty-foods.png")}
-            title="No foods logged"
-            message="Track your meals to hit your macro targets"
-            actionLabel="Add Food"
-            onAction={() => navigation.navigate("AddFood")}
+            title={periodMode === "day" ? "No foods logged" : "No foods this period"}
+            message={periodMode === "day" ? "Track your meals to hit your macro targets" : "Log meals daily to see your averages here"}
+            actionLabel={periodMode === "day" ? "Add Food" : undefined}
+            onAction={periodMode === "day" ? () => navigation.navigate("AddFood") : undefined}
           />
         )}
-        
-        {foodLog.length > 0 ? (
+
+        {foodLog.length > 0 && periodMode === "day" ? (
           <Button
             onPress={() => navigation.navigate("AddFood")}
             style={styles.addButton}
@@ -277,6 +496,8 @@ export default function NutritionScreen() {
             Add Food
           </Button>
         ) : null}
+        </>
+        )}
       </ScrollView>
 
       <Pressable
@@ -311,6 +532,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  periodToggle: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+    alignSelf: "center",
+  },
+  periodButton: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.xl,
+  },
   dateSelector: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -322,6 +554,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     marginBottom: Spacing["2xl"],
+  },
+  summaryCard: {
+    padding: Spacing.xl,
+    marginBottom: Spacing.xl,
+  },
+  summaryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  summaryGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  summaryItem: {
+    alignItems: "center",
+    gap: 2,
   },
   sectionHeader: {
     marginBottom: Spacing.lg,

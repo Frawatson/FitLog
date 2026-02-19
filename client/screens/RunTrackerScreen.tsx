@@ -6,6 +6,7 @@ import {
   ScrollView,
   Modal,
   TextInput,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -14,6 +15,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
+import * as Speech from "expo-speech";
 import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -23,8 +25,9 @@ import { MapDisplay } from "@/components/MapDisplay";
 import { RunCompleteAnimation } from "@/components/RunCompleteAnimation";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { RunEntry, HeartRateZone } from "@/types";
+import type { RunEntry, HeartRateZone, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
+import { formatDistanceValue, formatDistanceUnit, formatSpeedValue, formatSpeedUnit, formatPace, formatPaceUnit } from "@/lib/units";
 import { RunStackParamList, RunGoal } from "@/navigation/RunStackNavigator";
 import { getHeartRateZones, getZoneForHeartRate, getZoneColor, getZoneName } from "@/lib/heartRateZones";
 
@@ -59,7 +62,9 @@ export default function RunTrackerScreen() {
   const [maxHRInput, setMaxHRInput] = useState("");
   const [pendingRunId, setPendingRunId] = useState<string | null>(null);
   const [userAge, setUserAge] = useState<number>(30);
-  
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+  const [audioMuted, setAudioMuted] = useState(false);
+
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLocation = useRef<Location.LocationObject | null>(null);
@@ -67,6 +72,24 @@ export default function RunTrackerScreen() {
   const mapRef = useRef<any>(null);
   const lastSplitDistance = useRef<number>(0);
   const goalReachedRef = useRef(false);
+  const lastAnnouncedMile = useRef<number>(0);
+  const audioMutedRef = useRef(false);
+
+  const speakCue = (text: string) => {
+    if (audioMutedRef.current) return;
+    try {
+      Speech.speak(text, { rate: 1.0, pitch: 1.0 });
+    } catch {
+      // Speech not available on this platform
+    }
+  };
+
+  const toggleMute = () => {
+    const newVal = !audioMuted;
+    setAudioMuted(newVal);
+    audioMutedRef.current = newVal;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
   
   useEffect(() => {
     checkPermission();
@@ -90,6 +113,9 @@ export default function RunTrackerScreen() {
     const profile = await storage.getUserProfile();
     if (profile?.age) {
       setUserAge(profile.age);
+    }
+    if (profile?.unitSystem) {
+      setUnitSystem(profile.unitSystem);
     }
   };
   
@@ -151,7 +177,15 @@ export default function RunTrackerScreen() {
     setSplits([]);
     lastLocation.current = null;
     lastSplitDistance.current = 0;
+    lastAnnouncedMile.current = 0;
     startTimeRef.current = new Date().toISOString();
+
+    if (goal) {
+      const goalDesc = goal.type === "distance" ? `${goal.value} ${unitSystem === "imperial" ? "mile" : "kilometer"} goal` : `${goal.value} minute goal`;
+      speakCue(`Run started. ${goalDesc}`);
+    } else {
+      speakCue("Run started");
+    }
     
     timerRef.current = setInterval(() => {
       setDuration((d) => d + 1);
@@ -184,6 +218,14 @@ export default function RunTrackerScreen() {
               setSplits((prev) => [...prev, duration]);
               lastSplitDistance.current = newDistance;
             }
+            // Audio milestone announcement
+            const milestoneUnit = unitSystem === "imperial" ? newDistance * 0.621371 : newDistance;
+            const currentMilestone = Math.floor(milestoneUnit);
+            if (currentMilestone > lastAnnouncedMile.current && currentMilestone > 0) {
+              lastAnnouncedMile.current = currentMilestone;
+              const unitLabel = unitSystem === "imperial" ? (currentMilestone === 1 ? "mile" : "miles") : (currentMilestone === 1 ? "kilometer" : "kilometers");
+              speakCue(`${currentMilestone} ${unitLabel} completed`);
+            }
             return newDistance;
           });
         }
@@ -195,6 +237,7 @@ export default function RunTrackerScreen() {
   
   const pauseRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    speakCue("Paused");
     setIsPaused(true);
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -211,6 +254,7 @@ export default function RunTrackerScreen() {
   
   const resumeRun = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    speakCue("Resumed");
     setIsPaused(false);
     
     timerRef.current = setInterval(() => {
@@ -246,15 +290,17 @@ export default function RunTrackerScreen() {
   
   const checkGoalReached = (currentDistance: number, currentDuration: number) => {
     if (!goal || goalReachedRef.current) return;
-    
-    const distanceMiles = currentDistance * 0.621371;
+
+    const currentDisplayDistance = formatDistanceValue(currentDistance, unitSystem);
     const durationMinutes = currentDuration / 60;
-    
-    if (goal.type === "distance" && distanceMiles >= goal.value) {
+
+    if (goal.type === "distance" && currentDisplayDistance >= goal.value) {
       goalReachedRef.current = true;
+      speakCue("Goal reached! Great job!");
       completeRun(true);
     } else if (goal.type === "time" && durationMinutes >= goal.value) {
       goalReachedRef.current = true;
+      speakCue("Goal reached! Great job!");
       completeRun(true);
     }
   };
@@ -285,7 +331,7 @@ export default function RunTrackerScreen() {
     
     if (finalDuration > 0 && finalDistance > 0) {
       const pace = finalDuration / 60 / finalDistance;
-      const distanceMiles = finalDistance * 0.621371;
+      const distanceMiles = finalDistance * 0.621371;  // always in miles for calorie estimation
       const runCalories = Math.round(distanceMiles * 100);
       const runId = uuidv4();
       const runEntry: RunEntry = {
@@ -305,7 +351,7 @@ export default function RunTrackerScreen() {
     }
     
     setCompletedRunData({
-      distance: finalDistance * 0.621371,
+      distance: formatDistanceValue(finalDistance, unitSystem),
       duration: finalDuration,
       goalReached,
     });
@@ -317,8 +363,8 @@ export default function RunTrackerScreen() {
   
   const stopRun = async () => {
     const goalReached = goal ? (
-      goal.type === "distance" 
-        ? distance * 0.621371 >= goal.value 
+      goal.type === "distance"
+        ? formatDistanceValue(distance, unitSystem) >= goal.value
         : duration / 60 >= goal.value
     ) : false;
     completeRun(goalReached);
@@ -407,17 +453,13 @@ export default function RunTrackerScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
   
-  const formatPace = (paceMinPerKm: number): string => {
-    if (!isFinite(paceMinPerKm) || paceMinPerKm === 0) return "--:--";
-    const mins = Math.floor(paceMinPerKm);
-    const secs = Math.round((paceMinPerKm - mins) * 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
   
-  const distanceMiles = distance * 0.621371;
+  const displayDistance = formatDistanceValue(distance, unitSystem);
+  const distanceUnit = formatDistanceUnit(unitSystem);
   const currentPace = duration > 0 && distance > 0 ? duration / 60 / distance : 0;
-  const speedMph = duration > 0 && distance > 0 ? (distance * 0.621371) / (duration / 3600) : 0;
-  const calories = Math.round(distanceMiles * 100);
+  const speed = formatSpeedValue(distance, duration, unitSystem);
+  const speedUnit = formatSpeedUnit(unitSystem);
+  const calories = Math.round(formatDistanceValue(distance, "imperial") * 100);
   
   if (permission === null && Platform.OS !== "web") {
     return (
@@ -449,8 +491,8 @@ export default function RunTrackerScreen() {
   }
   
   const goalProgress = goal ? (
-    goal.type === "distance" 
-      ? (distanceMiles / goal.value) * 100
+    goal.type === "distance"
+      ? (displayDistance / goal.value) * 100
       : ((duration / 60) / goal.value) * 100
   ) : 0;
   
@@ -562,10 +604,13 @@ export default function RunTrackerScreen() {
               {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </ThemedText>
           </View>
+          <Pressable onPress={toggleMute} style={styles.muteButton}>
+            <Feather name={audioMuted ? "volume-x" : "volume-2"} size={18} color="#FFFFFF" />
+          </Pressable>
           {goal && isRunning ? (
             <View style={styles.goalBadge}>
               <ThemedText style={styles.goalBadgeText}>
-                {goal.type === "distance" ? `${goal.value} mi goal` : `${goal.value} min goal`}
+                {goal.type === "distance" ? `${goal.value} ${distanceUnit} goal` : `${goal.value} min goal`}
               </ThemedText>
             </View>
           ) : null}
@@ -590,8 +635,8 @@ export default function RunTrackerScreen() {
         <View style={[styles.statsContainer, { borderBottomColor: theme.border }]}>
           <View style={styles.mainStatsRow}>
             <View style={styles.mainStat}>
-              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Mil</ThemedText>
-              <ThemedText style={[styles.bigStatValue, { color: theme.text }]}>{distanceMiles.toFixed(2)}</ThemedText>
+              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>{distanceUnit.toUpperCase()}</ThemedText>
+              <ThemedText style={[styles.bigStatValue, { color: theme.text }]}>{displayDistance.toFixed(2)}</ThemedText>
             </View>
             <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.mainStat}>
@@ -602,8 +647,8 @@ export default function RunTrackerScreen() {
           
           <View style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}>
             <View style={styles.secondaryStat}>
-              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Current Speed</ThemedText>
-              <ThemedText style={[styles.mediumStatValue, { color: theme.text }]}>{speedMph.toFixed(2)}</ThemedText>
+              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Speed ({speedUnit})</ThemedText>
+              <ThemedText style={[styles.mediumStatValue, { color: theme.text }]}>{speed.toFixed(2)}</ThemedText>
             </View>
             <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.secondaryStat}>
@@ -618,7 +663,7 @@ export default function RunTrackerScreen() {
               <View style={styles.splitsRow}>
                 {splits.map((splitTime, index) => (
                   <View key={index} style={[styles.splitItem, { backgroundColor: theme.backgroundSecondary }]}>
-                    <ThemedText style={styles.splitMile}>{index + 1} Mi</ThemedText>
+                    <ThemedText style={styles.splitMile}>{index + 1} {distanceUnit.charAt(0).toUpperCase() + distanceUnit.slice(1)}</ThemedText>
                     <ThemedText style={[styles.splitTime, { color: theme.text }]}>{formatDuration(splitTime)}</ThemedText>
                   </View>
                 ))}
@@ -637,7 +682,7 @@ export default function RunTrackerScreen() {
               <AnimatedPress onPress={startRun} style={styles.startButton}>
                 <Feather name="play" size={32} color="#FFFFFF" />
                 <ThemedText style={styles.startButtonText}>
-                  {goal ? `START ${goal.type === "distance" ? `${goal.value} MI` : `${goal.value} MIN`} RUN` : "FREE RUN"}
+                  {goal ? `START ${goal.type === "distance" ? `${goal.value} ${distanceUnit.toUpperCase()}` : `${goal.value} MIN`} RUN` : "FREE RUN"}
                 </ThemedText>
               </AnimatedPress>
             </View>
@@ -663,7 +708,14 @@ export default function RunTrackerScreen() {
           <ThemedText style={[styles.historyTitle, { color: theme.text }]}>Run History</ThemedText>
           {runHistory.length > 0 ? (
             runHistory.slice(0, 5).map((run) => (
-              <View key={run.id} style={[styles.historyCard, { backgroundColor: theme.backgroundSecondary }]}>
+              <Pressable
+                key={run.id}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  navigation.navigate("RunDetail" as any, { run });
+                }}
+                style={[styles.historyCard, { backgroundColor: theme.backgroundSecondary }]}
+              >
                 <View style={styles.historyHeader}>
                   <ThemedText style={[styles.historyDate, { color: theme.text }]}>
                     {new Date(run.completedAt).toLocaleDateString()}
@@ -678,9 +730,9 @@ export default function RunTrackerScreen() {
                 <View style={styles.historyStats}>
                   <View style={styles.historyStat}>
                     <ThemedText style={styles.historyValue}>
-                      {(run.distanceKm * 0.621371).toFixed(2)}
+                      {formatDistanceValue(run.distanceKm, unitSystem).toFixed(2)}
                     </ThemedText>
-                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>mi</ThemedText>
+                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>{distanceUnit}</ThemedText>
                   </View>
                   <View style={styles.historyStat}>
                     <ThemedText style={styles.historyValue}>
@@ -706,7 +758,7 @@ export default function RunTrackerScreen() {
                     </View>
                   ) : null}
                 </View>
-              </View>
+              </Pressable>
             ))
           ) : (
             <View style={[styles.emptyHistoryCard, { backgroundColor: theme.backgroundSecondary }]}>
@@ -772,6 +824,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: "center",
+  },
+  muteButton: {
+    position: "absolute",
+    top: Spacing.md,
+    right: Spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   dateText: {
     color: "#FFFFFF",

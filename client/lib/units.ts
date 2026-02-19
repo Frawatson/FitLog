@@ -68,3 +68,60 @@ export function parseHeightInput(feet: number, inches: number, unitSystem: UnitS
   }
   return feet;
 }
+
+export const KM_TO_MILES = 0.621371;
+export const MILES_TO_KM = 1 / KM_TO_MILES;
+
+export function kmToMiles(km: number): number {
+  return Math.round(km * KM_TO_MILES * 100) / 100;
+}
+
+export function milesToKm(miles: number): number {
+  return Math.round(miles * MILES_TO_KM * 100) / 100;
+}
+
+export function formatDistance(km: number, unitSystem: UnitSystem): string {
+  if (unitSystem === "imperial") {
+    return `${kmToMiles(km).toFixed(2)} mi`;
+  }
+  return `${km.toFixed(2)} km`;
+}
+
+export function formatDistanceValue(km: number, unitSystem: UnitSystem): number {
+  if (unitSystem === "imperial") {
+    return kmToMiles(km);
+  }
+  return km;
+}
+
+export function formatDistanceUnit(unitSystem: UnitSystem): string {
+  return unitSystem === "imperial" ? "mi" : "km";
+}
+
+export function formatPace(paceMinPerKm: number, unitSystem: UnitSystem): string {
+  if (!isFinite(paceMinPerKm) || paceMinPerKm <= 0 || paceMinPerKm > 60) return "--:--";
+  const pace = unitSystem === "imperial" ? paceMinPerKm / KM_TO_MILES : paceMinPerKm;
+  const mins = Math.floor(pace);
+  const secs = Math.round((pace - mins) * 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+export function formatPaceUnit(unitSystem: UnitSystem): string {
+  return unitSystem === "imperial" ? "/mi" : "/km";
+}
+
+export function formatSpeedValue(km: number, durationSeconds: number, unitSystem: UnitSystem): number {
+  if (durationSeconds <= 0 || km <= 0) return 0;
+  if (unitSystem === "imperial") {
+    return Math.round(kmToMiles(km) / (durationSeconds / 3600) * 100) / 100;
+  }
+  return Math.round(km / (durationSeconds / 3600) * 100) / 100;
+}
+
+export function formatSpeedUnit(unitSystem: UnitSystem): string {
+  return unitSystem === "imperial" ? "mph" : "km/h";
+}
+
+export function weightLabel(unitSystem: UnitSystem): string {
+  return unitSystem === "imperial" ? "lbs" : "kg";
+}

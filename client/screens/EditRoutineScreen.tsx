@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
@@ -172,19 +173,26 @@ export default function EditRoutineScreen() {
   }
   
   return (
-    <ThemedView style={[styles.container, { paddingTop: headerHeight + Spacing.xl }]}>
-      <View style={styles.content}>
+    <>
+    <KeyboardAwareScrollViewCompat
+      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+      contentContainerStyle={{
+        paddingTop: headerHeight + Spacing.xl,
+        paddingBottom: insets.bottom + Spacing.xl,
+        paddingHorizontal: Spacing.lg,
+      }}
+    >
         <Input
           label="Routine Name"
           placeholder="e.g., Push Day"
           value={name}
           onChangeText={setName}
         />
-        
+
         <ThemedText type="h4" style={styles.sectionTitle}>
           Exercises
         </ThemedText>
-        
+
         {exercises.length > 0 ? (
           <View style={styles.exerciseList}>
             {exercises.map((exercise, index) => (
@@ -207,7 +215,7 @@ export default function EditRoutineScreen() {
             ))}
           </View>
         ) : null}
-        
+
         <Button
           onPress={() => setShowExerciseList(true)}
           style={[styles.addButton, { backgroundColor: theme.backgroundDefault }]}
@@ -219,8 +227,8 @@ export default function EditRoutineScreen() {
             </ThemedText>
           </View>
         </Button>
-      </View>
-      
+    </KeyboardAwareScrollViewCompat>
+
       <Modal
         visible={showDiscardModal}
         transparent
@@ -256,7 +264,7 @@ export default function EditRoutineScreen() {
           </View>
         </Pressable>
       </Modal>
-    </ThemedView>
+    </>
   );
 }
 
@@ -266,7 +274,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: Spacing.lg,
   },
   header: {
     flexDirection: "row",

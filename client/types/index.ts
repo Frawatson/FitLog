@@ -51,6 +51,8 @@ export interface Routine {
   exercises: RoutineExercise[];
   createdAt: string;
   lastCompletedAt?: string;
+  isFavorite?: boolean;
+  category?: string;
 }
 
 // Workout Logging Types
@@ -75,6 +77,8 @@ export interface Workout {
   startedAt: string;
   completedAt?: string;
   durationMinutes?: number;
+  notes?: string;
+  totalVolumeKg?: number;
 }
 
 // Body Weight Entry
@@ -97,6 +101,8 @@ export interface Food {
   imageUri?: string;
 }
 
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+
 export interface FoodLogEntry {
   id: string;
   foodId: string;
@@ -104,6 +110,7 @@ export interface FoodLogEntry {
   date: string;
   createdAt: string;
   imageUri?: string;
+  mealType?: MealType;
 }
 
 // Progression Suggestion
@@ -126,6 +133,63 @@ export interface HeartRateZoneInfo {
   description: string;
 }
 
+// Social Types
+export type PostType = 'workout' | 'run' | 'meal' | 'progress_photo' | 'achievement' | 'text';
+export type PostVisibility = 'followers' | 'public';
+
+export interface Post {
+  id: number;
+  userId: number;
+  clientId: string;
+  postType: PostType;
+  content?: string;
+  referenceId?: string;
+  referenceData?: any;
+  imageData?: string;
+  visibility: PostVisibility;
+  likesCount: number;
+  commentsCount: number;
+  createdAt: string;
+  authorName: string;
+  authorAvatarUrl?: string;
+  likedByMe: boolean;
+}
+
+export interface PostComment {
+  id: number;
+  postId: number;
+  userId: number;
+  clientId: string;
+  content: string;
+  createdAt: string;
+  authorName: string;
+  authorAvatarUrl?: string;
+}
+
+export interface SocialProfile {
+  userId: number;
+  name: string;
+  bio?: string;
+  avatarUrl?: string;
+  isPublic: boolean;
+  followersCount: number;
+  followingCount: number;
+  isFollowedByMe: boolean;
+  totalWorkouts: number;
+  totalRuns: number;
+  totalDistanceKm: number;
+  currentStreak: number;
+  memberSince: string;
+}
+
+export interface FollowUser {
+  userId: number;
+  name: string;
+  avatarUrl?: string;
+  bio?: string;
+  isFollowedByMe: boolean;
+}
+
 // Run Tracking Types
 export interface RunEntry {
   id: string;
@@ -142,4 +206,5 @@ export interface RunEntry {
   avgHeartRate?: number;
   maxHeartRate?: number;
   heartRateZone?: HeartRateZone;
+  elevationGainM?: number;
 }

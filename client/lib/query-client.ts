@@ -11,7 +11,8 @@ export function getApiUrl(): string {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
-  let url = new URL(`https://${host}`);
+  // Support both full URLs (http://...) and bare hosts
+  let url = host.startsWith("http") ? new URL(host) : new URL(`http://${host}`);
 
   return url.href;
 }

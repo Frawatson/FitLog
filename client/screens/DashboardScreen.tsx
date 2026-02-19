@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { WorkoutCalendar } from "@/components/WorkoutCalendar";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -46,8 +47,12 @@ export default function DashboardScreen() {
   const [latestWeight, setLatestWeight] = useState<BodyWeightEntry | null>(null);
   const [streak, setStreak] = useState<StreakData>({ currentStreak: 0, longestStreak: 0, lastActivityDate: null });
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+
   const loadData = async () => {
+    if (!hasLoadedRef.current) setIsLoading(true);
+
     const [profileData, macroData, routineData, workoutData, runData, weightData] = await Promise.all([
       storage.getUserProfile(),
       storage.getMacroTargets(),
@@ -56,23 +61,28 @@ export default function DashboardScreen() {
       storage.getRunHistory(),
       storage.getBodyWeights(),
     ]);
-    
+
     setProfile(profileData);
     setMacros(macroData);
     setRoutines(routineData);
     setWorkouts(workoutData);
     setRuns(runData);
-    
+
     if (weightData.length > 0) {
       const sorted = weightData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setLatestWeight(sorted[0]);
     }
-    
+
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      setIsLoading(false);
+    }
+
+    // Load daily totals and streak in the background (no skeleton needed)
     const today = new Date().toISOString().split("T")[0];
     const todayTotals = await storage.getDailyTotals(today);
     setTodayMacros(todayTotals);
-    
-    // Fetch streak data from API
+
     try {
       const token = await AsyncStorage.getItem("@merge_auth_token");
       if (token) {
@@ -88,7 +98,7 @@ export default function DashboardScreen() {
       console.log("Error fetching streak:", error);
     }
   };
-  
+
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -138,7 +148,19 @@ export default function DashboardScreen() {
       <ThemedText type="h1" style={styles.greeting}>
         Welcome back, {getName()}
       </ThemedText>
-      
+
+      {isLoading ? (
+        <View style={{ gap: Spacing.xl }}>
+          <SkeletonLoader variant="card" />
+          <View style={{ flexDirection: "row", gap: Spacing.md }}>
+            <View style={{ flex: 1 }}><SkeletonLoader variant="card" /></View>
+            <View style={{ flex: 1 }}><SkeletonLoader variant="card" /></View>
+          </View>
+          <SkeletonLoader variant="card" />
+          <SkeletonLoader variant="card" />
+        </View>
+      ) : (
+      <>
       {routines.length > 0 ? (
         <AnimatedPress
           onPress={() => navigation.navigate("SelectRoutine")}
@@ -243,8 +265,20 @@ export default function DashboardScreen() {
           }}
         />
       </View>
-      
-      
+
+      <AnimatedPress
+        onPress={() => navigation.navigate("SocialFeed")}
+        style={[styles.communityCard, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}
+      >
+        <Feather name="users" size={22} color={Colors.light.primary} />
+        <View style={{ flex: 1, marginLeft: Spacing.lg }}>
+          <ThemedText type="h4">Community</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>See what others are training</ThemedText>
+        </View>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
+
       {macros ? (
         <Card style={styles.macrosCard}>
           <View style={styles.macrosHeader}>
@@ -296,6 +330,8 @@ export default function DashboardScreen() {
           </View>
         </Card>
       ) : null}
+      </>
+      )}
     </ScrollView>
   );
 }
@@ -353,6 +389,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   calendarSection: {
+    marginBottom: Spacing.xl,
+  },
+  communityCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
     marginBottom: Spacing.xl,
   },
   sectionTitle: {

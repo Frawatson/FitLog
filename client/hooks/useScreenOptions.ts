@@ -28,6 +28,7 @@ export function useScreenOptions({
     gestureEnabled: true,
     gestureDirection: "horizontal",
     fullScreenGestureEnabled: isLiquidGlassAvailable() ? false : true,
+    animation: "fade",
     contentStyle: {
       backgroundColor: theme.backgroundRoot,
     },

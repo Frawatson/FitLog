@@ -52,26 +52,26 @@ const MACRO_TABLE: Record<string, MacroEntry> = {
   beef_jerky: { kcal: 300, p: 40, c: 10, f: 8, per: "100g" },
   protein_bar: { kcal: 360, p: 25, c: 35, f: 10, per: "100g" },
   protein_powder: { kcal: 400, p: 80, c: 10, f: 6, per: "100g" },
-  ham: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  bacon: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  sausage: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  lamb: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  venison: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  crab: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  lobster: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  sardines: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  mackerel: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  whey_shake_ready_to_drink: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  casein_shake: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  edamame: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  beans_chili: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  chicken_sausage: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  turkey_bacon: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  deli_chicken: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  deli_turkey: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  ground_bison: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  bison_steak: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
-  pork_tenderloin: { kcal: 200, p: 25, c: 0, f: 10, per: "100g" },
+  ham: { kcal: 145, p: 21, c: 1.5, f: 6, per: "100g" },
+  bacon: { kcal: 541, p: 37, c: 1.4, f: 42, per: "100g" },
+  sausage: { kcal: 301, p: 12, c: 2, f: 27, per: "100g" },
+  lamb: { kcal: 258, p: 25, c: 0, f: 17, per: "100g" },
+  venison: { kcal: 158, p: 30, c: 0, f: 3.2, per: "100g" },
+  crab: { kcal: 97, p: 19, c: 0, f: 1.5, per: "100g" },
+  lobster: { kcal: 89, p: 19, c: 0, f: 0.9, per: "100g" },
+  sardines: { kcal: 208, p: 25, c: 0, f: 11, per: "100g" },
+  mackerel: { kcal: 262, p: 24, c: 0, f: 18, per: "100g" },
+  whey_shake_ready_to_drink: { kcal: 60, p: 10, c: 4, f: 1, per: "100g" },
+  casein_shake: { kcal: 60, p: 10, c: 4, f: 1, per: "100g" },
+  edamame: { kcal: 121, p: 12, c: 9, f: 5, per: "100g" },
+  beans_chili: { kcal: 132, p: 9, c: 24, f: 0.5, per: "100g" },
+  chicken_sausage: { kcal: 148, p: 17, c: 3, f: 7, per: "100g" },
+  turkey_bacon: { kcal: 218, p: 22, c: 1, f: 14, per: "100g" },
+  deli_chicken: { kcal: 110, p: 21, c: 2, f: 2, per: "100g" },
+  deli_turkey: { kcal: 104, p: 18, c: 4, f: 1.5, per: "100g" },
+  ground_bison: { kcal: 146, p: 20, c: 0, f: 7, per: "100g" },
+  bison_steak: { kcal: 143, p: 28, c: 0, f: 2.4, per: "100g" },
+  pork_tenderloin: { kcal: 143, p: 26, c: 0, f: 3.5, per: "100g" },
 
   white_rice: { kcal: 130, p: 2.7, c: 28, f: 0.3, per: "100g" },
   brown_rice: { kcal: 112, p: 2.3, c: 23, f: 0.9, per: "100g" },
@@ -100,87 +100,87 @@ const MACRO_TABLE: Record<string, MacroEntry> = {
   wrap_flatbread: { kcal: 300, p: 8, c: 50, f: 8, per: "100g" },
   burger_bun: { kcal: 270, p: 9, c: 50, f: 4, per: "100g" },
   english_muffin: { kcal: 265, p: 9, c: 49, f: 3.2, per: "100g" },
-  pancakes: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  waffles: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  cereal: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  granola: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
+  pancakes: { kcal: 227, p: 6, c: 28, f: 10, per: "100g" },
+  waffles: { kcal: 291, p: 8, c: 33, f: 14, per: "100g" },
+  cereal: { kcal: 379, p: 7, c: 84, f: 1.5, per: "100g" },
+  granola: { kcal: 471, p: 10, c: 64, f: 20, per: "100g" },
   rice_cakes: { kcal: 387, p: 8, c: 82, f: 3, per: "100g" },
   banana: { kcal: 89, p: 1.1, c: 23, f: 0.3, per: "100g" },
   apple: { kcal: 60, p: 0.8, c: 15, f: 0.2, per: "100g" },
   berries: { kcal: 50, p: 1, c: 12, f: 0.3, per: "100g" },
-  grapes: { kcal: 60, p: 0.8, c: 15, f: 0.2, per: "100g" },
-  orange: { kcal: 60, p: 0.8, c: 15, f: 0.2, per: "100g" },
-  mango: { kcal: 60, p: 0.8, c: 15, f: 0.2, per: "100g" },
-  pineapple: { kcal: 60, p: 0.8, c: 15, f: 0.2, per: "100g" },
-  mixed_fruit: { kcal: 60, p: 0.8, c: 15, f: 0.2, per: "100g" },
-  yogurt_parfait: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  protein_cookie: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  pretzels: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  popcorn: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  crackers: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
+  grapes: { kcal: 69, p: 0.7, c: 18, f: 0.2, per: "100g" },
+  orange: { kcal: 47, p: 0.9, c: 12, f: 0.1, per: "100g" },
+  mango: { kcal: 60, p: 0.8, c: 15, f: 0.4, per: "100g" },
+  pineapple: { kcal: 50, p: 0.5, c: 13, f: 0.1, per: "100g" },
+  mixed_fruit: { kcal: 55, p: 0.7, c: 14, f: 0.2, per: "100g" },
+  yogurt_parfait: { kcal: 100, p: 5, c: 16, f: 2, per: "100g" },
+  protein_cookie: { kcal: 430, p: 16, c: 48, f: 20, per: "100g" },
+  pretzels: { kcal: 381, p: 10, c: 79, f: 3.5, per: "100g" },
+  popcorn: { kcal: 387, p: 13, c: 78, f: 4.5, per: "100g" },
+  crackers: { kcal: 421, p: 9, c: 72, f: 11, per: "100g" },
   ramen_noodles: { kcal: 131, p: 5, c: 25, f: 1.1, per: "100g" },
   udon_noodles: { kcal: 131, p: 5, c: 25, f: 1.1, per: "100g" },
   sushi_rice: { kcal: 130, p: 2.7, c: 28, f: 0.3, per: "100g" },
-  honey: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  jam_jelly: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
-  dates: { kcal: 130, p: 3, c: 28, f: 1, per: "100g" },
+  honey: { kcal: 304, p: 0.3, c: 82, f: 0, per: "100g" },
+  jam_jelly: { kcal: 250, p: 0.4, c: 66, f: 0.1, per: "100g" },
+  dates: { kcal: 282, p: 2.5, c: 75, f: 0.4, per: "100g" },
 
-  broccoli: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  green_beans: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  asparagus: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  spinach: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  kale: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  mixed_vegetables: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  salad_plain: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  carrots: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  zucchini: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  brussels_sprouts: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  cauliflower: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  cabbage: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  bell_peppers: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  onions: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  mushrooms: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  tomatoes: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  cucumber: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  lettuce: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  arugula: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  bok_choy: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  broccolini: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  snap_peas: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  peas: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  corn: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  sweet_corn: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  eggplant: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  okra: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  beets: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  celery: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  radish: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  sauerkraut: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
+  broccoli: { kcal: 34, p: 2.8, c: 7, f: 0.4, per: "100g" },
+  green_beans: { kcal: 31, p: 1.8, c: 7, f: 0.2, per: "100g" },
+  asparagus: { kcal: 20, p: 2.2, c: 3.9, f: 0.1, per: "100g" },
+  spinach: { kcal: 23, p: 2.9, c: 3.6, f: 0.4, per: "100g" },
+  kale: { kcal: 49, p: 4.3, c: 9, f: 0.9, per: "100g" },
+  mixed_vegetables: { kcal: 65, p: 3, c: 13, f: 0.3, per: "100g" },
+  salad_plain: { kcal: 15, p: 1.3, c: 2.5, f: 0.2, per: "100g" },
+  carrots: { kcal: 41, p: 0.9, c: 10, f: 0.2, per: "100g" },
+  zucchini: { kcal: 17, p: 1.2, c: 3.1, f: 0.3, per: "100g" },
+  brussels_sprouts: { kcal: 43, p: 3.4, c: 9, f: 0.3, per: "100g" },
+  cauliflower: { kcal: 25, p: 1.9, c: 5, f: 0.3, per: "100g" },
+  cabbage: { kcal: 25, p: 1.3, c: 6, f: 0.1, per: "100g" },
+  bell_peppers: { kcal: 31, p: 1, c: 6, f: 0.3, per: "100g" },
+  onions: { kcal: 40, p: 1.1, c: 9, f: 0.1, per: "100g" },
+  mushrooms: { kcal: 22, p: 3.1, c: 3.3, f: 0.3, per: "100g" },
+  tomatoes: { kcal: 18, p: 0.9, c: 3.9, f: 0.2, per: "100g" },
+  cucumber: { kcal: 15, p: 0.7, c: 3.6, f: 0.1, per: "100g" },
+  lettuce: { kcal: 15, p: 1.4, c: 2.9, f: 0.2, per: "100g" },
+  arugula: { kcal: 25, p: 2.6, c: 3.7, f: 0.7, per: "100g" },
+  bok_choy: { kcal: 13, p: 1.5, c: 2.2, f: 0.2, per: "100g" },
+  broccolini: { kcal: 34, p: 3.6, c: 5.2, f: 0.6, per: "100g" },
+  snap_peas: { kcal: 42, p: 2.8, c: 7.6, f: 0.2, per: "100g" },
+  peas: { kcal: 81, p: 5.4, c: 14, f: 0.4, per: "100g" },
+  corn: { kcal: 86, p: 3.3, c: 19, f: 1.4, per: "100g" },
+  sweet_corn: { kcal: 86, p: 3.3, c: 19, f: 1.4, per: "100g" },
+  eggplant: { kcal: 25, p: 1, c: 6, f: 0.2, per: "100g" },
+  okra: { kcal: 33, p: 1.9, c: 7, f: 0.2, per: "100g" },
+  beets: { kcal: 43, p: 1.6, c: 10, f: 0.2, per: "100g" },
+  celery: { kcal: 14, p: 0.7, c: 3, f: 0.2, per: "100g" },
+  radish: { kcal: 16, p: 0.7, c: 3.4, f: 0.1, per: "100g" },
+  sauerkraut: { kcal: 19, p: 0.9, c: 4.3, f: 0.1, per: "100g" },
   pickles: { kcal: 15, p: 0.5, c: 3, f: 0, per: "100g" },
-  jalapenos: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  garlic: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  ginger: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  spring_mix: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  coleslaw_plain: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
+  jalapenos: { kcal: 29, p: 0.9, c: 6.5, f: 0.4, per: "100g" },
+  garlic: { kcal: 149, p: 6.4, c: 33, f: 0.5, per: "100g" },
+  ginger: { kcal: 80, p: 1.8, c: 18, f: 0.8, per: "100g" },
+  spring_mix: { kcal: 20, p: 2, c: 3, f: 0.3, per: "100g" },
+  coleslaw_plain: { kcal: 25, p: 1.3, c: 6, f: 0.1, per: "100g" },
   coleslaw_creamy: { kcal: 150, p: 1, c: 14, f: 10, per: "100g" },
-  salsa: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  pico_de_gallo: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  kimchi: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  seaweed_salad: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  edamame_side: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  butternut_squash: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  pumpkin: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  parsnips: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  turnips: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  artichoke: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  leeks: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
-  fajita_veggies: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
+  salsa: { kcal: 36, p: 1.5, c: 7, f: 0.2, per: "100g" },
+  pico_de_gallo: { kcal: 20, p: 0.9, c: 4, f: 0.2, per: "100g" },
+  kimchi: { kcal: 15, p: 1.1, c: 2.4, f: 0.5, per: "100g" },
+  seaweed_salad: { kcal: 70, p: 1, c: 8, f: 3.5, per: "100g" },
+  edamame_side: { kcal: 121, p: 12, c: 9, f: 5, per: "100g" },
+  butternut_squash: { kcal: 45, p: 1, c: 12, f: 0.1, per: "100g" },
+  pumpkin: { kcal: 26, p: 1, c: 6.5, f: 0.1, per: "100g" },
+  parsnips: { kcal: 75, p: 1.2, c: 18, f: 0.3, per: "100g" },
+  turnips: { kcal: 28, p: 0.9, c: 6, f: 0.1, per: "100g" },
+  artichoke: { kcal: 47, p: 3.3, c: 11, f: 0.2, per: "100g" },
+  leeks: { kcal: 61, p: 1.5, c: 14, f: 0.3, per: "100g" },
+  fajita_veggies: { kcal: 30, p: 1, c: 6, f: 0.3, per: "100g" },
   stir_fry_veggies: { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" },
 
-  olive_oil: { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" },
-  avocado_oil: { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" },
-  butter: { kcal: 100, p: 0, c: 0, f: 11, per: "1tbsp" },
-  ghee: { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" },
+  olive_oil: { kcal: 884, p: 0, c: 0, f: 100, per: "100g" },
+  avocado_oil: { kcal: 884, p: 0, c: 0, f: 100, per: "100g" },
+  butter: { kcal: 717, p: 1, c: 0, f: 81, per: "100g" },
+  ghee: { kcal: 900, p: 0, c: 0, f: 100, per: "100g" },
   cheese_generic: { kcal: 400, p: 25, c: 1, f: 33, per: "100g" },
   cheddar_cheese: { kcal: 400, p: 25, c: 1, f: 33, per: "100g" },
   mozzarella: { kcal: 280, p: 28, c: 3, f: 17, per: "100g" },
@@ -200,48 +200,40 @@ const MACRO_TABLE: Record<string, MacroEntry> = {
   hummus: { kcal: 166, p: 8, c: 14, f: 10, per: "100g" },
   tahini: { kcal: 595, p: 17, c: 21, f: 54, per: "100g" },
   olive_tapenade: { kcal: 375, p: 5, c: 6, f: 37, per: "100g" },
-  coconut_oil: { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" },
-  sesame_oil: { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" },
-  vinaigrette: { kcal: 70, p: 0, c: 2, f: 7, per: "1tbsp" },
-  italian_dressing: { kcal: 70, p: 0, c: 2, f: 7, per: "1tbsp" },
-  caesar_dressing: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
-  blue_cheese_dressing: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
-  honey_mustard: { kcal: 70, p: 0, c: 6, f: 5, per: "1tbsp" },
-  buffalo_sauce: { kcal: 10, p: 0, c: 1, f: 0.5, per: "1tbsp" },
-  gravy: { kcal: 40, p: 1, c: 3, f: 3, per: "1tbsp" },
-  cheese_sauce: { kcal: 50, p: 2, c: 2, f: 4, per: "1tbsp" },
-  chili_oil: { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" },
-  maple_syrup: { kcal: 52, p: 0, c: 13, f: 0, per: "1tbsp" },
-  chocolate_sauce: { kcal: 50, p: 0.5, c: 12, f: 0.5, per: "1tbsp" },
+  coconut_oil: { kcal: 892, p: 0, c: 0, f: 99, per: "100g" },
+  sesame_oil: { kcal: 884, p: 0, c: 0, f: 100, per: "100g" },
+  vinaigrette: { kcal: 215, p: 0, c: 8, f: 20, per: "100g" },
+  italian_dressing: { kcal: 215, p: 0, c: 8, f: 20, per: "100g" },
+  caesar_dressing: { kcal: 325, p: 2, c: 4, f: 34, per: "100g" },
+  blue_cheese_dressing: { kcal: 325, p: 2, c: 4, f: 34, per: "100g" },
+  honey_mustard: { kcal: 270, p: 1, c: 30, f: 16, per: "100g" },
+  buffalo_sauce: { kcal: 50, p: 0, c: 8, f: 2, per: "100g" },
+  gravy: { kcal: 50, p: 2, c: 5, f: 3, per: "100g" },
+  cheese_sauce: { kcal: 170, p: 7, c: 8, f: 13, per: "100g" },
+  chili_oil: { kcal: 884, p: 0, c: 0, f: 100, per: "100g" },
+  maple_syrup: { kcal: 260, p: 0, c: 67, f: 0, per: "100g" },
+  chocolate_sauce: { kcal: 330, p: 3, c: 57, f: 11, per: "100g" },
   ice_cream: { kcal: 207, p: 4, c: 24, f: 11, per: "100g" },
   whipped_cream: { kcal: 250, p: 3, c: 13, f: 22, per: "100g" },
   bacon_bits: { kcal: 500, p: 30, c: 5, f: 40, per: "100g" },
   croutons: { kcal: 407, p: 10, c: 63, f: 13, per: "100g" },
-  butter_sauce: { kcal: 100, p: 0, c: 0, f: 11, per: "1tbsp" },
-  garlic_butter: { kcal: 100, p: 0, c: 0, f: 11, per: "1tbsp" },
+  butter_sauce: { kcal: 450, p: 1, c: 1, f: 50, per: "100g" },
+  garlic_butter: { kcal: 700, p: 1, c: 2, f: 78, per: "100g" },
 
   tomato_sauce: { kcal: 30, p: 1, c: 5, f: 0.5, per: "100g" },
   marinara: { kcal: 60, p: 2, c: 9, f: 1.5, per: "100g" },
   alfredo_sauce: { kcal: 180, p: 4, c: 4, f: 16, per: "100g" },
   bolognese: { kcal: 100, p: 7, c: 8, f: 5, per: "100g" },
-  bbq_sauce: { kcal: 40, p: 0, c: 10, f: 0, per: "1tbsp" },
-  ketchup: { kcal: 20, p: 0, c: 5, f: 0, per: "1tbsp" },
-  mayo: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
-  ranch: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
-  aioli: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
-  hot_sauce: { kcal: 5, p: 0, c: 1, f: 0, per: "1tbsp" },
-  mustard: { kcal: 10, p: 0, c: 1, f: 0.5, per: "1tbsp" },
-  soy_sauce: { kcal: 10, p: 1, c: 1, f: 0, per: "1tbsp" },
-  teriyaki_sauce: { kcal: 30, p: 1, c: 6, f: 0, per: "1tbsp" },
-  sriracha: { kcal: 10, p: 0, c: 2, f: 0, per: "1tbsp" },
-};
-
-const SAUCE_MACRO_MAP: Record<string, MacroEntry> = {
-  bbq: { kcal: 40, p: 0, c: 10, f: 0, per: "1tbsp" },
-  ketchup: { kcal: 20, p: 0, c: 5, f: 0, per: "1tbsp" },
-  hot_sauce: { kcal: 5, p: 0, c: 1, f: 0, per: "1tbsp" },
-  mayo_ranch: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
-  unknown: { kcal: 100, p: 0, c: 1, f: 11, per: "1tbsp" },
+  bbq_sauce: { kcal: 172, p: 1, c: 40, f: 1, per: "100g" },
+  ketchup: { kcal: 112, p: 1, c: 27, f: 0, per: "100g" },
+  mayo: { kcal: 680, p: 1, c: 1, f: 75, per: "100g" },
+  ranch: { kcal: 450, p: 1, c: 6, f: 47, per: "100g" },
+  aioli: { kcal: 600, p: 1, c: 3, f: 65, per: "100g" },
+  hot_sauce: { kcal: 33, p: 1, c: 7, f: 0, per: "100g" },
+  mustard: { kcal: 66, p: 4, c: 6, f: 3, per: "100g" },
+  soy_sauce: { kcal: 53, p: 8, c: 5, f: 0, per: "100g" },
+  teriyaki_sauce: { kcal: 89, p: 6, c: 16, f: 0, per: "100g" },
+  sriracha: { kcal: 93, p: 2, c: 19, f: 1, per: "100g" },
 };
 
 const OIL_PER_TBSP: MacroEntry = { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" };
@@ -379,53 +371,22 @@ export function calculateMacros(items: CallAItem[], mode: Mode) {
     let fMin = 0, fMedian = 0, fMax = 0;
     let kcalMin = 0, kcalMedian = 0, kcalMax = 0;
 
-    if (macro.per === "100g") {
-      const scale = (g: number) => g / 100;
-      pMin = macro.p * scale(gramsMin);
-      pMedian = macro.p * scale(gramsMedian);
-      pMax = macro.p * scale(gramsMax);
-      cMin = macro.c * scale(gramsMin);
-      cMedian = macro.c * scale(gramsMedian);
-      cMax = macro.c * scale(gramsMax);
-      fMin = macro.f * scale(gramsMin);
-      fMedian = macro.f * scale(gramsMedian);
-      fMax = macro.f * scale(gramsMax);
-    } else {
-      pMin = macro.p * gramsMin;
-      pMedian = macro.p * gramsMedian;
-      pMax = macro.p * gramsMax;
-      cMin = macro.c * gramsMin;
-      cMedian = macro.c * gramsMedian;
-      cMax = macro.c * gramsMax;
-      fMin = macro.f * gramsMin;
-      fMedian = macro.f * gramsMedian;
-      fMax = macro.f * gramsMax;
-    }
+    const scale = (g: number) => g / 100;
+    pMin = macro.p * scale(gramsMin);
+    pMedian = macro.p * scale(gramsMedian);
+    pMax = macro.p * scale(gramsMax);
+    cMin = macro.c * scale(gramsMin);
+    cMedian = macro.c * scale(gramsMedian);
+    cMax = macro.c * scale(gramsMax);
+    fMin = macro.f * scale(gramsMin);
+    fMedian = macro.f * scale(gramsMedian);
+    fMax = macro.f * scale(gramsMax);
 
     if (item.pan_seared && !item.fried_breaded) {
       const oilTbsp = PAN_SEARED_OIL_TBSP[mode];
       fMin += OIL_PER_TBSP.f * oilTbsp.min;
       fMedian += OIL_PER_TBSP.f * oilTbsp.median;
       fMax += OIL_PER_TBSP.f * oilTbsp.max;
-    }
-
-    if (item.sauce_type && item.sauce_type !== "none" && item.sauce_tbsp) {
-      const sauceMacro = SAUCE_MACRO_MAP[item.sauce_type] || SAUCE_MACRO_MAP.unknown;
-      const sauceBias = SAUCE_BIAS[mode];
-
-      const sMin = item.sauce_tbsp.min;
-      const sMedian = item.sauce_tbsp.median * sauceBias;
-      const sMax = item.sauce_tbsp.max;
-
-      pMin += sauceMacro.p * sMin;
-      pMedian += sauceMacro.p * sMedian;
-      pMax += sauceMacro.p * sMax;
-      cMin += sauceMacro.c * sMin;
-      cMedian += sauceMacro.c * sMedian;
-      cMax += sauceMacro.c * sMax;
-      fMin += sauceMacro.f * sMin;
-      fMedian += sauceMacro.f * sMedian;
-      fMax += sauceMacro.f * sMax;
     }
 
     kcalMin = pMin * 4 + cMin * 4 + fMin * 9;

@@ -20,6 +20,14 @@ import EditProfileScreen from "@/screens/EditProfileScreen";
 import ForgotPasswordScreen from "@/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
 import PhotoReviewScreen from "@/screens/PhotoReviewScreen";
+import ExerciseHistoryScreen from "@/screens/ExerciseHistoryScreen";
+import BarcodeScannerScreen from "@/screens/BarcodeScannerScreen";
+import SocialFeedScreen from "@/screens/SocialFeedScreen";
+import CreatePostScreen from "@/screens/CreatePostScreen";
+import PostDetailScreen from "@/screens/PostDetailScreen";
+import SocialProfileScreen from "@/screens/SocialProfileScreen";
+import FollowListScreen from "@/screens/FollowListScreen";
+import UserSearchScreen from "@/screens/UserSearchScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import * as storage from "@/lib/storage";
@@ -36,7 +44,7 @@ export type RootStackParamList = {
   SelectRoutine: undefined;
   ActiveWorkout: { routineId: string };
   WorkoutComplete: { workoutId: string };
-  AddFood: undefined;
+  AddFood: { prefill?: { name: string; calories: string; protein: string; carbs: string; fat: string } } | undefined;
   PhotoReview: { foods: any[]; imageUri: string; imageBase64?: string; mode?: string };
   FoodDetail: { entry: import("@/types").FoodLogEntry };
   WorkoutHistory: undefined;
@@ -45,6 +53,14 @@ export type RootStackParamList = {
   RoutineTemplates: undefined;
   GenerateRoutine: undefined;
   EditProfile: undefined;
+  ExerciseHistory: { exerciseId: string; exerciseName: string };
+  BarcodeScanner: undefined;
+  SocialFeed: undefined;
+  CreatePost: { prefill?: { postType: import("@/types").PostType; referenceId?: string; referenceData?: any } } | undefined;
+  PostDetail: { postId: number };
+  SocialProfile: { userId: number };
+  FollowList: { userId: number; mode: "followers" | "following" };
+  UserSearch: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -224,6 +240,52 @@ export default function RootStackNavigator() {
         name="EditProfile"
         component={EditProfileScreen}
         options={{ headerTitle: "Edit Profile" }}
+      />
+      <Stack.Screen
+        name="ExerciseHistory"
+        component={ExerciseHistoryScreen}
+        options={{ headerTitle: "Exercise History" }}
+      />
+      <Stack.Screen
+        name="BarcodeScanner"
+        component={BarcodeScannerScreen}
+        options={{
+          headerShown: false,
+          presentation: "fullScreenModal",
+        }}
+      />
+      <Stack.Screen
+        name="SocialFeed"
+        component={SocialFeedScreen}
+        options={{ headerTitle: "Community" }}
+      />
+      <Stack.Screen
+        name="CreatePost"
+        component={CreatePostScreen}
+        options={{
+          headerTitle: "New Post",
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="PostDetail"
+        component={PostDetailScreen}
+        options={{ headerTitle: "Post" }}
+      />
+      <Stack.Screen
+        name="SocialProfile"
+        component={SocialProfileScreen}
+        options={{ headerTitle: "Profile" }}
+      />
+      <Stack.Screen
+        name="FollowList"
+        component={FollowListScreen}
+        options={{ headerTitle: "Followers" }}
+      />
+      <Stack.Screen
+        name="UserSearch"
+        component={UserSearchScreen}
+        options={{ headerTitle: "Find People" }}
       />
     </Stack.Navigator>
   );

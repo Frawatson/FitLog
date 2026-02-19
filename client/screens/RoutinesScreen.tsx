@@ -11,6 +11,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -111,6 +112,27 @@ export default function RoutinesScreen() {
     </Card>
   );
   
+  if (loading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight + Spacing.xl,
+            paddingHorizontal: Spacing.lg,
+          },
+        ]}
+      >
+        <View style={{ gap: Spacing.md }}>
+          <SkeletonLoader variant="card" />
+          <SkeletonLoader variant="card" />
+          <SkeletonLoader variant="card" />
+        </View>
+      </View>
+    );
+  }
+
   if (routines.length === 0 && !loading) {
     return (
       <View
@@ -158,7 +180,7 @@ export default function RoutinesScreen() {
     return (
       <View style={StyleSheet.absoluteFill}>
         <Pressable style={styles.modalOverlay} onPress={cancelDelete}>
-          <Pressable style={[styles.modalContent, { backgroundColor: theme.background }]} onPress={(e) => e.stopPropagation()}>
+          <Pressable style={[styles.modalContent, { backgroundColor: theme.backgroundCard }]} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalIconContainer}>
               <Feather name="trash-2" size={32} color={Colors.light.error} />
             </View>

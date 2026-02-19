@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Alert } from "react-native";
+import { View, StyleSheet, ScrollView, TextInput, Alert, Pressable } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -16,8 +17,9 @@ import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Routine, Workout, WorkoutExercise, WorkoutSet } from "@/types";
+import type { Routine, Workout, WorkoutExercise, WorkoutSet, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
+import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -35,9 +37,14 @@ export default function ActiveWorkoutScreen() {
   const [startTime] = useState(new Date());
   const [restTimer, setRestTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
+  const [restDuration, setRestDuration] = useState(90);
+  const [showRestPicker, setShowRestPicker] = useState(false);
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
+    loadUnitSystem();
+    loadRestDuration();
     loadRoutine();
     
     navigation.setOptions({
@@ -55,6 +62,26 @@ export default function ActiveWorkoutScreen() {
     };
   }, []);
   
+  const loadUnitSystem = async () => {
+    const profile = await storage.getUserProfile();
+    if (profile?.unitSystem) {
+      setUnitSystem(profile.unitSystem);
+    }
+  };
+
+  const loadRestDuration = async () => {
+    const saved = await AsyncStorage.getItem("@merge_rest_duration");
+    if (saved) {
+      setRestDuration(parseInt(saved) || 90);
+    }
+  };
+
+  const saveRestDuration = async (seconds: number) => {
+    setRestDuration(seconds);
+    await AsyncStorage.setItem("@merge_rest_duration", seconds.toString());
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
   const loadRoutine = async () => {
     const routines = await storage.getRoutines();
     const found = routines.find((r) => r.id === route.params.routineId);
@@ -147,7 +174,7 @@ export default function ActiveWorkoutScreen() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    setRestTimer(90);
+    setRestTimer(restDuration);
     setIsResting(true);
     timerRef.current = setInterval(() => {
       setRestTimer((prev) => {
@@ -229,6 +256,41 @@ export default function ActiveWorkoutScreen() {
           </AnimatedPress>
         </View>
       ) : null}
+
+      {showRestPicker ? (
+        <View style={[styles.restPickerOverlay, { backgroundColor: theme.backgroundDefault }]}>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Rest Duration</ThemedText>
+          <View style={styles.restPickerRow}>
+            {[30, 60, 90, 120, 180].map((seconds) => (
+              <Pressable
+                key={seconds}
+                onPress={() => saveRestDuration(seconds)}
+                style={[
+                  styles.restPickerOption,
+                  {
+                    backgroundColor: restDuration === seconds
+                      ? Colors.light.primary
+                      : theme.backgroundSecondary,
+                  },
+                ]}
+              >
+                <ThemedText
+                  type="body"
+                  style={{
+                    color: restDuration === seconds ? "#FFFFFF" : theme.text,
+                    fontWeight: "600",
+                  }}
+                >
+                  {seconds < 60 ? `${seconds}s` : `${seconds / 60}m`}
+                </ThemedText>
+              </Pressable>
+            ))}
+          </View>
+          <AnimatedPress onPress={() => setShowRestPicker(false)} style={{ marginTop: Spacing.md }}>
+            <ThemedText type="small" style={{ color: Colors.light.primary }}>Done</ThemedText>
+          </AnimatedPress>
+        </View>
+      ) : null}
       
       <ScrollView
         contentContainerStyle={[
@@ -246,16 +308,26 @@ export default function ActiveWorkoutScreen() {
         
         {exercises.map((exercise, exerciseIndex) => (
           <Card key={exercise.exerciseId} style={styles.exerciseCard}>
-            <ThemedText type="h4" style={styles.exerciseName}>
-              {exercise.exerciseName}
-            </ThemedText>
+            <Pressable
+              onPress={() => navigation.navigate("ExerciseHistory", {
+                exerciseId: exercise.exerciseId,
+                exerciseName: exercise.exerciseName,
+              })}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
+                <ThemedText type="h4" style={styles.exerciseName}>
+                  {exercise.exerciseName}
+                </ThemedText>
+                <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+              </View>
+            </Pressable>
             
             <View style={styles.setHeader}>
               <ThemedText type="small" style={[styles.headerCell, { flex: 0.5 }]}>
                 Set
               </ThemedText>
               <ThemedText type="small" style={styles.headerCell}>
-                Weight (lbs)
+                Weight ({weightLabel(unitSystem)})
               </ThemedText>
               <ThemedText type="small" style={styles.headerCell}>
                 Reps
@@ -330,6 +402,15 @@ export default function ActiveWorkoutScreen() {
       </ScrollView>
       
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+        <AnimatedPress
+          onPress={() => setShowRestPicker(!showRestPicker)}
+          style={styles.restSettingsButton}
+        >
+          <Feather name="clock" size={16} color={Colors.light.primary} />
+          <ThemedText type="small" style={{ color: Colors.light.primary, marginLeft: Spacing.xs }}>
+            Rest: {restDuration < 60 ? `${restDuration}s` : `${restDuration / 60}m`}
+          </ThemedText>
+        </AnimatedPress>
         <Button onPress={finishWorkout} style={styles.finishButton}>
           Finish Workout
         </Button>
@@ -430,5 +511,35 @@ const styles = StyleSheet.create({
   },
   finishButton: {
     width: "100%",
+  },
+  restPickerOverlay: {
+    position: "absolute",
+    top: 100,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    zIndex: 20,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.xl,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  restPickerRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  restPickerOption: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  restSettingsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
   },
 });

@@ -6,16 +6,18 @@ import Animated, {
   withSpring,
   WithSpringConfig,
 } from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { BorderRadius, Spacing } from "@/constants/theme";
 
-interface ButtonProps {
+export interface ButtonProps {
   onPress?: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  variant?: "filled" | "outline";
 }
 
 const springConfig: WithSpringConfig = {
@@ -32,6 +34,7 @@ export function Button({
   children,
   style,
   disabled = false,
+  variant = "filled",
 }: ButtonProps) {
   const { theme } = useTheme();
   const translateY = useSharedValue(0);
@@ -46,6 +49,7 @@ export function Button({
 
   const handlePressIn = () => {
     if (!disabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       translateY.value = withSpring(-4, springConfig);
       scale.value = withSpring(0.98, springConfig);
     }
@@ -58,6 +62,8 @@ export function Button({
     }
   };
 
+  const isOutline = variant === "outline";
+
   return (
     <AnimatedPressable
       onPress={disabled ? undefined : onPress}
@@ -67,19 +73,25 @@ export function Button({
       style={[
         styles.button,
         {
-          backgroundColor: theme.link,
+          backgroundColor: isOutline ? "transparent" : theme.link,
+          borderWidth: isOutline ? 2 : 0,
+          borderColor: isOutline ? theme.link : undefined,
           opacity: disabled ? 0.5 : 1,
         },
         style,
         animatedStyle,
       ]}
     >
-      <ThemedText
-        type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
-      >
-        {children}
-      </ThemedText>
+      {React.isValidElement(children) ? (
+        children
+      ) : (
+        <ThemedText
+          type="body"
+          style={[styles.buttonText, { color: isOutline ? theme.link : theme.buttonText }]}
+        >
+          {children}
+        </ThemedText>
+      )}
     </AnimatedPressable>
   );
 }

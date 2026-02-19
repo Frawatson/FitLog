@@ -1,18 +1,25 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import sharp from "sharp";
 import { exerciseDatabase, getExercisesByMuscle, getExercisesByDifficulty, type LocalExercise } from "./exerciseDatabase";
-import { 
+import {
   getBodyWeights, addBodyWeight, deleteBodyWeight,
   getMacroTargets, saveMacroTargets,
   getRoutines, saveRoutine, deleteRoutine,
   getWorkouts, saveWorkout,
-  getRuns, saveRun,
+  getRuns, saveRun, deleteRun,
   getFoodLogs, saveFoodLog, updateFoodLog, deleteFoodLog,
   getUserStreak, updateUserStreak,
   getCustomExercises, saveCustomExercise, deleteCustomExercise,
   getSavedFoods, saveSavedFood, deleteSavedFood,
   getNotificationPrefs, saveNotificationPrefs,
-  getUserById
+  getUserById,
+  pool,
+  followUser, unfollowUser, isFollowing, getFollowers, getFollowing,
+  createPost, getPost, deletePost, getFeedPosts, getUserPosts,
+  likePost, unlikePost,
+  getPostComments, addComment, deleteComment,
+  searchUsers, getSocialProfile, updateSocialProfile,
 } from "./db";
 import { requireAuth } from "./auth";
 
@@ -184,6 +191,21 @@ Return JSON array only:
         baseURL: openaiBaseUrl,
       });
 
+      // Enhance image brightness and sharpness for better AI recognition
+      let enhancedBase64 = imageBase64;
+      try {
+        const imgBuffer = Buffer.from(imageBase64, "base64");
+        const enhanced = await sharp(imgBuffer)
+          .modulate({ brightness: 1.3 })
+          .sharpen()
+          .jpeg({ quality: 90 })
+          .toBuffer();
+        enhancedBase64 = enhanced.toString("base64");
+        console.log("[Photo] Enhanced image: brightness +30%, sharpened");
+      } catch (enhanceErr) {
+        console.log("[Photo] Enhancement skipped, using original:", enhanceErr);
+      }
+
       // CALL A: Vision - identify food items, categorize, and estimate grams
       const promptA = `Analyze this food photo for a bodybuilding-focused macro tracker.
 
@@ -193,7 +215,8 @@ STRICT RULES:
 - Choose category ONLY from APPROVED_LIST. If uncertain, choose the closest match. Do NOT invent categories.
 - If fried/breaded, set fried_breaded=true.
 - If pan-seared meat and visible oil sheen/pooling, set pan_seared=true and oil_present=true.
-- If sauce is visible, estimate sauce_tbsp (min/median/max) and set sauce_type from ["none","bbq","mayo_ranch","ketchup","hot_sauce","unknown"].
+- ALWAYS check for sauces, dressings, condiments, glazes, and toppings. Even thin coatings, drizzles, or mixed-in sauces count. List each sauce as its own separate item from FATS/SAUCES with estimated grams. Do NOT set sauce_type or sauce_tbsp on other items — sauces are always their own line items.
+- Sauce visual cues: glossy/shiny surface = oil or butter-based sauce; red/orange coating = tomato/hot sauce; white/cream coating = alfredo/ranch/mayo; brown glaze = teriyaki/soy/gravy; yellow = mustard/cheese sauce.
 
 PORTION SIZE REFERENCE (use these to calibrate your gram estimates):
 - A standard dinner plate is ~25-27cm (10-11 inches) diameter. Use the plate as a ruler.
@@ -222,7 +245,7 @@ VEGETABLES (50):
 broccoli, green_beans, asparagus, spinach, kale, mixed_vegetables, salad_plain, carrots, zucchini, brussels_sprouts, cauliflower, cabbage, bell_peppers, onions, mushrooms, tomatoes, cucumber, lettuce, arugula, bok_choy, broccolini, snap_peas, peas, corn, sweet_corn, eggplant, okra, beets, celery, radish, sauerkraut, pickles, jalapenos, garlic, ginger, spring_mix, coleslaw_plain, coleslaw_creamy, salsa, pico_de_gallo, kimchi, seaweed_salad, edamame_side, butternut_squash, pumpkin, parsnips, turnips, artichoke, leeks, fajita_veggies, stir_fry_veggies
 
 Return JSON only:
-{"items":[{"name":"","category":"","grams":{"min":0,"median":0,"max":0},"bone_in":false,"fried_breaded":false,"pan_seared":false,"oil_present":false,"sauce_type":"none","sauce_tbsp":{"min":0,"median":0,"max":0}}],"confidence":0}`;
+{"items":[{"name":"","category":"","grams":{"min":0,"median":0,"max":0},"bone_in":false,"fried_breaded":false,"pan_seared":false,"oil_present":false}],"confidence":0}`;
 
       const callAResponse = await openai.chat.completions.create({
         model: "gpt-5.2",
@@ -237,14 +260,14 @@ Return JSON only:
               {
                 type: "image_url",
                 image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`,
-                  detail: "auto",
+                  url: `data:image/jpeg;base64,${enhancedBase64}`,
+                  detail: "high",
                 },
               },
             ],
           },
         ],
-        max_completion_tokens: 800,
+        max_completion_tokens: 900,
       });
 
       const callAFinish = callAResponse.choices[0]?.finish_reason;
@@ -664,8 +687,11 @@ Respond ONLY with valid JSON in this exact format:
       const userId = (req as any).userId;
       const { calories, protein, carbs, fat } = req.body;
       
-      if (!calories || !protein || !carbs || !fat) {
-        return res.status(400).json({ error: "All macro values are required" });
+      if (typeof calories !== "number" || typeof protein !== "number" || typeof carbs !== "number" || typeof fat !== "number") {
+        return res.status(400).json({ error: "All macro values must be numbers" });
+      }
+      if (calories <= 0 || protein < 0 || carbs < 0 || fat < 0) {
+        return res.status(400).json({ error: "Calories must be positive, macros cannot be negative" });
       }
       
       const targets = await saveMacroTargets(userId, { calories, protein, carbs, fat });
@@ -691,13 +717,20 @@ Respond ONLY with valid JSON in this exact format:
   app.post("/api/routines", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const { clientId, name, exercises, createdAt, lastCompletedAt } = req.body;
-      
+      const { clientId, name, exercises, createdAt, lastCompletedAt, isFavorite, category } = req.body;
+
       if (!clientId || !name) {
         return res.status(400).json({ error: "clientId and name are required" });
       }
-      
-      await saveRoutine(userId, { clientId, name, exercises: exercises || [], createdAt, lastCompletedAt });
+      if (name.length > 100) {
+        return res.status(400).json({ error: "Routine name cannot exceed 100 characters" });
+      }
+      const exerciseList = exercises || [];
+      if (exerciseList.length > 30) {
+        return res.status(400).json({ error: "Routine cannot have more than 30 exercises" });
+      }
+
+      await saveRoutine(userId, { clientId, name, exercises: exerciseList, createdAt, lastCompletedAt, isFavorite, category });
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving routine:", error);
@@ -734,13 +767,13 @@ Respond ONLY with valid JSON in this exact format:
   app.post("/api/workouts", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const { clientId, routineId, routineName, exercises, startedAt, completedAt, durationMinutes } = req.body;
-      
+      const { clientId, routineId, routineName, exercises, startedAt, completedAt, durationMinutes, notes, totalVolumeKg } = req.body;
+
       if (!clientId || !startedAt) {
         return res.status(400).json({ error: "clientId and startedAt are required" });
       }
-      
-      await saveWorkout(userId, { clientId, routineId, routineName, exercises: exercises || [], startedAt, completedAt, durationMinutes });
+
+      await saveWorkout(userId, { clientId, routineId, routineName, exercises: exercises || [], startedAt, completedAt, durationMinutes, notes, totalVolumeKg });
       
       // Update user's streak when completing a workout
       const streak = await updateUserStreak(userId);
@@ -766,13 +799,19 @@ Respond ONLY with valid JSON in this exact format:
   app.post("/api/runs", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const { clientId, distanceKm, durationSeconds, paceMinPerKm, calories, startedAt, completedAt, route } = req.body;
-      
+      const { clientId, distanceKm, durationSeconds, paceMinPerKm, calories, startedAt, completedAt, route, elevationGainM, avgHeartRate, maxHeartRate } = req.body;
+
       if (!clientId || !startedAt || !completedAt) {
         return res.status(400).json({ error: "clientId, startedAt, and completedAt are required" });
       }
-      
-      await saveRun(userId, { clientId, distanceKm, durationSeconds, paceMinPerKm, calories, startedAt, completedAt, route });
+      if (typeof distanceKm !== "number" || distanceKm <= 0) {
+        return res.status(400).json({ error: "distanceKm must be a positive number" });
+      }
+      if (typeof durationSeconds !== "number" || durationSeconds <= 0) {
+        return res.status(400).json({ error: "durationSeconds must be a positive number" });
+      }
+
+      await saveRun(userId, { clientId, distanceKm, durationSeconds, paceMinPerKm, calories, startedAt, completedAt, route, elevationGainM, avgHeartRate, maxHeartRate });
       
       // Update user's streak when completing a run
       const streak = await updateUserStreak(userId);
@@ -780,6 +819,21 @@ Respond ONLY with valid JSON in this exact format:
     } catch (error) {
       console.error("Error saving run:", error);
       res.status(500).json({ error: "Failed to save run" });
+    }
+  });
+
+  app.delete("/api/runs/:clientId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { clientId } = req.params;
+      const deleted = await deleteRun(userId, clientId);
+      if (!deleted) {
+        return res.status(404).json({ error: "Run not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting run:", error);
+      res.status(500).json({ error: "Failed to delete run" });
     }
   });
 
@@ -799,13 +853,22 @@ Respond ONLY with valid JSON in this exact format:
   app.post("/api/food-logs", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const { clientId, foodData, date, createdAt, imageUri } = req.body;
-      
+      const { clientId, foodData, date, createdAt, imageUri, mealType } = req.body;
+
       if (!clientId || !foodData || !date) {
         return res.status(400).json({ error: "clientId, foodData, and date are required" });
       }
-      
-      await saveFoodLog(userId, { clientId, foodData, date, createdAt: createdAt || new Date().toISOString(), imageUri });
+
+      // Prevent logging food for future dates
+      const logDate = new Date(date);
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      if (logDate >= tomorrow) {
+        return res.status(400).json({ error: "Cannot log food for future dates" });
+      }
+
+      await saveFoodLog(userId, { clientId, foodData, date, createdAt: createdAt || new Date().toISOString(), mealType, imageUri });
       res.json({ success: true });
     } catch (error) {
       console.error("Error saving food log:", error);
@@ -1002,6 +1065,503 @@ Respond ONLY with valid JSON in this exact format:
     } catch (error) {
       console.error("Error getting streak:", error);
       res.status(500).json({ error: "Failed to get streak" });
+    }
+  });
+
+  // ========== Bulk Sync Endpoint ==========
+  app.post("/api/sync/bulk", requireAuth, async (req: Request, res: Response) => {
+    const userId = (req as any).userId;
+    const { routines, workouts, runs, foodLogs, bodyWeights } = req.body;
+    const synced = { routines: 0, workouts: 0, runs: 0, foodLogs: 0, bodyWeights: 0 };
+    const errors: string[] = [];
+
+    const client = await (await import("./db")).pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      if (Array.isArray(routines)) {
+        for (const r of routines) {
+          try {
+            await saveRoutine(userId, r);
+            synced.routines++;
+          } catch (e: any) { errors.push(`routine ${r.clientId}: ${e.message}`); }
+        }
+      }
+      if (Array.isArray(workouts)) {
+        for (const w of workouts) {
+          try {
+            await saveWorkout(userId, w);
+            synced.workouts++;
+          } catch (e: any) { errors.push(`workout ${w.clientId}: ${e.message}`); }
+        }
+      }
+      if (Array.isArray(runs)) {
+        for (const r of runs) {
+          try {
+            await saveRun(userId, r);
+            synced.runs++;
+          } catch (e: any) { errors.push(`run ${r.clientId}: ${e.message}`); }
+        }
+      }
+      if (Array.isArray(foodLogs)) {
+        for (const f of foodLogs) {
+          try {
+            await saveFoodLog(userId, f);
+            synced.foodLogs++;
+          } catch (e: any) { errors.push(`foodLog ${f.clientId}: ${e.message}`); }
+        }
+      }
+      if (Array.isArray(bodyWeights)) {
+        for (const b of bodyWeights) {
+          try {
+            await addBodyWeight(userId, b.weightKg, new Date(b.date));
+            synced.bodyWeights++;
+          } catch (e: any) { errors.push(`bodyWeight: ${e.message}`); }
+        }
+      }
+
+      await client.query("COMMIT");
+      res.json({ synced, errors });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Bulk sync error:", error);
+      res.status(500).json({ error: "Bulk sync failed" });
+    } finally {
+      client.release();
+    }
+  });
+
+  // ========== Workout Analytics Endpoint ==========
+  app.get("/api/workouts/analytics", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const period = (req.query.period as string) || "month";
+
+      let dateFilter = "";
+      if (period === "week") {
+        dateFilter = "AND completed_at >= NOW() - INTERVAL '7 days'";
+      } else if (period === "month") {
+        dateFilter = "AND completed_at >= NOW() - INTERVAL '30 days'";
+      }
+      // "all" = no filter
+
+      const { pool } = await import("./db");
+
+      // Basic stats
+      const statsResult = await pool.query(
+        `SELECT
+           COUNT(*)::int as total_workouts,
+           COALESCE(AVG(duration_minutes), 0)::real as avg_duration,
+           COALESCE(SUM(total_volume_kg), 0)::real as total_volume
+         FROM workouts
+         WHERE user_id = $1 AND completed_at IS NOT NULL ${dateFilter}`,
+        [userId]
+      );
+
+      // Workout frequency (workouts per week)
+      const freqResult = await pool.query(
+        `SELECT
+           COUNT(*)::real / GREATEST(
+             EXTRACT(EPOCH FROM (MAX(completed_at) - MIN(completed_at))) / 604800,
+             1
+           ) as workouts_per_week
+         FROM workouts
+         WHERE user_id = $1 AND completed_at IS NOT NULL ${dateFilter}`,
+        [userId]
+      );
+
+      // Muscle group breakdown from exercises JSONB
+      const muscleResult = await pool.query(
+        `SELECT
+           exercise->>'exerciseName' as exercise_name,
+           COUNT(*)::int as times_performed
+         FROM workouts,
+              jsonb_array_elements(exercises) as exercise
+         WHERE user_id = $1 AND completed_at IS NOT NULL ${dateFilter}
+         GROUP BY exercise->>'exerciseName'
+         ORDER BY times_performed DESC
+         LIMIT 20`,
+        [userId]
+      );
+
+      const stats = statsResult.rows[0];
+      res.json({
+        totalWorkouts: stats.total_workouts,
+        avgDurationMinutes: Math.round(stats.avg_duration),
+        totalVolumeKg: Math.round(stats.total_volume * 10) / 10,
+        workoutsPerWeek: Math.round((freqResult.rows[0]?.workouts_per_week || 0) * 10) / 10,
+        topExercises: muscleResult.rows.map(r => ({
+          name: r.exercise_name,
+          count: r.times_performed,
+        })),
+        period,
+      });
+    } catch (error) {
+      console.error("Error getting workout analytics:", error);
+      res.status(500).json({ error: "Failed to get workout analytics" });
+    }
+  });
+
+  // Personal Records endpoint
+  app.get("/api/workouts/prs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).userId;
+      const { pool } = await import("./db");
+
+      const result = await pool.query(
+        `SELECT
+           exercise->>'exerciseName' as exercise_name,
+           exercise->>'exerciseId' as exercise_id,
+           s->>'weight' as weight,
+           s->>'reps' as reps,
+           w.completed_at
+         FROM workouts w,
+              jsonb_array_elements(w.exercises) as exercise,
+              jsonb_array_elements(exercise->'sets') as s
+         WHERE w.user_id = $1
+           AND w.completed_at IS NOT NULL
+           AND (s->>'completed')::boolean = true
+           AND (s->>'weight')::real > 0`,
+        [userId]
+      );
+
+      // Calculate max weight and max volume per exercise
+      const exercisePRs: Record<string, {
+        exerciseName: string;
+        exerciseId: string;
+        maxWeight: number;
+        maxWeightDate: string;
+        maxWeightReps: number;
+        maxVolume: number;
+        maxVolumeDate: string;
+      }> = {};
+
+      for (const row of result.rows) {
+        const key = row.exercise_id;
+        const weight = parseFloat(row.weight);
+        const reps = parseInt(row.reps);
+        const volume = weight * reps;
+        const date = row.completed_at;
+
+        if (!exercisePRs[key]) {
+          exercisePRs[key] = {
+            exerciseName: row.exercise_name,
+            exerciseId: key,
+            maxWeight: 0,
+            maxWeightDate: "",
+            maxWeightReps: 0,
+            maxVolume: 0,
+            maxVolumeDate: "",
+          };
+        }
+
+        if (weight > exercisePRs[key].maxWeight) {
+          exercisePRs[key].maxWeight = weight;
+          exercisePRs[key].maxWeightDate = date;
+          exercisePRs[key].maxWeightReps = reps;
+        }
+        if (volume > exercisePRs[key].maxVolume) {
+          exercisePRs[key].maxVolume = volume;
+          exercisePRs[key].maxVolumeDate = date;
+        }
+      }
+
+      res.json(Object.values(exercisePRs));
+    } catch (error) {
+      console.error("Error getting PRs:", error);
+      res.status(500).json({ error: "Failed to get personal records" });
+    }
+  });
+
+  // ========== Progress Photos ==========
+
+  app.get("/api/progress-photos", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const result = await pool.query(
+        "SELECT client_id, image_data, date, weight_kg, notes, created_at FROM progress_photos WHERE user_id = $1 ORDER BY date DESC",
+        [req.session.userId]
+      );
+      res.json(result.rows.map((r: any) => ({
+        id: r.client_id,
+        imageData: r.image_data,
+        date: r.date,
+        weightKg: r.weight_kg,
+        notes: r.notes,
+        createdAt: r.created_at,
+      })));
+    } catch (error) {
+      console.error("Error getting progress photos:", error);
+      res.status(500).json({ error: "Failed to get progress photos" });
+    }
+  });
+
+  app.post("/api/progress-photos", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { clientId, imageData, date, weightKg, notes } = req.body;
+      if (!clientId || !imageData || !date) {
+        res.status(400).json({ error: "clientId, imageData, and date are required" });
+        return;
+      }
+      await pool.query(
+        `INSERT INTO progress_photos (user_id, client_id, image_data, date, weight_kg, notes)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (user_id, client_id) DO UPDATE SET
+           image_data = EXCLUDED.image_data,
+           date = EXCLUDED.date,
+           weight_kg = EXCLUDED.weight_kg,
+           notes = EXCLUDED.notes`,
+        [req.session.userId, clientId, imageData, date, weightKg || null, notes || null]
+      );
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving progress photo:", error);
+      res.status(500).json({ error: "Failed to save progress photo" });
+    }
+  });
+
+  app.delete("/api/progress-photos/:clientId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      await pool.query(
+        "DELETE FROM progress_photos WHERE user_id = $1 AND client_id = $2",
+        [req.session.userId, req.params.clientId]
+      );
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting progress photo:", error);
+      res.status(500).json({ error: "Failed to delete progress photo" });
+    }
+  });
+
+  // ========== Social: Follow Routes ==========
+
+  app.post("/api/social/follow/:userId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      if (isNaN(targetId) || targetId === req.userId) {
+        return res.status(400).json({ error: "Invalid user" });
+      }
+      const success = await followUser(req.userId, targetId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error following user:", error);
+      res.status(500).json({ error: "Failed to follow user" });
+    }
+  });
+
+  app.delete("/api/social/follow/:userId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user" });
+      const success = await unfollowUser(req.userId, targetId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error unfollowing user:", error);
+      res.status(500).json({ error: "Failed to unfollow user" });
+    }
+  });
+
+  app.get("/api/social/followers/:userId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      const page = parseInt(req.query.page as string) || 0;
+      const followers = await getFollowers(targetId, req.userId, page, 20);
+      res.json(followers);
+    } catch (error) {
+      console.error("Error getting followers:", error);
+      res.status(500).json({ error: "Failed to get followers" });
+    }
+  });
+
+  app.get("/api/social/following/:userId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      const page = parseInt(req.query.page as string) || 0;
+      const following = await getFollowing(targetId, req.userId, page, 20);
+      res.json(following);
+    } catch (error) {
+      console.error("Error getting following:", error);
+      res.status(500).json({ error: "Failed to get following" });
+    }
+  });
+
+  // ========== Social: Post Routes ==========
+
+  app.get("/api/social/feed", requireAuth, async (req: any, res: Response) => {
+    try {
+      const cursor = req.query.cursor as string | undefined;
+      const result = await getFeedPosts(req.userId, cursor);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting feed:", error);
+      res.status(500).json({ error: "Failed to get feed" });
+    }
+  });
+
+  app.post("/api/social/posts", requireAuth, async (req: any, res: Response) => {
+    try {
+      const { clientId, postType, content, referenceId, referenceData, imageData, visibility } = req.body;
+      if (!clientId || !postType) {
+        return res.status(400).json({ error: "clientId and postType are required" });
+      }
+      const postId = await createPost(req.userId, { clientId, postType, content, referenceId, referenceData, imageData, visibility });
+      res.json({ success: true, postId });
+    } catch (error) {
+      console.error("Error creating post:", error);
+      res.status(500).json({ error: "Failed to create post" });
+    }
+  });
+
+  app.get("/api/social/posts/:postId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+      const post = await getPost(postId, req.userId);
+      if (!post) return res.status(404).json({ error: "Post not found" });
+      res.json(post);
+    } catch (error) {
+      console.error("Error getting post:", error);
+      res.status(500).json({ error: "Failed to get post" });
+    }
+  });
+
+  app.delete("/api/social/posts/:postId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+      const success = await deletePost(req.userId, postId);
+      if (!success) return res.status(404).json({ error: "Post not found or not owned" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      res.status(500).json({ error: "Failed to delete post" });
+    }
+  });
+
+  app.get("/api/social/posts/user/:userId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      const cursor = req.query.cursor as string | undefined;
+      if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+
+      // Privacy check: non-public profiles hidden from non-followers
+      if (targetId !== req.userId) {
+        const profile = await getSocialProfile(targetId, req.userId);
+        if (profile && !profile.isPublic && !profile.isFollowedByMe) {
+          return res.json({ posts: [], nextCursor: undefined });
+        }
+      }
+
+      const result = await getUserPosts(targetId, req.userId, cursor);
+      res.json(result);
+    } catch (error) {
+      console.error("Error getting user posts:", error);
+      res.status(500).json({ error: "Failed to get user posts" });
+    }
+  });
+
+  // ========== Social: Like Routes ==========
+
+  app.post("/api/social/posts/:postId/like", requireAuth, async (req: any, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+      const success = await likePost(req.userId, postId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error liking post:", error);
+      res.status(500).json({ error: "Failed to like post" });
+    }
+  });
+
+  app.delete("/api/social/posts/:postId/like", requireAuth, async (req: any, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+      const success = await unlikePost(req.userId, postId);
+      res.json({ success });
+    } catch (error) {
+      console.error("Error unliking post:", error);
+      res.status(500).json({ error: "Failed to unlike post" });
+    }
+  });
+
+  // ========== Social: Comment Routes ==========
+
+  app.get("/api/social/posts/:postId/comments", requireAuth, async (req: any, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      const page = parseInt(req.query.page as string) || 0;
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+      const comments = await getPostComments(postId, page, 20);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error getting comments:", error);
+      res.status(500).json({ error: "Failed to get comments" });
+    }
+  });
+
+  app.post("/api/social/posts/:postId/comments", requireAuth, async (req: any, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      const { clientId, content } = req.body;
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+      if (!clientId || !content?.trim()) return res.status(400).json({ error: "clientId and content are required" });
+      const comment = await addComment(req.userId, postId, clientId, content.trim());
+      res.json(comment);
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      res.status(500).json({ error: "Failed to add comment" });
+    }
+  });
+
+  app.delete("/api/social/comments/:commentId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const commentId = parseInt(req.params.commentId);
+      if (isNaN(commentId)) return res.status(400).json({ error: "Invalid comment ID" });
+      const success = await deleteComment(req.userId, commentId);
+      if (!success) return res.status(404).json({ error: "Comment not found or not owned" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ error: "Failed to delete comment" });
+    }
+  });
+
+  // ========== Social: User Discovery & Profile ==========
+
+  app.get("/api/social/users/search", requireAuth, async (req: any, res: Response) => {
+    try {
+      const query = (req.query.q as string || "").trim();
+      if (query.length < 2) return res.json([]);
+      const users = await searchUsers(query, req.userId);
+      res.json(users);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+
+  app.get("/api/social/users/:userId/profile", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user ID" });
+      const profile = await getSocialProfile(targetId, req.userId);
+      if (!profile) return res.status(404).json({ error: "User not found" });
+      res.json(profile);
+    } catch (error) {
+      console.error("Error getting social profile:", error);
+      res.status(500).json({ error: "Failed to get profile" });
+    }
+  });
+
+  app.put("/api/social/profile", requireAuth, async (req: any, res: Response) => {
+    try {
+      const { bio, avatarUrl, isPublic } = req.body;
+      await updateSocialProfile(req.userId, { bio, avatarUrl, isPublic });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating social profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
     }
   });
 

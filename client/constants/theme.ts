@@ -22,6 +22,8 @@ export const Colors = {
     backgroundDefault: "#F5F5F5",
     backgroundSecondary: "#EBEBEB",
     backgroundTertiary: "#E0E0E0",
+    backgroundCard: "#FFFFFF",
+    backgroundElevated: "#F5F5F5",
     cardBorder: "#E0E0E0",
   },
   dark: {
@@ -39,6 +41,8 @@ export const Colors = {
     backgroundDefault: "#252525",
     backgroundSecondary: "#2F2F2F",
     backgroundTertiary: "#3A3A3A",
+    backgroundCard: "#252525",
+    backgroundElevated: "#2F2F2F",
     cardBorder: "#353739",
   },
 };
@@ -73,51 +77,92 @@ export const Typography = {
     fontSize: 32,
     lineHeight: 40,
     fontWeight: "700" as const,
+    fontFamily: "Montserrat_700Bold",
   },
   h1: {
     fontSize: 24,
     lineHeight: 32,
     fontWeight: "700" as const,
+    fontFamily: "Montserrat_700Bold",
   },
   h2: {
     fontSize: 20,
     lineHeight: 28,
     fontWeight: "600" as const,
+    fontFamily: "Montserrat_600SemiBold",
   },
   h3: {
     fontSize: 18,
     lineHeight: 26,
     fontWeight: "600" as const,
+    fontFamily: "Montserrat_600SemiBold",
   },
   h4: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "600" as const,
+    fontFamily: "Montserrat_600SemiBold",
   },
   body: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "400" as const,
+    fontFamily: "Montserrat_400Regular",
   },
   small: {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "400" as const,
+    fontFamily: "Montserrat_400Regular",
   },
   caption: {
     fontSize: 12,
     lineHeight: 16,
     fontWeight: "400" as const,
+    fontFamily: "Montserrat_400Regular",
   },
   button: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "700" as const,
+    fontFamily: "Montserrat_700Bold",
   },
   link: {
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "400" as const,
+    fontFamily: "Montserrat_400Regular",
+  },
+};
+
+export const Shadows = {
+  sm: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  md: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  lg: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fab: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
   },
 };
 

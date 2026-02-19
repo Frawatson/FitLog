@@ -2,7 +2,9 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import RunGoalScreen from "@/screens/RunGoalScreen";
 import RunTrackerScreen from "@/screens/RunTrackerScreen";
+import RunDetailScreen from "@/screens/RunDetailScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
+import type { RunEntry } from "@/types";
 
 export type RunGoal = {
   type: "distance" | "time";
@@ -12,6 +14,7 @@ export type RunGoal = {
 export type RunStackParamList = {
   RunGoal: undefined;
   RunTracker: { goal?: RunGoal };
+  RunDetail: { run: RunEntry };
 };
 
 const Stack = createNativeStackNavigator<RunStackParamList>();
@@ -30,6 +33,11 @@ export default function RunStackNavigator() {
         name="RunGoal"
         component={RunGoalScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="RunDetail"
+        component={RunDetailScreen}
+        options={{ headerTitle: "Run Details" }}
       />
     </Stack.Navigator>
   );

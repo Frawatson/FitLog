@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import React, { useState, useEffect, useRef } from "react";
+import { View, StyleSheet, ScrollView, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -10,6 +10,9 @@ import Animated, {
   withSpring,
   withDelay,
 } from "react-native-reanimated";
+import ViewShot from "react-native-view-shot";
+import * as Sharing from "expo-sharing";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -32,6 +35,8 @@ export default function WorkoutCompleteScreen() {
   
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [progressions, setProgressions] = useState<{ exercise: string; message: string }[]>([]);
+  const [newPRs, setNewPRs] = useState<{ exercise: string; weight: number; reps: number }[]>([]);
+  const viewShotRef = useRef<ViewShot>(null);
   
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
@@ -48,7 +53,7 @@ export default function WorkoutCompleteScreen() {
     const found = workouts.find((w) => w.id === route.params.workoutId);
     if (found) {
       setWorkout(found);
-      
+
       // Calculate progressions
       const progs: { exercise: string; message: string }[] = [];
       for (const ex of found.exercises) {
@@ -67,6 +72,41 @@ export default function WorkoutCompleteScreen() {
         }
       }
       setProgressions(progs);
+
+      // Check for new PRs by comparing against all previous workouts
+      const previousWorkouts = workouts.filter((w) => w.id !== found.id && w.completedAt);
+      const prs: { exercise: string; weight: number; reps: number }[] = [];
+
+      for (const ex of found.exercises) {
+        const completedSets = ex.sets.filter((s) => s.completed && s.weight > 0);
+        if (completedSets.length === 0) continue;
+
+        const currentMaxWeight = Math.max(...completedSets.map((s) => s.weight));
+
+        // Find previous max weight for this exercise
+        let previousMaxWeight = 0;
+        for (const prevW of previousWorkouts) {
+          for (const prevEx of prevW.exercises) {
+            if (prevEx.exerciseId === ex.exerciseId) {
+              for (const s of prevEx.sets) {
+                if (s.completed && s.weight > previousMaxWeight) {
+                  previousMaxWeight = s.weight;
+                }
+              }
+            }
+          }
+        }
+
+        if (currentMaxWeight > previousMaxWeight && previousMaxWeight > 0) {
+          const bestSet = completedSets.find((s) => s.weight === currentMaxWeight);
+          prs.push({
+            exercise: ex.exerciseName,
+            weight: currentMaxWeight,
+            reps: bestSet?.reps || 0,
+          });
+        }
+      }
+      setNewPRs(prs);
     }
   };
   
@@ -75,6 +115,25 @@ export default function WorkoutCompleteScreen() {
       index: 0,
       routes: [{ name: "Main" }],
     });
+  };
+
+  const handleShare = async () => {
+    try {
+      if (!viewShotRef.current?.capture) return;
+      const uri = await viewShotRef.current.capture();
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      const available = await Sharing.isAvailableAsync();
+      if (available) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: "Share Workout Summary",
+        });
+      }
+    } catch (error) {
+      console.error("Error sharing workout:", error);
+    }
   };
   
   const checkmarkStyle = useAnimatedStyle(() => ({
@@ -111,16 +170,21 @@ export default function WorkoutCompleteScreen() {
         </Animated.View>
         
         <Animated.View style={contentStyle}>
+          <ViewShot
+            ref={viewShotRef}
+            options={{ format: "png", quality: 1 }}
+            style={{ backgroundColor: theme.backgroundRoot, padding: Spacing.lg, borderRadius: BorderRadius["2xl"] }}
+          >
           <ThemedText type="h1" style={styles.title}>
             Workout Complete!
           </ThemedText>
-          
+
           {workout ? (
             <>
               <ThemedText type="body" style={styles.subtitle}>
                 {workout.routineName} - {workout.durationMinutes} minutes
               </ThemedText>
-              
+
               <View style={styles.statsRow}>
                 <Card style={styles.statCard}>
                   <ThemedText type="h2" style={{ color: Colors.light.primary }}>
@@ -136,6 +200,30 @@ export default function WorkoutCompleteScreen() {
                 </Card>
               </View>
               
+              {newPRs.length > 0 ? (
+                <Card style={[styles.progressionCard, { marginBottom: Spacing.lg }]}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.lg }}>
+                    <Feather name="award" size={22} color="#FFB300" />
+                    <ThemedText type="h4" style={{ color: "#FFB300" }}>New Personal Records!</ThemedText>
+                  </View>
+                  {newPRs.map((pr, index) => (
+                    <View key={index} style={styles.progressionItem}>
+                      <View style={[styles.prBadge, { backgroundColor: "#FFB30020" }]}>
+                        <Feather name="star" size={16} color="#FFB300" />
+                      </View>
+                      <View style={styles.progressionText}>
+                        <ThemedText type="body" style={{ fontWeight: "600" }}>
+                          {pr.exercise}
+                        </ThemedText>
+                        <ThemedText type="small" style={{ color: "#FFB300" }}>
+                          {pr.weight} lbs x {pr.reps} reps
+                        </ThemedText>
+                      </View>
+                    </View>
+                  ))}
+                </Card>
+              ) : null}
+
               {progressions.length > 0 ? (
                 <Card style={styles.progressionCard}>
                   <ThemedText type="h4" style={styles.progressionTitle}>
@@ -158,13 +246,52 @@ export default function WorkoutCompleteScreen() {
               ) : null}
             </>
           ) : null}
+          </ViewShot>
         </Animated.View>
       </ScrollView>
-      
+
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        <Button onPress={handleDone} style={styles.doneButton}>
-          Done
-        </Button>
+        <View style={styles.footerButtons}>
+          <Button
+            onPress={handleShare}
+            variant="outline"
+            style={styles.shareButton}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+              <Feather name="share-2" size={18} color={Colors.light.primary} />
+              <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
+                Share
+              </ThemedText>
+            </View>
+          </Button>
+          <Button
+            onPress={() => navigation.navigate("CreatePost", {
+              prefill: {
+                postType: "workout" as const,
+                referenceId: workout?.id,
+                referenceData: workout ? {
+                  routineName: workout.routineName,
+                  durationMinutes: workout.durationMinutes,
+                  totalSets: workout.exercises.reduce((acc: number, e: any) => acc + e.sets.length, 0),
+                  exerciseCount: workout.exercises.length,
+                  totalVolumeKg: workout.totalVolumeKg,
+                } : undefined,
+              },
+            })}
+            variant="outline"
+            style={styles.shareButton}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+              <Feather name="users" size={18} color={Colors.light.primary} />
+              <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
+                Post
+              </ThemedText>
+            </View>
+          </Button>
+          <Button onPress={handleDone} style={styles.doneButton}>
+            Done
+          </Button>
+        </View>
       </View>
     </ThemedView>
   );
@@ -232,7 +359,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
   },
+  footerButtons: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  shareButton: {
+    flex: 1,
+  },
   doneButton: {
-    width: "100%",
+    flex: 2,
+  },
+  prBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

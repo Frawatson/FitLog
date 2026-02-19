@@ -1,12 +1,9 @@
 import React from "react";
-import { View, Pressable, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import * as Haptics from "expo-haptics";
 
 import DashboardScreen from "@/screens/DashboardScreen";
 import RoutinesStackNavigator from "@/navigation/RoutinesStackNavigator";
@@ -14,8 +11,7 @@ import RunStackNavigator from "@/navigation/RunStackNavigator";
 import NutritionStackNavigator from "@/navigation/NutritionStackNavigator";
 import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
-import { Colors, Spacing, BorderRadius } from "@/constants/theme";
-import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { Colors } from "@/constants/theme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -27,25 +23,6 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
-type RootNavigation = NativeStackNavigationProp<RootStackParamList>;
-
-function FABButton() {
-  const navigation = useNavigation<RootNavigation>();
-  
-  const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate("SelectRoutine");
-  };
-  
-  return (
-    <Pressable onPress={handlePress} style={styles.fabButton}>
-      <View style={styles.fabInner}>
-        <Feather name="play" size={24} color="#FFFFFF" />
-      </View>
-    </Pressable>
-  );
-}
-
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
 
@@ -53,6 +30,7 @@ export default function MainTabNavigator() {
     <Tab.Navigator
       initialRouteName="HomeTab"
       screenOptions={{
+        lazy: false,
         tabBarActiveTintColor: Colors.light.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
@@ -99,7 +77,7 @@ export default function MainTabNavigator() {
         options={{
           title: "Routines",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="list" size={size} color={color} />
+            <Feather name="layers" size={size} color={color} />
           ),
         }}
       />
@@ -110,7 +88,7 @@ export default function MainTabNavigator() {
           title: "Run",
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
-            <Feather name="navigation" size={size} color={color} />
+            <Feather name="map-pin" size={size} color={color} />
           ),
         }}
       />
@@ -138,22 +116,3 @@ export default function MainTabNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  fabButton: {
-    position: "absolute",
-    top: -30,
-  },
-  fabInner: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.light.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-});

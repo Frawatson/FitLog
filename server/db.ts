@@ -2,6 +2,7 @@ import { Pool } from "pg";
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
 });
 
 export async function initializeDatabase(): Promise<void> {
@@ -197,8 +198,8 @@ export async function initializeDatabase(): Promise<void> {
       );
 
       -- Add streak tracking columns to users table
-      DO $$ 
-      BEGIN 
+      DO $$
+      BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'current_streak') THEN
           ALTER TABLE users ADD COLUMN current_streak INTEGER DEFAULT 0;
         END IF;
@@ -207,6 +208,180 @@ export async function initializeDatabase(): Promise<void> {
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'last_activity_date') THEN
           ALTER TABLE users ADD COLUMN last_activity_date DATE;
+        END IF;
+      END $$;
+
+      -- ========== Sprint 1: Indexes & Constraints ==========
+
+      -- Performance indexes
+      CREATE INDEX IF NOT EXISTS IDX_body_weights_trend ON body_weights (user_id, date DESC, weight_kg);
+      CREATE INDEX IF NOT EXISTS IDX_workouts_routine ON workouts (user_id, routine_id);
+      CREATE INDEX IF NOT EXISTS IDX_runs_distance ON runs (user_id, distance_km DESC);
+      CREATE INDEX IF NOT EXISTS IDX_food_logs_daily ON food_logs (user_id, date, created_at DESC);
+
+      -- CHECK constraints (use DO block to avoid errors on re-run)
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_body_weights_range') THEN
+          ALTER TABLE body_weights ADD CONSTRAINT chk_body_weights_range CHECK (weight_kg BETWEEN 20 AND 500);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_macro_targets_calories') THEN
+          ALTER TABLE macro_targets ADD CONSTRAINT chk_macro_targets_calories CHECK (calories > 0);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_macro_targets_protein') THEN
+          ALTER TABLE macro_targets ADD CONSTRAINT chk_macro_targets_protein CHECK (protein >= 0);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_macro_targets_carbs') THEN
+          ALTER TABLE macro_targets ADD CONSTRAINT chk_macro_targets_carbs CHECK (carbs >= 0);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_macro_targets_fat') THEN
+          ALTER TABLE macro_targets ADD CONSTRAINT chk_macro_targets_fat CHECK (fat >= 0);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_runs_distance') THEN
+          ALTER TABLE runs ADD CONSTRAINT chk_runs_distance CHECK (distance_km > 0);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_runs_duration') THEN
+          ALTER TABLE runs ADD CONSTRAINT chk_runs_duration CHECK (duration_seconds > 0);
+        END IF;
+      END $$;
+
+      -- ========== Sprint 1: New Columns ==========
+
+      -- Routines: is_favorite, category
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routines' AND column_name = 'is_favorite') THEN
+          ALTER TABLE routines ADD COLUMN is_favorite BOOLEAN DEFAULT FALSE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routines' AND column_name = 'category') THEN
+          ALTER TABLE routines ADD COLUMN category VARCHAR(50);
+        END IF;
+      END $$;
+
+      -- Workouts: notes, total_volume_kg
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'workouts' AND column_name = 'notes') THEN
+          ALTER TABLE workouts ADD COLUMN notes TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'workouts' AND column_name = 'total_volume_kg') THEN
+          ALTER TABLE workouts ADD COLUMN total_volume_kg REAL;
+        END IF;
+      END $$;
+
+      -- Runs: elevation_gain_m, avg_heart_rate, max_heart_rate
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'runs' AND column_name = 'elevation_gain_m') THEN
+          ALTER TABLE runs ADD COLUMN elevation_gain_m REAL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'runs' AND column_name = 'avg_heart_rate') THEN
+          ALTER TABLE runs ADD COLUMN avg_heart_rate INTEGER;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'runs' AND column_name = 'max_heart_rate') THEN
+          ALTER TABLE runs ADD COLUMN max_heart_rate INTEGER;
+        END IF;
+      END $$;
+
+      -- Food logs: meal_type
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'food_logs' AND column_name = 'meal_type') THEN
+          ALTER TABLE food_logs ADD COLUMN meal_type VARCHAR(20);
+        END IF;
+      END $$;
+
+      -- ========== Sprint 4: Progress Photos ==========
+
+      CREATE TABLE IF NOT EXISTS progress_photos (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        client_id VARCHAR(255) NOT NULL,
+        image_data TEXT NOT NULL,
+        date DATE NOT NULL,
+        weight_kg REAL,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, client_id)
+      );
+
+      -- ========== Social: Follows ==========
+
+      CREATE TABLE IF NOT EXISTS follows (
+        id SERIAL PRIMARY KEY,
+        follower_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        following_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(follower_id, following_id),
+        CHECK (follower_id != following_id)
+      );
+      CREATE INDEX IF NOT EXISTS IDX_follows_follower ON follows (follower_id);
+      CREATE INDEX IF NOT EXISTS IDX_follows_following ON follows (following_id);
+
+      -- ========== Social: Posts ==========
+
+      CREATE TABLE IF NOT EXISTS posts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        client_id VARCHAR(255) NOT NULL,
+        post_type VARCHAR(30) NOT NULL,
+        content TEXT,
+        reference_id VARCHAR(255),
+        reference_data JSONB,
+        image_data TEXT,
+        visibility VARCHAR(20) DEFAULT 'followers',
+        likes_count INTEGER DEFAULT 0,
+        comments_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, client_id)
+      );
+      CREATE INDEX IF NOT EXISTS IDX_posts_user_id ON posts (user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS IDX_posts_created ON posts (created_at DESC);
+
+      -- ========== Social: Post Likes ==========
+
+      CREATE TABLE IF NOT EXISTS post_likes (
+        id SERIAL PRIMARY KEY,
+        post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(post_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS IDX_post_likes_post ON post_likes (post_id);
+      CREATE INDEX IF NOT EXISTS IDX_post_likes_user ON post_likes (user_id);
+
+      -- ========== Social: Post Comments ==========
+
+      CREATE TABLE IF NOT EXISTS post_comments (
+        id SERIAL PRIMARY KEY,
+        post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        client_id VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, client_id)
+      );
+      CREATE INDEX IF NOT EXISTS IDX_post_comments_post ON post_comments (post_id, created_at ASC);
+      CREATE INDEX IF NOT EXISTS IDX_post_comments_user ON post_comments (user_id);
+
+      -- ========== Social: User Profile Extensions ==========
+
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'bio') THEN
+          ALTER TABLE users ADD COLUMN bio TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_public') THEN
+          ALTER TABLE users ADD COLUMN is_public BOOLEAN DEFAULT TRUE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'avatar_url') THEN
+          ALTER TABLE users ADD COLUMN avatar_url TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'followers_count') THEN
+          ALTER TABLE users ADD COLUMN followers_count INTEGER DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'following_count') THEN
+          ALTER TABLE users ADD COLUMN following_count INTEGER DEFAULT 0;
         END IF;
       END $$;
     `);
@@ -415,11 +590,13 @@ export interface RoutineData {
   exercises: any[];
   createdAt: string;
   lastCompletedAt?: string;
+  isFavorite?: boolean;
+  category?: string;
 }
 
 export async function getRoutines(userId: number): Promise<RoutineData[]> {
   const result = await pool.query(
-    `SELECT client_id, name, exercises, created_at, last_completed_at 
+    `SELECT client_id, name, exercises, created_at, last_completed_at, is_favorite, category
      FROM routines WHERE user_id = $1 ORDER BY created_at DESC`,
     [userId]
   );
@@ -429,19 +606,23 @@ export async function getRoutines(userId: number): Promise<RoutineData[]> {
     exercises: row.exercises,
     createdAt: row.created_at.toISOString(),
     lastCompletedAt: row.last_completed_at?.toISOString(),
+    isFavorite: row.is_favorite ?? false,
+    category: row.category ?? undefined,
   }));
 }
 
 export async function saveRoutine(userId: number, routine: RoutineData): Promise<void> {
   await pool.query(
-    `INSERT INTO routines (user_id, client_id, name, exercises, created_at, last_completed_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO routines (user_id, client_id, name, exercises, created_at, last_completed_at, is_favorite, category)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (user_id, client_id) DO UPDATE SET
        name = EXCLUDED.name,
        exercises = EXCLUDED.exercises,
-       last_completed_at = EXCLUDED.last_completed_at`,
-    [userId, routine.clientId, routine.name, JSON.stringify(routine.exercises), 
-     routine.createdAt, routine.lastCompletedAt || null]
+       last_completed_at = EXCLUDED.last_completed_at,
+       is_favorite = EXCLUDED.is_favorite,
+       category = EXCLUDED.category`,
+    [userId, routine.clientId, routine.name, JSON.stringify(routine.exercises),
+     routine.createdAt, routine.lastCompletedAt || null, routine.isFavorite ?? false, routine.category || null]
   );
 }
 
@@ -462,11 +643,13 @@ export interface WorkoutData {
   startedAt: string;
   completedAt?: string;
   durationMinutes?: number;
+  notes?: string;
+  totalVolumeKg?: number;
 }
 
 export async function getWorkouts(userId: number): Promise<WorkoutData[]> {
   const result = await pool.query(
-    `SELECT client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes
+    `SELECT client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes, notes, total_volume_kg
      FROM workouts WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 100`,
     [userId]
   );
@@ -478,22 +661,27 @@ export async function getWorkouts(userId: number): Promise<WorkoutData[]> {
     startedAt: row.started_at.toISOString(),
     completedAt: row.completed_at?.toISOString(),
     durationMinutes: row.duration_minutes,
+    notes: row.notes ?? undefined,
+    totalVolumeKg: row.total_volume_kg ?? undefined,
   }));
 }
 
 export async function saveWorkout(userId: number, workout: WorkoutData): Promise<void> {
   await pool.query(
-    `INSERT INTO workouts (user_id, client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `INSERT INTO workouts (user_id, client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes, notes, total_volume_kg)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      ON CONFLICT (user_id, client_id) DO UPDATE SET
        routine_id = EXCLUDED.routine_id,
        routine_name = EXCLUDED.routine_name,
        exercises = EXCLUDED.exercises,
        started_at = EXCLUDED.started_at,
        completed_at = EXCLUDED.completed_at,
-       duration_minutes = EXCLUDED.duration_minutes`,
-    [userId, workout.clientId, workout.routineId, workout.routineName, 
-     JSON.stringify(workout.exercises), workout.startedAt, workout.completedAt, workout.durationMinutes]
+       duration_minutes = EXCLUDED.duration_minutes,
+       notes = EXCLUDED.notes,
+       total_volume_kg = EXCLUDED.total_volume_kg`,
+    [userId, workout.clientId, workout.routineId, workout.routineName,
+     JSON.stringify(workout.exercises), workout.startedAt, workout.completedAt, workout.durationMinutes,
+     workout.notes || null, workout.totalVolumeKg || null]
   );
 }
 
@@ -507,11 +695,14 @@ export interface RunData {
   startedAt: string;
   completedAt: string;
   route?: any[];
+  elevationGainM?: number;
+  avgHeartRate?: number;
+  maxHeartRate?: number;
 }
 
 export async function getRuns(userId: number): Promise<RunData[]> {
   const result = await pool.query(
-    `SELECT client_id, distance_km, duration_seconds, pace_min_per_km, calories, started_at, completed_at, route
+    `SELECT client_id, distance_km, duration_seconds, pace_min_per_km, calories, started_at, completed_at, route, elevation_gain_m, avg_heart_rate, max_heart_rate
      FROM runs WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 100`,
     [userId]
   );
@@ -524,13 +715,16 @@ export async function getRuns(userId: number): Promise<RunData[]> {
     startedAt: row.started_at.toISOString(),
     completedAt: row.completed_at.toISOString(),
     route: row.route,
+    elevationGainM: row.elevation_gain_m ?? undefined,
+    avgHeartRate: row.avg_heart_rate ?? undefined,
+    maxHeartRate: row.max_heart_rate ?? undefined,
   }));
 }
 
 export async function saveRun(userId: number, run: RunData): Promise<void> {
   await pool.query(
-    `INSERT INTO runs (user_id, client_id, distance_km, duration_seconds, pace_min_per_km, calories, started_at, completed_at, route)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO runs (user_id, client_id, distance_km, duration_seconds, pace_min_per_km, calories, started_at, completed_at, route, elevation_gain_m, avg_heart_rate, max_heart_rate)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
      ON CONFLICT (user_id, client_id) DO UPDATE SET
        distance_km = EXCLUDED.distance_km,
        duration_seconds = EXCLUDED.duration_seconds,
@@ -538,10 +732,22 @@ export async function saveRun(userId: number, run: RunData): Promise<void> {
        calories = EXCLUDED.calories,
        started_at = EXCLUDED.started_at,
        completed_at = EXCLUDED.completed_at,
-       route = EXCLUDED.route`,
-    [userId, run.clientId, run.distanceKm, run.durationSeconds, run.paceMinPerKm, 
-     run.calories, run.startedAt, run.completedAt, run.route ? JSON.stringify(run.route) : null]
+       route = EXCLUDED.route,
+       elevation_gain_m = EXCLUDED.elevation_gain_m,
+       avg_heart_rate = EXCLUDED.avg_heart_rate,
+       max_heart_rate = EXCLUDED.max_heart_rate`,
+    [userId, run.clientId, run.distanceKm, run.durationSeconds, run.paceMinPerKm,
+     run.calories, run.startedAt, run.completedAt, run.route ? JSON.stringify(run.route) : null,
+     run.elevationGainM || null, run.avgHeartRate || null, run.maxHeartRate || null]
   );
+}
+
+export async function deleteRun(userId: number, clientId: string): Promise<boolean> {
+  const result = await pool.query(
+    `DELETE FROM runs WHERE user_id = $1 AND client_id = $2`,
+    [userId, clientId]
+  );
+  return (result.rowCount ?? 0) > 0;
 }
 
 // Food Logs
@@ -550,38 +756,41 @@ export interface FoodLogData {
   foodData: any;
   date: string;
   createdAt: string;
+  mealType?: string;
 }
 
 export async function getFoodLogs(userId: number, date?: string): Promise<FoodLogData[]> {
-  let query = `SELECT client_id, food_data, date, created_at, image_data FROM food_logs WHERE user_id = $1`;
+  let query = `SELECT client_id, food_data, date, created_at, image_data, meal_type FROM food_logs WHERE user_id = $1`;
   const params: any[] = [userId];
-  
+
   if (date) {
     query += ` AND date = $2`;
     params.push(date);
   }
-  
+
   query += ` ORDER BY created_at DESC LIMIT 500`;
-  
+
   const result = await pool.query(query, params);
   return result.rows.map(row => ({
     clientId: row.client_id,
     foodData: row.food_data,
     date: row.date.toISOString().split('T')[0],
     createdAt: row.created_at.toISOString(),
+    mealType: row.meal_type ?? undefined,
     ...(row.image_data ? { imageUri: row.image_data } : {}),
   }));
 }
 
 export async function saveFoodLog(userId: number, log: FoodLogData & { imageUri?: string }): Promise<void> {
   await pool.query(
-    `INSERT INTO food_logs (user_id, client_id, food_data, date, created_at, image_data)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO food_logs (user_id, client_id, food_data, date, created_at, image_data, meal_type)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (user_id, client_id) DO UPDATE SET
        food_data = EXCLUDED.food_data,
        date = EXCLUDED.date,
-       image_data = COALESCE(EXCLUDED.image_data, food_logs.image_data)`,
-    [userId, log.clientId, JSON.stringify(log.foodData), log.date, log.createdAt, log.imageUri || null]
+       image_data = COALESCE(EXCLUDED.image_data, food_logs.image_data),
+       meal_type = EXCLUDED.meal_type`,
+    [userId, log.clientId, JSON.stringify(log.foodData), log.date, log.createdAt, log.imageUri || null, log.mealType || null]
   );
 }
 
@@ -798,5 +1007,496 @@ export async function saveNotificationPrefs(userId: number, prefs: NotificationP
        reminder_minute = EXCLUDED.reminder_minute,
        updated_at = CURRENT_TIMESTAMP`,
     [userId, prefs.workoutReminders, prefs.streakAlerts, prefs.reminderHour, prefs.reminderMinute]
+  );
+}
+
+// ========== Social: Follows ==========
+
+export async function followUser(followerId: number, followingId: number): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id",
+      [followerId, followingId]
+    );
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    await client.query("UPDATE users SET following_count = following_count + 1 WHERE id = $1", [followerId]);
+    await client.query("UPDATE users SET followers_count = followers_count + 1 WHERE id = $1", [followingId]);
+    await client.query("COMMIT");
+    return true;
+  } catch {
+    await client.query("ROLLBACK");
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
+export async function unfollowUser(followerId: number, followingId: number): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
+      [followerId, followingId]
+    );
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    await client.query("UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1", [followerId]);
+    await client.query("UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1", [followingId]);
+    await client.query("COMMIT");
+    return true;
+  } catch {
+    await client.query("ROLLBACK");
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
+export async function isFollowing(followerId: number, followingId: number): Promise<boolean> {
+  const result = await pool.query(
+    "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2",
+    [followerId, followingId]
+  );
+  return result.rows.length > 0;
+}
+
+export interface FollowUserRow {
+  userId: number;
+  name: string;
+  avatarUrl: string | null;
+  bio: string | null;
+  isFollowedByMe: boolean;
+}
+
+export async function getFollowers(userId: number, requestingUserId: number, page: number, limit: number): Promise<FollowUserRow[]> {
+  const offset = page * limit;
+  const result = await pool.query(
+    `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
+       EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id = $3 AND f2.following_id = u.id) AS is_followed_by_me
+     FROM follows f
+     JOIN users u ON u.id = f.follower_id
+     WHERE f.following_id = $1
+     ORDER BY f.created_at DESC
+     LIMIT $2 OFFSET $4`,
+    [userId, limit, requestingUserId, offset]
+  );
+  return result.rows.map(row => ({
+    userId: row.user_id,
+    name: row.name,
+    avatarUrl: row.avatar_url,
+    bio: row.bio,
+    isFollowedByMe: row.is_followed_by_me,
+  }));
+}
+
+export async function getFollowing(userId: number, requestingUserId: number, page: number, limit: number): Promise<FollowUserRow[]> {
+  const offset = page * limit;
+  const result = await pool.query(
+    `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
+       EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id = $3 AND f2.following_id = u.id) AS is_followed_by_me
+     FROM follows f
+     JOIN users u ON u.id = f.following_id
+     WHERE f.follower_id = $1
+     ORDER BY f.created_at DESC
+     LIMIT $2 OFFSET $4`,
+    [userId, limit, requestingUserId, offset]
+  );
+  return result.rows.map(row => ({
+    userId: row.user_id,
+    name: row.name,
+    avatarUrl: row.avatar_url,
+    bio: row.bio,
+    isFollowedByMe: row.is_followed_by_me,
+  }));
+}
+
+// ========== Social: Posts ==========
+
+export interface PostRow {
+  id: number;
+  userId: number;
+  clientId: string;
+  postType: string;
+  content: string | null;
+  referenceId: string | null;
+  referenceData: any;
+  imageData: string | null;
+  visibility: string;
+  likesCount: number;
+  commentsCount: number;
+  createdAt: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  likedByMe: boolean;
+}
+
+export async function createPost(userId: number, post: {
+  clientId: string;
+  postType: string;
+  content?: string;
+  referenceId?: string;
+  referenceData?: any;
+  imageData?: string;
+  visibility?: string;
+}): Promise<number> {
+  const result = await pool.query(
+    `INSERT INTO posts (user_id, client_id, post_type, content, reference_id, reference_data, image_data, visibility)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     ON CONFLICT (user_id, client_id) DO UPDATE SET
+       content = EXCLUDED.content,
+       reference_data = EXCLUDED.reference_data,
+       image_data = EXCLUDED.image_data
+     RETURNING id`,
+    [userId, post.clientId, post.postType, post.content || null,
+     post.referenceId || null, post.referenceData ? JSON.stringify(post.referenceData) : null,
+     post.imageData || null, post.visibility || "followers"]
+  );
+  return result.rows[0].id;
+}
+
+function mapPostRow(row: any): PostRow {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    clientId: row.client_id,
+    postType: row.post_type,
+    content: row.content,
+    referenceId: row.reference_id,
+    referenceData: row.reference_data,
+    imageData: row.image_data,
+    visibility: row.visibility,
+    likesCount: row.likes_count,
+    commentsCount: row.comments_count,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    authorName: row.author_name,
+    authorAvatarUrl: row.author_avatar_url,
+    likedByMe: row.liked_by_me ?? false,
+  };
+}
+
+export async function getPost(postId: number, requestingUserId: number): Promise<PostRow | null> {
+  const result = await pool.query(
+    `SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
+       EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $2) AS liked_by_me
+     FROM posts p
+     JOIN users u ON u.id = p.user_id
+     WHERE p.id = $1`,
+    [postId, requestingUserId]
+  );
+  if (result.rows.length === 0) return null;
+  return mapPostRow(result.rows[0]);
+}
+
+export async function deletePost(userId: number, postId: number): Promise<boolean> {
+  const result = await pool.query(
+    "DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id",
+    [postId, userId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function getFeedPosts(userId: number, cursor?: string, limit = 20): Promise<{ posts: PostRow[]; nextCursor?: string }> {
+  const params: any[] = [userId, limit + 1];
+  let cursorClause = "";
+  if (cursor) {
+    cursorClause = "AND p.created_at < $3";
+    params.push(cursor);
+  }
+
+  const result = await pool.query(
+    `SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
+       EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $1) AS liked_by_me
+     FROM posts p
+     JOIN users u ON u.id = p.user_id
+     WHERE (p.user_id = $1 OR p.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1))
+       ${cursorClause}
+     ORDER BY p.created_at DESC
+     LIMIT $2`,
+    params
+  );
+
+  const rows = result.rows.map(mapPostRow);
+  let nextCursor: string | undefined;
+  if (rows.length > limit) {
+    rows.pop();
+    nextCursor = rows[rows.length - 1].createdAt;
+  }
+  return { posts: rows, nextCursor };
+}
+
+export async function getUserPosts(targetUserId: number, requestingUserId: number, cursor?: string, limit = 20): Promise<{ posts: PostRow[]; nextCursor?: string }> {
+  const params: any[] = [targetUserId, requestingUserId, limit + 1];
+  let cursorClause = "";
+  if (cursor) {
+    cursorClause = "AND p.created_at < $4";
+    params.push(cursor);
+  }
+
+  const result = await pool.query(
+    `SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
+       EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $2) AS liked_by_me
+     FROM posts p
+     JOIN users u ON u.id = p.user_id
+     WHERE p.user_id = $1
+       ${cursorClause}
+     ORDER BY p.created_at DESC
+     LIMIT $3`,
+    params
+  );
+
+  const rows = result.rows.map(mapPostRow);
+  let nextCursor: string | undefined;
+  if (rows.length > limit) {
+    rows.pop();
+    nextCursor = rows[rows.length - 1].createdAt;
+  }
+  return { posts: rows, nextCursor };
+}
+
+// ========== Social: Likes ==========
+
+export async function likePost(userId: number, postId: number): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id",
+      [postId, userId]
+    );
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    await client.query("UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1", [postId]);
+    await client.query("COMMIT");
+    return true;
+  } catch {
+    await client.query("ROLLBACK");
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
+export async function unlikePost(userId: number, postId: number): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2 RETURNING id",
+      [postId, userId]
+    );
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    await client.query("UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1", [postId]);
+    await client.query("COMMIT");
+    return true;
+  } catch {
+    await client.query("ROLLBACK");
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
+// ========== Social: Comments ==========
+
+export interface PostCommentRow {
+  id: number;
+  postId: number;
+  userId: number;
+  clientId: string;
+  content: string;
+  createdAt: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+}
+
+export async function getPostComments(postId: number, page: number, limit: number): Promise<PostCommentRow[]> {
+  const offset = page * limit;
+  const result = await pool.query(
+    `SELECT pc.id, pc.post_id, pc.user_id, pc.client_id, pc.content, pc.created_at,
+       u.name AS author_name, u.avatar_url AS author_avatar_url
+     FROM post_comments pc
+     JOIN users u ON u.id = pc.user_id
+     WHERE pc.post_id = $1
+     ORDER BY pc.created_at ASC
+     LIMIT $2 OFFSET $3`,
+    [postId, limit, offset]
+  );
+  return result.rows.map(row => ({
+    id: row.id,
+    postId: row.post_id,
+    userId: row.user_id,
+    clientId: row.client_id,
+    content: row.content,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    authorName: row.author_name,
+    authorAvatarUrl: row.author_avatar_url,
+  }));
+}
+
+export async function addComment(userId: number, postId: number, clientId: string, content: string): Promise<PostCommentRow> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      `INSERT INTO post_comments (post_id, user_id, client_id, content)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, post_id, user_id, client_id, content, created_at`,
+      [postId, userId, clientId, content]
+    );
+    await client.query("UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1", [postId]);
+    await client.query("COMMIT");
+
+    const row = result.rows[0];
+    const user = await getUserById(userId);
+    return {
+      id: row.id,
+      postId: row.post_id,
+      userId: row.user_id,
+      clientId: row.client_id,
+      content: row.content,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      authorName: user?.name || "Unknown",
+      authorAvatarUrl: null,
+    };
+  } catch (e) {
+    await client.query("ROLLBACK");
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+export async function deleteComment(userId: number, commentId: number): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "DELETE FROM post_comments WHERE id = $1 AND user_id = $2 RETURNING post_id",
+      [commentId, userId]
+    );
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    const postId = result.rows[0].post_id;
+    await client.query("UPDATE posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = $1", [postId]);
+    await client.query("COMMIT");
+    return true;
+  } catch {
+    await client.query("ROLLBACK");
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
+// ========== Social: User Discovery & Profile ==========
+
+export async function searchUsers(query: string, requestingUserId: number, limit = 20): Promise<FollowUserRow[]> {
+  const result = await pool.query(
+    `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
+       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me
+     FROM users u
+     WHERE u.is_public = TRUE AND u.id != $2
+       AND u.name ILIKE $1
+     ORDER BY u.name ASC
+     LIMIT $3`,
+    [`%${query}%`, requestingUserId, limit]
+  );
+  return result.rows.map(row => ({
+    userId: row.user_id,
+    name: row.name,
+    avatarUrl: row.avatar_url,
+    bio: row.bio,
+    isFollowedByMe: row.is_followed_by_me,
+  }));
+}
+
+export interface SocialProfileRow {
+  userId: number;
+  name: string;
+  bio: string | null;
+  avatarUrl: string | null;
+  isPublic: boolean;
+  followersCount: number;
+  followingCount: number;
+  isFollowedByMe: boolean;
+  totalWorkouts: number;
+  totalRuns: number;
+  totalDistanceKm: number;
+  currentStreak: number;
+  memberSince: string;
+}
+
+export async function getSocialProfile(targetUserId: number, requestingUserId: number): Promise<SocialProfileRow | null> {
+  const result = await pool.query(
+    `SELECT u.id AS user_id, u.name, u.bio, u.avatar_url, u.is_public,
+       u.followers_count, u.following_count, u.current_streak, u.created_at,
+       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me,
+       (SELECT COUNT(*)::int FROM workouts w WHERE w.user_id = u.id) AS total_workouts,
+       (SELECT COUNT(*)::int FROM runs r WHERE r.user_id = u.id) AS total_runs,
+       (SELECT COALESCE(SUM(r.distance_km), 0)::real FROM runs r WHERE r.user_id = u.id) AS total_distance_km
+     FROM users u
+     WHERE u.id = $1`,
+    [targetUserId, requestingUserId]
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    userId: row.user_id,
+    name: row.name,
+    bio: row.bio,
+    avatarUrl: row.avatar_url,
+    isPublic: row.is_public ?? true,
+    followersCount: row.followers_count || 0,
+    followingCount: row.following_count || 0,
+    isFollowedByMe: row.is_followed_by_me,
+    totalWorkouts: row.total_workouts,
+    totalRuns: row.total_runs,
+    totalDistanceKm: row.total_distance_km,
+    currentStreak: row.current_streak || 0,
+    memberSince: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+  };
+}
+
+export async function updateSocialProfile(userId: number, data: { bio?: string; avatarUrl?: string; isPublic?: boolean }): Promise<void> {
+  const fields: string[] = [];
+  const values: any[] = [];
+  let paramIndex = 1;
+
+  if (data.bio !== undefined) {
+    fields.push(`bio = $${paramIndex++}`);
+    values.push(data.bio);
+  }
+  if (data.avatarUrl !== undefined) {
+    fields.push(`avatar_url = $${paramIndex++}`);
+    values.push(data.avatarUrl);
+  }
+  if (data.isPublic !== undefined) {
+    fields.push(`is_public = $${paramIndex++}`);
+    values.push(data.isPublic);
+  }
+
+  if (fields.length === 0) return;
+
+  fields.push(`updated_at = CURRENT_TIMESTAMP`);
+  values.push(userId);
+
+  await pool.query(
+    `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramIndex}`,
+    values
   );
 }

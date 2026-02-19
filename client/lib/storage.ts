@@ -190,6 +190,8 @@ export async function getRoutines(): Promise<Routine[]> {
           exercises: r.exercises,
           createdAt: r.createdAt,
           lastCompletedAt: r.lastCompletedAt,
+          isFavorite: r.isFavorite,
+          category: r.category,
         }));
         await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
         return routines;
@@ -228,6 +230,8 @@ export async function saveRoutine(routine: Routine): Promise<void> {
       exercises: routine.exercises,
       createdAt: routine.createdAt,
       lastCompletedAt: routine.lastCompletedAt,
+      isFavorite: routine.isFavorite,
+      category: routine.category,
     });
   }
 }
@@ -256,6 +260,8 @@ export async function getWorkouts(): Promise<Workout[]> {
           startedAt: w.startedAt,
           completedAt: w.completedAt,
           durationMinutes: w.durationMinutes,
+          notes: w.notes,
+          totalVolumeKg: w.totalVolumeKg,
         }));
         await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(workouts));
         return workouts;
@@ -296,6 +302,8 @@ export async function saveWorkout(workout: Workout): Promise<void> {
       startedAt: workout.startedAt,
       completedAt: workout.completedAt,
       durationMinutes: workout.durationMinutes,
+      notes: workout.notes,
+      totalVolumeKg: workout.totalVolumeKg,
     });
   }
 }
@@ -652,6 +660,9 @@ export async function getRunHistory(): Promise<RunEntry[]> {
           startedAt: r.startedAt,
           completedAt: r.completedAt,
           route: r.route,
+          avgHeartRate: r.avgHeartRate,
+          maxHeartRate: r.maxHeartRate,
+          elevationGainM: r.elevationGainM,
         }));
         await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
         return runs;
@@ -693,13 +704,23 @@ export async function saveRunEntry(run: RunEntry): Promise<void> {
       route: run.route,
       avgHeartRate: run.avgHeartRate,
       maxHeartRate: run.maxHeartRate,
-      heartRateZone: run.heartRateZone,
+      elevationGainM: run.elevationGainM,
     });
   }
 }
 
 export async function saveRunHistory(runs: RunEntry[]): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
+}
+
+export async function deleteRunEntry(id: string): Promise<void> {
+  const runs = await getRunHistoryLocal();
+  const filtered = runs.filter((r) => r.id !== id);
+  await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(filtered));
+
+  if (await isAuthenticated()) {
+    await syncWithRetry(`/api/runs/${id}`, "DELETE", {});
+  }
 }
 
 // Clear all data (for logout)

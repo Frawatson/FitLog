@@ -7,23 +7,27 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, BodyWeightEntry, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import type { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 import { formatWeight, parseWeightInput } from "@/lib/units";
 import * as notifications from "@/lib/notifications";
 import type { NotificationSettings } from "@/lib/notifications";
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList & ProfileStackParamList>;
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -41,6 +45,7 @@ export default function ProfileScreen() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
     workoutReminders: false,
@@ -59,6 +64,7 @@ export default function ProfileScreen() {
     setBodyWeights(weightData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     setMacros(macroData);
     setNotifSettings(notifData);
+    setIsLoading(false);
   };
   
   const handleToggleWorkoutReminders = async (value: boolean) => {
@@ -163,6 +169,120 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleExportData = async () => {
+    try {
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert("Not Available", "Sharing is not available on this device.");
+        return;
+      }
+
+      const [workouts, runs, bodyWeights, foodLog] = await Promise.all([
+        storage.getWorkouts(),
+        storage.getRunHistory(),
+        storage.getBodyWeights(),
+        storage.getFoodLog(),
+      ]);
+
+      const escapeCSV = (val: any) => {
+        const str = String(val ?? "");
+        return str.includes(",") || str.includes('"') || str.includes("\n")
+          ? `"${str.replace(/"/g, '""')}"`
+          : str;
+      };
+
+      // Workouts CSV
+      const workoutRows = ["Date,Routine,Duration (min),Exercises,Total Sets"];
+      for (const w of workouts) {
+        const exercises = w.exercises?.map((e) => e.exerciseName).join("; ") || "";
+        const totalSets = w.exercises?.reduce((sum, e) => sum + (e.sets?.length || 0), 0) || 0;
+        workoutRows.push(
+          [
+            escapeCSV(w.startedAt?.split("T")[0] || w.completedAt?.split("T")[0] || ""),
+            escapeCSV(w.routineName || ""),
+            w.durationMinutes || 0,
+            escapeCSV(exercises),
+            totalSets,
+          ].join(",")
+        );
+      }
+
+      // Runs CSV
+      const runRows = ["Date,Distance (km),Duration (min),Pace (min/km)"];
+      for (const r of runs) {
+        const durationMin = Math.round((r.durationSeconds || 0) / 60);
+        const pace = r.distanceKm > 0 ? ((r.durationSeconds || 0) / 60 / r.distanceKm).toFixed(2) : "";
+        runRows.push(
+          [escapeCSV(r.startedAt?.split("T")[0] || ""), r.distanceKm.toFixed(2), durationMin, pace].join(",")
+        );
+      }
+
+      // Body weights CSV
+      const bwRows = ["Date,Weight (kg)"];
+      for (const bw of bodyWeights) {
+        bwRows.push([escapeCSV(bw.date), bw.weightKg].join(","));
+      }
+
+      // Food log CSV
+      const foodRows = ["Date,Food,Calories,Protein (g),Carbs (g),Fat (g)"];
+      for (const f of foodLog) {
+        foodRows.push(
+          [
+            escapeCSV(f.date),
+            escapeCSV(f.food.name),
+            f.food.calories,
+            f.food.protein,
+            f.food.carbs,
+            f.food.fat,
+          ].join(",")
+        );
+      }
+
+      const timestamp = new Date().toISOString().split("T")[0];
+
+      // Create a combined summary CSV
+      const summary = [
+        `Merge Data Export - ${timestamp}`,
+        "",
+        `Workouts: ${workouts.length} records`,
+        `Runs: ${runs.length} records`,
+        `Body Weights: ${bodyWeights.length} records`,
+        `Nutrition: ${foodLog.length} records`,
+        "",
+        "--- WORKOUTS ---",
+        workoutRows.join("\n"),
+        "",
+        "--- RUNS ---",
+        runRows.join("\n"),
+        "",
+        "--- BODY WEIGHT ---",
+        bwRows.join("\n"),
+        "",
+        "--- NUTRITION ---",
+        foodRows.join("\n"),
+      ].join("\n");
+
+      const file = new File(Paths.cache, `merge_export_${timestamp}.csv`);
+      file.write(summary);
+
+      const available = await Sharing.isAvailableAsync();
+      if (available) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: "text/csv",
+          dialogTitle: "Export Merge Data",
+        });
+      } else {
+        Alert.alert("Export Complete", "Your data has been exported.");
+      }
+
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      Alert.alert("Export Failed", "There was an error exporting your data. Please try again.");
+    }
+  };
+
   const handleDeleteAccount = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setDeleteStep(1);
@@ -205,6 +325,19 @@ export default function ProfileScreen() {
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
     >
+      {isLoading ? (
+        <View style={{ gap: Spacing.lg }}>
+          <SkeletonLoader variant="card" />
+          <SkeletonLoader variant="card" />
+          <SkeletonLoader variant="card" />
+          <View style={{ gap: Spacing.sm }}>
+            <SkeletonLoader variant="line" height={52} />
+            <SkeletonLoader variant="line" height={52} />
+            <SkeletonLoader variant="line" height={52} />
+          </View>
+        </View>
+      ) : (
+      <>
       <Card style={styles.profileCard}>
         <View style={styles.avatarContainer}>
           <View style={[styles.avatar, { backgroundColor: Colors.light.primary }]}>
@@ -429,6 +562,54 @@ export default function ProfileScreen() {
       </Card>
       
       <AnimatedPress
+        onPress={() => navigation.navigate("ProgressCharts")}
+        style={[
+          styles.menuItem,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
+      >
+        <Feather name="trending-up" size={20} color={Colors.light.primary} />
+        <ThemedText type="body" style={styles.menuLabel}>Progress</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
+      <AnimatedPress
+        onPress={() => navigation.navigate("SocialProfile", { userId: Number(profile?.id) })}
+        style={[
+          styles.menuItem,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
+      >
+        <Feather name="users" size={20} color={Colors.light.primary} />
+        <ThemedText type="body" style={styles.menuLabel}>Social Profile</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
+      <AnimatedPress
+        onPress={() => navigation.navigate("Achievements")}
+        style={[
+          styles.menuItem,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
+      >
+        <Feather name="award" size={20} color="#FFB300" />
+        <ThemedText type="body" style={styles.menuLabel}>Achievements</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
+      <AnimatedPress
+        onPress={() => navigation.navigate("ProgressPhotos")}
+        style={[
+          styles.menuItem,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
+      >
+        <Feather name="image" size={20} color="#9B59B6" />
+        <ThemedText type="body" style={styles.menuLabel}>Progress Photos</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
+      <AnimatedPress
         onPress={() => navigation.navigate("WorkoutHistory")}
         style={[
           styles.menuItem,
@@ -440,6 +621,18 @@ export default function ProfileScreen() {
         <Feather name="chevron-right" size={20} color={theme.textSecondary} />
       </AnimatedPress>
       
+      <AnimatedPress
+        onPress={handleExportData}
+        style={[
+          styles.menuItem,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
+      >
+        <Feather name="download" size={20} color={theme.text} />
+        <ThemedText type="body" style={styles.menuLabel}>Export Data</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
       <AnimatedPress
         onPress={handleDeleteAccount}
         style={[
@@ -467,6 +660,8 @@ export default function ProfileScreen() {
         </ThemedText>
         <View style={{ width: 20 }} />
       </AnimatedPress>
+      </>
+      )}
     </ScrollView>
 
     <Modal
