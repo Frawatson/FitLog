@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import React, { useState, useCallback } from "react";
+import { View, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useRoute, RouteProp } from "@react-navigation/native";
+import { useRoute, useNavigation, RouteProp, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -19,19 +19,25 @@ export default function WorkoutDetailScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const route = useRoute<WorkoutDetailRouteProp>();
+  const navigation = useNavigation();
   const { theme } = useTheme();
-  
+
   const [workout, setWorkout] = useState<Workout | null>(null);
-  
-  useEffect(() => {
-    loadWorkout();
-  }, []);
-  
-  const loadWorkout = async () => {
+  const [loading, setLoading] = useState(true);
+
+  const loadWorkout = useCallback(async () => {
+    setLoading(true);
     const workouts = await storage.getWorkouts();
     const found = workouts.find((w) => w.id === route.params.workoutId);
     setWorkout(found || null);
-  };
+    setLoading(false);
+  }, [route.params.workoutId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWorkout();
+    }, [loadWorkout])
+  );
   
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -51,12 +57,27 @@ export default function WorkoutDetailScreen() {
     });
   };
   
-  if (!workout) {
+  if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <ThemedText type="body" style={{ textAlign: "center", marginTop: Spacing.xl }}>
           Loading workout...
         </ThemedText>
+      </View>
+    );
+  }
+
+  if (!workout) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center" }]}>
+        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ marginTop: Spacing["3xl"] }} />
+        <ThemedText type="h3" style={{ marginTop: Spacing.lg }}>Workout not found</ThemedText>
+        <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+          This workout may have been deleted
+        </ThemedText>
+        <Pressable onPress={() => navigation.goBack()} style={{ marginTop: Spacing.xl }}>
+          <ThemedText type="link">Go back</ThemedText>
+        </Pressable>
       </View>
     );
   }

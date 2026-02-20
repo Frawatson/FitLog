@@ -1,4 +1,6 @@
 import "dotenv/config";
+import cluster from "node:cluster";
+import os from "node:os";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import session from "express-session";
@@ -11,10 +13,8 @@ import { initializeDatabase, pool } from "./db";
 import * as fs from "fs";
 import * as path from "path";
 
-const app = express();
-app.set("trust proxy", 1);
+const isProduction = process.env.NODE_ENV === "production";
 const log = console.log;
-const PgSession = connectPgSimple(session);
 
 declare module "http" {
   interface IncomingMessage {
@@ -22,163 +22,190 @@ declare module "http" {
   }
 }
 
-function setupCors(app: express.Application) {
-  app.use((req, res, next) => {
-    const origins = new Set<string>();
+if (isProduction && cluster.isPrimary) {
+  // Master process: initialize DB once, then fork workers
+  (async () => {
+    await initializeDatabase();
 
-    if (process.env.REPLIT_DEV_DOMAIN) {
-      origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+    const numWorkers = Math.min(os.cpus().length, 4);
+    log(`Master ${process.pid}: DB initialized, starting ${numWorkers} workers`);
+
+    for (let i = 0; i < numWorkers; i++) {
+      cluster.fork();
     }
 
-    if (process.env.REPLIT_DOMAINS) {
-      process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
-        origins.add(`https://${d.trim()}`);
-      });
-    }
-
-    const origin = req.header("origin");
-
-    // Allow localhost origins for Expo web development (any port)
-    const isLocalhost =
-      origin?.startsWith("http://localhost:") ||
-      origin?.startsWith("http://127.0.0.1:");
-
-    if (origin && (origins.has(origin) || isLocalhost)) {
-      res.header("Access-Control-Allow-Origin", origin);
-      res.header(
-        "Access-Control-Allow-Methods",
-        "GET, POST, PUT, DELETE, OPTIONS",
-      );
-      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-      res.header("Access-Control-Allow-Credentials", "true");
-    }
-
-    if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
-    }
-
-    next();
-  });
-}
-
-function setupBodyParsing(app: express.Application) {
-  app.use(
-    express.json({
-      limit: '10mb',
-      verify: (req, _res, buf) => {
-        req.rawBody = buf;
-      },
-    }),
-  );
-
-  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
-}
-
-function setupRequestLogging(app: express.Application) {
-  app.use((req, res, next) => {
-    const start = Date.now();
-    const path = req.path;
-    let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
-
-    const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
-      capturedJsonResponse = bodyJson;
-      return originalResJson.apply(res, [bodyJson, ...args]);
-    };
-
-    res.on("finish", () => {
-      if (!path.startsWith("/api")) return;
-
-      const duration = Date.now() - start;
-
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+    cluster.on("exit", (worker, code) => {
+      log(`Worker ${worker.process.pid} exited (code ${code}). Restarting...`);
+      cluster.fork();
     });
-
-    next();
-  });
+  })();
+} else {
+  // Worker process (production) or single process (development)
+  startServer();
 }
 
-function serveExpoManifest(platform: string, res: Response) {
-  const manifestPath = path.resolve(
-    process.cwd(),
-    "static-build",
-    platform,
-    "manifest.json",
-  );
-
-  if (!fs.existsSync(manifestPath)) {
-    return res
-      .status(404)
-      .json({ error: `Manifest not found for platform: ${platform}` });
+async function startServer() {
+  if (!isProduction) {
+    await initializeDatabase();
   }
 
-  res.setHeader("expo-protocol-version", "1");
-  res.setHeader("expo-sfv-version", "0");
-  res.setHeader("content-type", "application/json");
+  const app = express();
+  app.set("trust proxy", 1);
+  const PgSession = connectPgSimple(session);
 
-  const manifest = fs.readFileSync(manifestPath, "utf-8");
-  res.send(manifest);
-}
+  function setupCors(app: express.Application) {
+    app.use((req, res, next) => {
+      const origins = new Set<string>();
 
-function configureExpo(app: express.Application) {
-  log("Serving static Expo files with dynamic manifest routing");
+      if (process.env.REPLIT_DEV_DOMAIN) {
+        origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+      }
 
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.path.startsWith("/api")) {
-      return next();
+      if (process.env.REPLIT_DOMAINS) {
+        process.env.REPLIT_DOMAINS.split(",").forEach((d) => {
+          origins.add(`https://${d.trim()}`);
+        });
+      }
+
+      const origin = req.header("origin");
+
+      const isLocalhost =
+        origin?.startsWith("http://localhost:") ||
+        origin?.startsWith("http://127.0.0.1:");
+
+      if (origin && (origins.has(origin) || isLocalhost)) {
+        res.header("Access-Control-Allow-Origin", origin);
+        res.header(
+          "Access-Control-Allow-Methods",
+          "GET, POST, PUT, DELETE, OPTIONS",
+        );
+        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        res.header("Access-Control-Allow-Credentials", "true");
+      }
+
+      if (req.method === "OPTIONS") {
+        return res.sendStatus(200);
+      }
+
+      next();
+    });
+  }
+
+  function setupBodyParsing(app: express.Application) {
+    app.use(
+      express.json({
+        limit: '10mb',
+        verify: (req, _res, buf) => {
+          req.rawBody = buf;
+        },
+      }),
+    );
+
+    app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+  }
+
+  function setupRequestLogging(app: express.Application) {
+    app.use((req, res, next) => {
+      const start = Date.now();
+      const path = req.path;
+      let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
+
+      const originalResJson = res.json;
+      res.json = function (bodyJson, ...args) {
+        capturedJsonResponse = bodyJson;
+        return originalResJson.apply(res, [bodyJson, ...args]);
+      };
+
+      res.on("finish", () => {
+        if (!path.startsWith("/api")) return;
+
+        const duration = Date.now() - start;
+
+        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
+        if (capturedJsonResponse) {
+          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        }
+
+        if (logLine.length > 80) {
+          logLine = logLine.slice(0, 79) + "…";
+        }
+
+        log(logLine);
+      });
+
+      next();
+    });
+  }
+
+  function serveExpoManifest(platform: string, res: Response) {
+    const manifestPath = path.resolve(
+      process.cwd(),
+      "static-build",
+      platform,
+      "manifest.json",
+    );
+
+    if (!fs.existsSync(manifestPath)) {
+      return res
+        .status(404)
+        .json({ error: `Manifest not found for platform: ${platform}` });
     }
 
-    if (req.path !== "/" && req.path !== "/manifest") {
-      return next();
-    }
+    res.setHeader("expo-protocol-version", "1");
+    res.setHeader("expo-sfv-version", "0");
+    res.setHeader("content-type", "application/json");
 
-    const platform = req.header("expo-platform");
-    if (platform && (platform === "ios" || platform === "android")) {
-      return serveExpoManifest(platform, res);
-    }
+    const manifest = fs.readFileSync(manifestPath, "utf-8");
+    res.send(manifest);
+  }
 
-    next();
-  });
+  function configureExpo(app: express.Application) {
+    log("Serving static Expo files with dynamic manifest routing");
 
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-  app.use(express.static(path.resolve(process.cwd(), "static-build")));
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.path.startsWith("/api")) {
+        return next();
+      }
 
-  log("Expo routing: Checking expo-platform header on / and /manifest");
-}
+      if (req.path !== "/" && req.path !== "/manifest") {
+        return next();
+      }
 
-function setupErrorHandler(app: express.Application) {
-  app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
-    const error = err as {
-      status?: number;
-      statusCode?: number;
-      message?: string;
-    };
+      const platform = req.header("expo-platform");
+      if (platform && (platform === "ios" || platform === "android")) {
+        return serveExpoManifest(platform, res);
+      }
 
-    const status = error.status || error.statusCode || 500;
-    const message = error.message || "Internal Server Error";
+      next();
+    });
 
-    console.error("Internal Server Error:", err);
+    app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+    app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
-    if (res.headersSent) {
-      return next(err);
-    }
+    log("Expo routing: Checking expo-platform header on / and /manifest");
+  }
 
-    return res.status(status).json({ message });
-  });
-}
+  function setupErrorHandler(app: express.Application) {
+    app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+      const error = err as {
+        status?: number;
+        statusCode?: number;
+        message?: string;
+      };
 
-(async () => {
-  await initializeDatabase();
-  
+      const status = error.status || error.statusCode || 500;
+      const message = error.message || "Internal Server Error";
+
+      console.error("Internal Server Error:", err);
+
+      if (res.headersSent) {
+        return next(err);
+      }
+
+      return res.status(status).json({ message });
+    });
+  }
+
   // Security headers
   app.use(helmet({
     contentSecurityPolicy: {
@@ -194,40 +221,40 @@ function setupErrorHandler(app: express.Application) {
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }));
-  
+
   // General API rate limiter (100 requests per minute)
   const apiLimiter = rateLimit({
-    windowMs: 60 * 1000, // 1 minute
+    windowMs: 60 * 1000,
     max: 100,
     message: { error: "Too many requests. Please slow down." },
     standardHeaders: true,
     legacyHeaders: false,
   });
   app.use("/api", apiLimiter);
-  
+
   setupCors(app);
   setupBodyParsing(app);
-  
+
   app.use(session({
     store: new PgSession({
       pool,
       tableName: "session",
     }),
-    secret: process.env.SESSION_SECRET || "merge-secret-key-change-in-prod",
+    secret: process.env.SESSION_SECRET!,
     resave: false,
     saveUninitialized: false,
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProduction,
       sameSite: "lax",
     },
   }));
-  
+
   setupRequestLogging(app);
 
   app.use("/api/auth", authRouter);
-  
+
   configureExpo(app);
 
   const server = await registerRoutes(app);
@@ -236,6 +263,11 @@ function setupErrorHandler(app: express.Application) {
 
   const port = parseInt(process.env.PORT || "5000", 10);
   server.listen(port, "0.0.0.0", () => {
-    log(`express server serving on port ${port}`);
+    const pid = process.pid;
+    if (isProduction) {
+      log(`Worker ${pid}: express server on port ${port}`);
+    } else {
+      log(`express server serving on port ${port}`);
+    }
   });
-})();
+}

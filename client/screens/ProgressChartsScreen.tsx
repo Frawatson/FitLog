@@ -14,6 +14,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { BodyWeightEntry, Workout, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
 import { formatWeight } from "@/lib/units";
+import { getLocalDateString } from "@/lib/dateUtils";
 import type { UnitSystem } from "@/types";
 
 const screenWidth = Dimensions.get("window").width;
@@ -68,7 +69,7 @@ export default function ProgressChartsScreen() {
     const dateStrs = Array.from({ length: count }, (_, i) => {
       const d = new Date(today);
       d.setDate(d.getDate() - (count - 1 - i));
-      return d.toISOString().split("T")[0];
+      return getLocalDateString(d);
     });
     const allTotals = await Promise.all(
       dateStrs.map((dateStr) => storage.getDailyTotals(dateStr))
@@ -347,7 +348,7 @@ function getWeeklyVolumes(workouts: Workout[]): { label: string; volume: number 
     const d = new Date(w.completedAt);
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
-    const key = weekStart.toISOString().split("T")[0];
+    const key = getLocalDateString(weekStart);
     const volume = w.exercises.reduce((acc, ex) =>
       acc + ex.sets.reduce((s, set) =>
         s + (set.completed ? set.weight * set.reps : 0), 0), 0);

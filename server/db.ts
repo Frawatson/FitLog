@@ -1,8 +1,13 @@
-import { Pool } from "pg";
+import { Pool, types } from "pg";
+
+// Force pg to parse TIMESTAMP (without timezone) as UTC
+types.setTypeParser(1114, (str: string) => new Date(str + "Z"));
 
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
+  max: 30,
+  idleTimeoutMillis: 30000,
 });
 
 export async function initializeDatabase(): Promise<void> {
@@ -291,20 +296,6 @@ export async function initializeDatabase(): Promise<void> {
         END IF;
       END $$;
 
-      -- ========== Sprint 4: Progress Photos ==========
-
-      CREATE TABLE IF NOT EXISTS progress_photos (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        client_id VARCHAR(255) NOT NULL,
-        image_data TEXT NOT NULL,
-        date DATE NOT NULL,
-        weight_kg REAL,
-        notes TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, client_id)
-      );
-
       -- ========== Social: Follows ==========
 
       CREATE TABLE IF NOT EXISTS follows (
@@ -364,6 +355,48 @@ export async function initializeDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS IDX_post_comments_post ON post_comments (post_id, created_at ASC);
       CREATE INDEX IF NOT EXISTS IDX_post_comments_user ON post_comments (user_id);
 
+      -- ========== Social: User Blocks ==========
+
+      CREATE TABLE IF NOT EXISTS user_blocks (
+        id SERIAL PRIMARY KEY,
+        blocker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(blocker_id, blocked_id),
+        CHECK (blocker_id != blocked_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON user_blocks(blocker_id);
+      CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON user_blocks(blocked_id);
+
+      -- ========== Social: Content Reports ==========
+
+      CREATE TABLE IF NOT EXISTS content_reports (
+        id SERIAL PRIMARY KEY,
+        reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        report_type TEXT NOT NULL,
+        target_id INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        details TEXT,
+        status TEXT DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_reports_reporter ON content_reports(reporter_id);
+
+      -- ========== Social: Notifications ==========
+
+      CREATE TABLE IF NOT EXISTS notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        type TEXT NOT NULL,
+        actor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        reference_id INTEGER,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(user_id, is_read);
+
       -- ========== Social: User Profile Extensions ==========
 
       DO $$
@@ -385,6 +418,37 @@ export async function initializeDatabase(): Promise<void> {
         END IF;
       END $$;
     `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exercise_gif_cache (
+        id SERIAL PRIMARY KEY,
+        exercise_name VARCHAR(255) NOT NULL,
+        exercise_name_normalized VARCHAR(255) NOT NULL UNIQUE,
+        gif_url TEXT,
+        body_part VARCHAR(100),
+        equipment VARCHAR(100),
+        target_muscle VARCHAR(100),
+        instructions TEXT,
+        gif_data TEXT,
+        exercisedb_id VARCHAR(20),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add columns if they don't exist (for existing installations)
+    await client.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+          WHERE table_name='exercise_gif_cache' AND column_name='gif_data') THEN
+          ALTER TABLE exercise_gif_cache ADD COLUMN gif_data TEXT;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+          WHERE table_name='exercise_gif_cache' AND column_name='exercisedb_id') THEN
+          ALTER TABLE exercise_gif_cache ADD COLUMN exercisedb_id VARCHAR(20);
+        END IF;
+      END $$;
+    `);
+
     console.log("Database tables initialized");
   } finally {
     client.release();
@@ -1084,6 +1148,8 @@ export async function getFollowers(userId: number, requestingUserId: number, pag
      FROM follows f
      JOIN users u ON u.id = f.follower_id
      WHERE f.following_id = $1
+       AND u.id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = $3)
+       AND u.id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $3)
      ORDER BY f.created_at DESC
      LIMIT $2 OFFSET $4`,
     [userId, limit, requestingUserId, offset]
@@ -1105,6 +1171,8 @@ export async function getFollowing(userId: number, requestingUserId: number, pag
      FROM follows f
      JOIN users u ON u.id = f.following_id
      WHERE f.follower_id = $1
+       AND u.id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = $3)
+       AND u.id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $3)
      ORDER BY f.created_at DESC
      LIMIT $2 OFFSET $4`,
     [userId, limit, requestingUserId, offset]
@@ -1216,7 +1284,11 @@ export async function getFeedPosts(userId: number, cursor?: string, limit = 20):
        EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $1) AS liked_by_me
      FROM posts p
      JOIN users u ON u.id = p.user_id
-     WHERE (p.user_id = $1 OR p.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1))
+     WHERE (p.user_id = $1
+       OR p.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1)
+       OR p.visibility = 'public')
+       AND p.user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)
+       AND p.user_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $1)
        ${cursorClause}
      ORDER BY p.created_at DESC
      LIMIT $2`,
@@ -1246,6 +1318,8 @@ export async function getUserPosts(targetUserId: number, requestingUserId: numbe
      FROM posts p
      JOIN users u ON u.id = p.user_id
      WHERE p.user_id = $1
+       AND (p.user_id = $2 OR p.visibility = 'public'
+         OR $2 IN (SELECT follower_id FROM follows WHERE following_id = p.user_id))
        ${cursorClause}
      ORDER BY p.created_at DESC
      LIMIT $3`,
@@ -1322,7 +1396,7 @@ export interface PostCommentRow {
   authorAvatarUrl: string | null;
 }
 
-export async function getPostComments(postId: number, page: number, limit: number): Promise<PostCommentRow[]> {
+export async function getPostComments(postId: number, requestingUserId: number, page: number, limit: number): Promise<PostCommentRow[]> {
   const offset = page * limit;
   const result = await pool.query(
     `SELECT pc.id, pc.post_id, pc.user_id, pc.client_id, pc.content, pc.created_at,
@@ -1330,9 +1404,11 @@ export async function getPostComments(postId: number, page: number, limit: numbe
      FROM post_comments pc
      JOIN users u ON u.id = pc.user_id
      WHERE pc.post_id = $1
+       AND pc.user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = $4)
+       AND pc.user_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $4)
      ORDER BY pc.created_at ASC
      LIMIT $2 OFFSET $3`,
-    [postId, limit, offset]
+    [postId, limit, offset, requestingUserId]
   );
   return result.rows.map(row => ({
     id: row.id,
@@ -1412,6 +1488,8 @@ export async function searchUsers(query: string, requestingUserId: number, limit
      FROM users u
      WHERE u.is_public = TRUE AND u.id != $2
        AND u.name ILIKE $1
+       AND u.id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = $2)
+       AND u.id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $2)
      ORDER BY u.name ASC
      LIMIT $3`,
     [`%${query}%`, requestingUserId, limit]
@@ -1434,6 +1512,7 @@ export interface SocialProfileRow {
   followersCount: number;
   followingCount: number;
   isFollowedByMe: boolean;
+  isBlockedByMe: boolean;
   totalWorkouts: number;
   totalRuns: number;
   totalDistanceKm: number;
@@ -1446,6 +1525,7 @@ export async function getSocialProfile(targetUserId: number, requestingUserId: n
     `SELECT u.id AS user_id, u.name, u.bio, u.avatar_url, u.is_public,
        u.followers_count, u.following_count, u.current_streak, u.created_at,
        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me,
+       EXISTS(SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = $2 AND ub.blocked_id = u.id) AS is_blocked_by_me,
        (SELECT COUNT(*)::int FROM workouts w WHERE w.user_id = u.id) AS total_workouts,
        (SELECT COUNT(*)::int FROM runs r WHERE r.user_id = u.id) AS total_runs,
        (SELECT COALESCE(SUM(r.distance_km), 0)::real FROM runs r WHERE r.user_id = u.id) AS total_distance_km
@@ -1464,6 +1544,7 @@ export async function getSocialProfile(targetUserId: number, requestingUserId: n
     followersCount: row.followers_count || 0,
     followingCount: row.following_count || 0,
     isFollowedByMe: row.is_followed_by_me,
+    isBlockedByMe: row.is_blocked_by_me,
     totalWorkouts: row.total_workouts,
     totalRuns: row.total_runs,
     totalDistanceKm: row.total_distance_km,
@@ -1499,4 +1580,316 @@ export async function updateSocialProfile(userId: number, data: { bio?: string; 
     `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramIndex}`,
     values
   );
+}
+
+// ========== Social: Blocking ==========
+
+export async function blockUser(blockerId: number, blockedId: number): Promise<boolean> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id",
+      [blockerId, blockedId]
+    );
+    if (result.rowCount === 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
+    // Auto-unfollow both directions
+    const unfollowed1 = await client.query(
+      "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
+      [blockerId, blockedId]
+    );
+    if ((unfollowed1.rowCount ?? 0) > 0) {
+      await client.query("UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1", [blockerId]);
+      await client.query("UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1", [blockedId]);
+    }
+    const unfollowed2 = await client.query(
+      "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
+      [blockedId, blockerId]
+    );
+    if ((unfollowed2.rowCount ?? 0) > 0) {
+      await client.query("UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1", [blockedId]);
+      await client.query("UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1", [blockerId]);
+    }
+    await client.query("COMMIT");
+    return true;
+  } catch {
+    await client.query("ROLLBACK");
+    return false;
+  } finally {
+    client.release();
+  }
+}
+
+export async function unblockUser(blockerId: number, blockedId: number): Promise<boolean> {
+  const result = await pool.query(
+    "DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2 RETURNING id",
+    [blockerId, blockedId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function getBlockedUsers(userId: number): Promise<{ userId: number; name: string; avatarUrl: string | null; blockedAt: string }[]> {
+  const result = await pool.query(
+    `SELECT u.id AS user_id, u.name, u.avatar_url, b.created_at AS blocked_at
+     FROM user_blocks b
+     JOIN users u ON u.id = b.blocked_id
+     WHERE b.blocker_id = $1
+     ORDER BY b.created_at DESC`,
+    [userId]
+  );
+  return result.rows.map(row => ({
+    userId: row.user_id,
+    name: row.name,
+    avatarUrl: row.avatar_url,
+    blockedAt: row.blocked_at,
+  }));
+}
+
+export async function isBlocked(userId1: number, userId2: number): Promise<boolean> {
+  const result = await pool.query(
+    "SELECT 1 FROM user_blocks WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)",
+    [userId1, userId2]
+  );
+  return result.rows.length > 0;
+}
+
+// ========== Social: Reports ==========
+
+export async function reportContent(reporterId: number, reportType: string, targetId: number, reason: string, details?: string): Promise<number> {
+  const result = await pool.query(
+    `INSERT INTO content_reports (reporter_id, report_type, target_id, reason, details)
+     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [reporterId, reportType, targetId, reason, details || null]
+  );
+  return result.rows[0].id;
+}
+
+// ========== Social: Notifications ==========
+
+export interface NotificationRow {
+  id: number;
+  userId: number;
+  type: string;
+  actorId: number;
+  actorName: string;
+  actorAvatarUrl: string | null;
+  referenceId: number | null;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export async function createNotification(userId: number, type: string, actorId: number, referenceId: number | null, message: string): Promise<void> {
+  if (userId === actorId) return; // don't notify self
+  // Don't notify if blocked
+  const blocked = await isBlocked(userId, actorId);
+  if (blocked) return;
+  await pool.query(
+    `INSERT INTO notifications (user_id, type, actor_id, reference_id, message)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [userId, type, actorId, referenceId, message]
+  );
+}
+
+export async function getNotifications(userId: number, page: number, limit = 20): Promise<NotificationRow[]> {
+  const offset = page * limit;
+  const result = await pool.query(
+    `SELECT n.id, n.user_id, n.type, n.actor_id, n.reference_id, n.message, n.is_read, n.created_at,
+       u.name AS actor_name, u.avatar_url AS actor_avatar_url
+     FROM notifications n
+     JOIN users u ON u.id = n.actor_id
+     WHERE n.user_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [userId, limit, offset]
+  );
+  return result.rows.map(row => ({
+    id: row.id,
+    userId: row.user_id,
+    type: row.type,
+    actorId: row.actor_id,
+    actorName: row.actor_name,
+    actorAvatarUrl: row.actor_avatar_url,
+    referenceId: row.reference_id,
+    message: row.message,
+    isRead: row.is_read,
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+  }));
+}
+
+export async function markNotificationsRead(userId: number): Promise<void> {
+  await pool.query(
+    "UPDATE notifications SET is_read = TRUE WHERE user_id = $1 AND is_read = FALSE",
+    [userId]
+  );
+}
+
+export async function getUnreadNotificationCount(userId: number): Promise<number> {
+  const result = await pool.query(
+    "SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND is_read = FALSE",
+    [userId]
+  );
+  return result.rows[0].count;
+}
+
+// ========== Social: Post & Comment Editing ==========
+
+export async function updatePost(postId: number, userId: number, content: string): Promise<boolean> {
+  const result = await pool.query(
+    "UPDATE posts SET content = $1 WHERE id = $2 AND user_id = $3 RETURNING id",
+    [content, postId, userId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateComment(commentId: number, userId: number, content: string): Promise<boolean> {
+  const result = await pool.query(
+    "UPDATE post_comments SET content = $1 WHERE id = $2 AND user_id = $3 RETURNING id",
+    [content, commentId, userId]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+// ========== Exercise GIF Cache ==========
+
+export interface ExerciseGifCache {
+  exerciseName: string;
+  gifUrl: string | null;
+  bodyPart: string | null;
+  equipment: string | null;
+  targetMuscle: string | null;
+  instructions: string | null;
+  gifData?: string | null;
+  exerciseDbId?: string | null;
+}
+
+export async function getExerciseGifCache(exerciseName: string): Promise<ExerciseGifCache | null> {
+  const normalized = exerciseName.toLowerCase().trim();
+  const result = await pool.query(
+    `SELECT exercise_name, gif_url, body_part, equipment, target_muscle, instructions, gif_data, exercisedb_id
+     FROM exercise_gif_cache WHERE exercise_name_normalized = $1`,
+    [normalized]
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    exerciseName: row.exercise_name,
+    gifUrl: row.gif_url,
+    bodyPart: row.body_part,
+    equipment: row.equipment,
+    targetMuscle: row.target_muscle,
+    instructions: row.instructions,
+    gifData: row.gif_data,
+    exerciseDbId: row.exercisedb_id,
+  };
+}
+
+export async function saveExerciseGifCache(data: ExerciseGifCache): Promise<void> {
+  const normalized = data.exerciseName.toLowerCase().trim();
+  await pool.query(
+    `INSERT INTO exercise_gif_cache (exercise_name, exercise_name_normalized, gif_url, body_part, equipment, target_muscle, instructions, gif_data, exercisedb_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     ON CONFLICT (exercise_name_normalized) DO UPDATE SET
+       gif_url = EXCLUDED.gif_url,
+       body_part = EXCLUDED.body_part,
+       equipment = EXCLUDED.equipment,
+       target_muscle = EXCLUDED.target_muscle,
+       instructions = EXCLUDED.instructions,
+       gif_data = EXCLUDED.gif_data,
+       exercisedb_id = EXCLUDED.exercisedb_id`,
+    [data.exerciseName, normalized, data.gifUrl, data.bodyPart, data.equipment, data.targetMuscle, data.instructions, data.gifData || null, data.exerciseDbId || null]
+  );
+}
+
+export async function bulkSaveExerciseMetadata(exercises: Array<{
+  exerciseName: string;
+  bodyPart: string | null;
+  equipment: string | null;
+  targetMuscle: string | null;
+  instructions: string | null;
+  exerciseDbId: string;
+}>): Promise<{ inserted: number; updated: number; failed: number }> {
+  const client = await pool.connect();
+  const results = { inserted: 0, updated: 0, failed: 0 };
+
+  try {
+    await client.query("BEGIN");
+
+    for (const ex of exercises) {
+      const normalized = ex.exerciseName.toLowerCase().trim();
+      try {
+        await client.query(
+          `INSERT INTO exercise_gif_cache
+             (exercise_name, exercise_name_normalized, body_part, equipment, target_muscle, instructions, exercisedb_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (exercise_name_normalized) DO UPDATE SET
+             body_part = EXCLUDED.body_part,
+             equipment = EXCLUDED.equipment,
+             target_muscle = EXCLUDED.target_muscle,
+             instructions = EXCLUDED.instructions,
+             exercisedb_id = EXCLUDED.exercisedb_id,
+             gif_url = CASE
+               WHEN exercise_gif_cache.gif_data IS NOT NULL
+               THEN '/api/exercises/image/' || EXCLUDED.exercisedb_id
+               ELSE exercise_gif_cache.gif_url
+             END`,
+          [ex.exerciseName, normalized, ex.bodyPart, ex.equipment, ex.targetMuscle, ex.instructions, ex.exerciseDbId]
+        );
+        results.inserted++;
+      } catch (err) {
+        results.failed++;
+      }
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  return results;
+}
+
+export async function getExerciseGifDataById(exerciseDbId: string): Promise<string | null> {
+  const result = await pool.query(
+    `SELECT gif_data FROM exercise_gif_cache WHERE exercisedb_id = $1 AND gif_data IS NOT NULL`,
+    [exerciseDbId]
+  );
+  return result.rows[0]?.gif_data || null;
+}
+
+export async function fuzzySearchExerciseGifCache(searchTerm: string): Promise<ExerciseGifCache | null> {
+  const normalized = searchTerm.toLowerCase().trim();
+  // Normalize hyphens to spaces for flexible matching
+  const withSpaces = normalized.replace(/-/g, " ");
+  // Search for entries that have gif_data and match via substring (with hyphen normalization)
+  const result = await pool.query(
+    `SELECT exercise_name, gif_url, body_part, equipment, target_muscle, instructions, gif_data, exercisedb_id
+     FROM exercise_gif_cache
+     WHERE gif_data IS NOT NULL
+       AND (
+         REPLACE(exercise_name_normalized, '-', ' ') LIKE '%' || $1 || '%'
+         OR $1 LIKE '%' || REPLACE(exercise_name_normalized, '-', ' ') || '%'
+       )
+     ORDER BY LENGTH(exercise_name_normalized) ASC
+     LIMIT 1`,
+    [withSpaces]
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return {
+    exerciseName: row.exercise_name,
+    gifUrl: row.gif_url,
+    bodyPart: row.body_part,
+    equipment: row.equipment,
+    targetMuscle: row.target_muscle,
+    instructions: row.instructions,
+    gifData: row.gif_data,
+    exerciseDbId: row.exercisedb_id,
+  };
 }

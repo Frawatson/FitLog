@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import sharp from "sharp";
-import { exerciseDatabase, getExercisesByMuscle, getExercisesByDifficulty, type LocalExercise } from "./exerciseDatabase";
+// exerciseDatabase import removed — using exercise_gif_cache (ExerciseDB) as the sole exercise source
 import {
   getBodyWeights, addBodyWeight, deleteBodyWeight,
   getMacroTargets, saveMacroTargets,
@@ -20,67 +20,31 @@ import {
   likePost, unlikePost,
   getPostComments, addComment, deleteComment,
   searchUsers, getSocialProfile, updateSocialProfile,
+  getExerciseGifCache, saveExerciseGifCache, bulkSaveExerciseMetadata, getExerciseGifDataById, fuzzySearchExerciseGifCache,
+  blockUser, unblockUser, getBlockedUsers, isBlocked, reportContent,
+  createNotification, getNotifications, markNotificationsRead, getUnreadNotificationCount,
+  updatePost, updateComment,
 } from "./db";
 import { requireAuth } from "./auth";
 
 
-interface WorkoutAPIExercise {
-  id: string;
-  code: string;
-  name: string;
-  description: string;
-  primaryMuscles: { id: string; code: string; name: string }[];
-  secondaryMuscles: { id: string; code: string; name: string }[];
-  types: { id: string; code: string; name: string }[];
-  categories: { id: string; code: string; name: string }[];
-}
-
-// Map frontend muscle group names to WorkoutAPI muscle codes
-const MUSCLE_MAP: Record<string, string> = {
-  biceps: "BICEPS",
-  triceps: "TRICEPS",
-  forearms: "FOREARMS",
-  chest: "CHEST",
-  shoulders: "SHOULDERS",
-  traps: "TRAPEZIUS",
-  lats: "LATS",
-  middle_back: "BACK",
-  lower_back: "LOWER_BACK",
-  abs: "ABS",
-  quadriceps: "QUADRICEPS",
-  hamstrings: "HAMSTRINGS",
-  glutes: "GLUTES",
-  calves: "CALVES",
+// Map frontend muscle group IDs to ExerciseDB body_part / target_muscle search terms
+const MUSCLE_SEARCH_TERMS: Record<string, string[]> = {
+  chest: ["pectorals", "chest"],
+  shoulders: ["delts", "shoulders"],
+  biceps: ["biceps"],
+  triceps: ["triceps"],
+  forearms: ["forearms"],
+  lats: ["lats", "back"],
+  middle_back: ["upper back", "back"],
+  lower_back: ["spine", "back"],
+  traps: ["traps"],
+  abs: ["abs", "waist"],
+  quadriceps: ["quads", "upper legs"],
+  hamstrings: ["hamstrings", "upper legs"],
+  glutes: ["glutes", "upper legs"],
+  calves: ["calves", "lower legs"],
 };
-
-let cachedExercises: WorkoutAPIExercise[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
-
-async function fetchAllExercises(apiKey: string): Promise<WorkoutAPIExercise[]> {
-  const now = Date.now();
-  if (cachedExercises && now - cacheTimestamp < CACHE_DURATION) {
-    return cachedExercises;
-  }
-
-  const response = await fetch("https://api.workoutapi.com/exercises", {
-    headers: {
-      "Accept": "application/json",
-      "x-api-key": apiKey,
-    },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("WorkoutAPI error:", errorText);
-    throw new Error(`Failed to fetch exercises: ${response.status}`);
-  }
-
-  cachedExercises = await response.json();
-  cacheTimestamp = now;
-  console.log(`Cached ${cachedExercises?.length || 0} exercises from WorkoutAPI`);
-  return cachedExercises || [];
-}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/foods/search", requireAuth, async (req, res) => {
@@ -410,195 +374,326 @@ Return JSON only:
     }
   });
 
-  // Exercises API - fetches from WorkoutAPI
-  app.get("/api/exercises", async (req, res) => {
+  // Exercise library - returns all exercises from cache with GIF status
+  app.get("/api/exercises/library", async (_req: Request, res: Response) => {
     try {
-      const { muscle } = req.query;
-      
-      const apiKey = process.env.WORKOUT_API_KEY;
-      if (!apiKey) {
-        return res.status(500).json({ error: "Workout API key not configured" });
-      }
-
-      const allExercises = await fetchAllExercises(apiKey);
-      
-      let filtered = allExercises;
-      if (muscle) {
-        const muscleCode = MUSCLE_MAP[String(muscle).toLowerCase()] || String(muscle).toUpperCase();
-        filtered = allExercises.filter(ex => 
-          ex.primaryMuscles.some(m => m.code === muscleCode) ||
-          ex.secondaryMuscles.some(m => m.code === muscleCode)
-        );
-      }
-
-      // Transform to simpler format
-      const exercises = filtered.map(ex => ({
-        id: ex.id,
-        name: ex.name,
-        muscle: ex.primaryMuscles[0]?.name || "Full Body",
-        equipment: ex.categories[0]?.name || "Bodyweight",
-        type: ex.types[0]?.name || "Compound",
-        instructions: ex.description,
+      const result = await pool.query(
+        `SELECT exercise_name, body_part, equipment, target_muscle, gif_data IS NOT NULL AS has_gif
+         FROM exercise_gif_cache
+         ORDER BY exercise_name ASC`
+      );
+      const exercises = result.rows.map(row => ({
+        name: row.exercise_name,
+        bodyPart: row.body_part,
+        equipment: row.equipment,
+        targetMuscle: row.target_muscle,
+        hasGif: row.has_gif,
       }));
-
       res.json(exercises);
     } catch (error) {
-      console.error("Error fetching exercises:", error);
-      res.status(500).json({ error: "Internal server error" });
+      console.error("Error fetching exercise library:", error);
+      res.status(500).json({ error: "Failed to fetch exercise library" });
     }
   });
-  
-  // Generate routine - creates a balanced workout from exercises
-  // Uses WorkoutAPI as primary source, falls back to local database for variety
+
+  // Exercise GIF / demo info endpoint
+  // Exercise info lookup (cache + local fallback)
+  app.get("/api/exercises/gif", async (req: Request, res: Response) => {
+    try {
+      const { name } = req.query;
+      if (!name || typeof name !== "string" || name.trim().length < 2) {
+        return res.status(400).json({ error: "Exercise name is required" });
+      }
+
+      const exerciseName = name.trim();
+
+      // 1. Check database cache by exact name
+      const cached = await getExerciseGifCache(exerciseName);
+      if (cached?.gifUrl) {
+        const { gifData, ...rest } = cached;
+        return res.json({ ...rest, source: "cache" });
+      }
+
+      // 2. Fuzzy search cache for entries with GIF data (e.g. "Squat" → "Bodyweight Squats")
+      const fuzzy = await fuzzySearchExerciseGifCache(exerciseName);
+      if (fuzzy?.gifUrl) {
+        const { gifData, ...rest } = fuzzy;
+        return res.json({ ...rest, exerciseName, source: "cache" });
+      }
+
+      // 3. No match found in ExerciseDB cache
+      res.json({
+        exerciseName,
+        gifUrl: null,
+        bodyPart: null,
+        equipment: null,
+        targetMuscle: null,
+        instructions: null,
+        source: "not_found",
+      });
+    } catch (error) {
+      console.error("Error fetching exercise GIF:", error);
+      res.status(500).json({ error: "Failed to fetch exercise info" });
+    }
+  });
+
+  // Serve exercise GIF images from database
+  app.get("/api/exercises/image/:exerciseId", async (req: Request, res: Response) => {
+    try {
+      const gifData = await getExerciseGifDataById(req.params.exerciseId);
+      if (!gifData) return res.status(404).send("Image not found");
+
+      const buffer = Buffer.from(gifData, "base64");
+      res.setHeader("Content-Type", "image/gif");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      res.send(buffer);
+    } catch {
+      res.status(500).send("Failed to fetch image");
+    }
+  });
+
+
+  // Bulk seed ALL exercises from ExerciseDB (metadata only, no GIFs)
+  app.post("/api/admin/seed-all-exercises", async (req: Request, res: Response) => {
+    const adminSecret = process.env.ADMIN_SECRET;
+    const providedSecret = req.headers["x-admin-secret"];
+    if (!adminSecret || providedSecret !== adminSecret) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const apiKey = process.env.EXERCISEDB_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "EXERCISEDB_API_KEY not configured" });
+    }
+
+    try {
+      const response = await fetch(
+        "https://exercisedb.p.rapidapi.com/exercises?limit=0",
+        {
+          headers: {
+            "X-RapidAPI-Key": apiKey,
+            "X-RapidAPI-Host": "exercisedb.p.rapidapi.com",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        return res.status(502).json({ error: `ExerciseDB API returned ${response.status}`, message: text });
+      }
+
+      const exercises = await response.json();
+      if (!Array.isArray(exercises)) {
+        return res.status(502).json({ error: "Unexpected API response format" });
+      }
+
+      const mapped = exercises.map((ex: any) => ({
+        exerciseName: ex.name,
+        bodyPart: ex.bodyPart || null,
+        equipment: ex.equipment || null,
+        targetMuscle: ex.target || null,
+        instructions: Array.isArray(ex.instructions) ? ex.instructions.join("\n") : null,
+        exerciseDbId: String(ex.id),
+      }));
+
+      const results = await bulkSaveExerciseMetadata(mapped);
+
+      // Clean up old local-only exercises that have no ExerciseDB match
+      const cleanup = await pool.query(
+        `DELETE FROM exercise_gif_cache WHERE exercisedb_id IS NULL`
+      );
+
+      res.json({ totalFromApi: exercises.length, ...results, removedLegacy: cleanup.rowCount });
+    } catch (err: any) {
+      console.error("[seed-all-exercises] Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Download GIF binaries for exercises that have metadata but no gif_data
+  app.post("/api/admin/download-exercise-gifs", async (req: Request, res: Response) => {
+    const adminSecret = process.env.ADMIN_SECRET;
+    const providedSecret = req.headers["x-admin-secret"];
+    if (!adminSecret || providedSecret !== adminSecret) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const apiKey = process.env.EXERCISEDB_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "EXERCISEDB_API_KEY not configured" });
+    }
+
+    const batchLimit = parseInt(req.body?.limit as string) || 50;
+    const delayMs = parseInt(req.body?.delayMs as string) || 500;
+
+    const pending = await pool.query(
+      `SELECT exercise_name, exercisedb_id
+       FROM exercise_gif_cache
+       WHERE exercisedb_id IS NOT NULL
+         AND (gif_data IS NULL OR gif_data = '')
+       ORDER BY exercise_name ASC
+       LIMIT $1`,
+      [batchLimit]
+    );
+
+    if (pending.rows.length === 0) {
+      const total = await pool.query(`SELECT COUNT(*)::int as count FROM exercise_gif_cache`);
+      return res.json({ message: "All exercises already have GIFs", pending: 0, total: total.rows[0].count });
+    }
+
+    const totalPending = await pool.query(
+      `SELECT COUNT(*)::int as count FROM exercise_gif_cache
+       WHERE exercisedb_id IS NOT NULL AND (gif_data IS NULL OR gif_data = '')`
+    );
+
+    let success = 0;
+    let failed = 0;
+    const failures: string[] = [];
+
+    for (const row of pending.rows) {
+      try {
+        const imgRes = await fetch(
+          `https://exercisedb.p.rapidapi.com/image?exerciseId=${row.exercisedb_id}&resolution=180&rapidapi-key=${apiKey}`
+        );
+
+        if (imgRes.status === 429) {
+          return res.json({
+            rateLimited: true,
+            success,
+            failed,
+            remaining: totalPending.rows[0].count - success,
+            message: "API rate limit reached. Re-run later to continue.",
+            failures,
+          });
+        }
+
+        if (!imgRes.ok) {
+          failed++;
+          if (failures.length < 20) failures.push(`${row.exercise_name}: HTTP ${imgRes.status}`);
+          await new Promise(r => setTimeout(r, delayMs));
+          continue;
+        }
+
+        const buffer = Buffer.from(await imgRes.arrayBuffer());
+        const gifData = buffer.toString("base64");
+
+        await pool.query(
+          `UPDATE exercise_gif_cache
+           SET gif_data = $1, gif_url = $2
+           WHERE exercisedb_id = $3`,
+          [gifData, `/api/exercises/image/${row.exercisedb_id}`, row.exercisedb_id]
+        );
+
+        success++;
+        console.log(`[GIF Download] ${success}/${pending.rows.length} - ${row.exercise_name} OK`);
+      } catch (err: any) {
+        failed++;
+        if (failures.length < 20) failures.push(`${row.exercise_name}: ${err.message}`);
+      }
+
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+
+    res.json({
+      success,
+      failed,
+      totalPending: totalPending.rows[0].count,
+      remaining: totalPending.rows[0].count - success,
+      failures,
+    });
+  });
+
+  // Check exercise seed status
+  app.get("/api/admin/exercise-seed-status", async (req: Request, res: Response) => {
+    const adminSecret = process.env.ADMIN_SECRET;
+    const providedSecret = req.headers["x-admin-secret"];
+    if (!adminSecret || providedSecret !== adminSecret) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const result = await pool.query(`
+      SELECT
+        COUNT(*)::int as total,
+        COUNT(gif_data)::int as "withGifs",
+        COUNT(*) FILTER (WHERE gif_data IS NULL AND exercisedb_id IS NOT NULL)::int as "pendingGifs",
+        COUNT(*) FILTER (WHERE exercisedb_id IS NULL)::int as "noApiId",
+        COUNT(DISTINCT body_part) FILTER (WHERE body_part IS NOT NULL)::int as "bodyParts",
+        COUNT(DISTINCT equipment) FILTER (WHERE equipment IS NOT NULL)::int as "equipmentTypes"
+      FROM exercise_gif_cache
+    `);
+
+    res.json(result.rows[0]);
+  });
+
+  // Generate routine - creates a balanced workout from exercise_gif_cache
   app.post("/api/generate-routine", requireAuth, async (req, res) => {
     try {
-      const { muscleGroups, difficulty, name, equipment, goal, notes } = req.body;
+      const { muscleGroups, difficulty, name, equipment } = req.body;
 
       if (!muscleGroups || !Array.isArray(muscleGroups) || muscleGroups.length === 0) {
         return res.status(400).json({ error: "At least one muscle group is required" });
       }
 
       const difficultyLevel = difficulty === "beginner" ? "beginner" : difficulty === "advanced" || difficulty === "expert" ? "advanced" : "intermediate";
-
-      const openaiApiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
-      const openaiBaseUrl = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL;
-
-      if (openaiApiKey && openaiBaseUrl) {
-        try {
-          const OpenAI = (await import("openai")).default;
-          const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: openaiBaseUrl });
-
-          const equipmentList = equipment && equipment.length > 0
-            ? equipment.join(", ")
-            : "full gym (barbell, dumbbells, cables, machines)";
-
-          const goalText = goal || "general fitness";
-
-          const prompt = `You are an expert personal trainer. Create a workout routine with the following parameters:
-- Target muscle groups: ${muscleGroups.join(", ")}
-- Experience level: ${difficultyLevel}
-- Available equipment: ${equipmentList}
-- Training goal: ${goalText}
-${notes ? `- Additional notes: ${notes}` : ""}
-
-Generate a complete workout routine. For each exercise include:
-- name: the exercise name
-- muscleGroup: primary muscle targeted
-- equipment: equipment needed
-- sets: number of sets (${difficultyLevel === "beginner" ? "2-3" : difficultyLevel === "intermediate" ? "3-4" : "4-5"})
-- reps: rep range as a string (e.g. "8-12", "12-15", "5")
-- restSeconds: rest between sets in seconds
-- instructions: brief form cues (1-2 sentences)
-- order: exercise order (start compound movements first, then isolation)
-
-Order exercises properly: compound lifts first, then isolation work. Include ${muscleGroups.length <= 2 ? "4-5" : "3-4"} exercises per muscle group. Total should be ${muscleGroups.length <= 2 ? "8-10" : Math.min(muscleGroups.length * 3, 15)} exercises.
-
-Respond ONLY with valid JSON in this exact format:
-{
-  "name": "routine name",
-  "exercises": [
-    {
-      "name": "Exercise Name",
-      "muscleGroup": "Chest",
-      "equipment": "Barbell",
-      "sets": 4,
-      "reps": "8-12",
-      "restSeconds": 90,
-      "instructions": "Brief form cues here.",
-      "order": 0
-    }
-  ]
-}`;
-
-          const response = await openai.chat.completions.create({
-            model: "gpt-5-mini",
-            messages: [{ role: "user", content: prompt }],
-            response_format: { type: "json_object" },
-          });
-
-          const content = response.choices[0]?.message?.content;
-          if (!content) throw new Error("Empty AI response");
-
-          const parsed = JSON.parse(content);
-          const exercises = parsed.exercises.map((ex: any, idx: number) => ({
-            id: `ai-${Date.now()}-${idx}`,
-            name: ex.name,
-            muscleGroup: ex.muscleGroup,
-            equipment: ex.equipment || "Bodyweight",
-            sets: ex.sets || 3,
-            reps: String(ex.reps || "10"),
-            restSeconds: ex.restSeconds || 60,
-            instructions: ex.instructions || "",
-            order: ex.order ?? idx,
-          }));
-
-          exercises.sort((a: any, b: any) => a.order - b.order);
-
-          return res.json({
-            id: `routine-${Date.now()}`,
-            name: name || parsed.name || `${muscleGroups.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1).replace("_", " ")).join(" & ")} Workout`,
-            exercises,
-            difficulty: difficultyLevel,
-            muscleGroups,
-            generatedBy: "ai",
-          });
-        } catch (aiError) {
-          console.error("OpenAI routine generation failed, falling back to database:", aiError);
-        }
-      }
+      const exercisesPerMuscle = muscleGroups.length <= 2 ? 4 : 3;
+      const sets = difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5;
+      const restSeconds = difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45;
 
       const routineExercises: any[] = [];
       const usedExerciseNames = new Set<string>();
-      const exercisesPerMuscle = muscleGroups.length <= 2 ? 3 : 2;
 
-      let apiExercises: WorkoutAPIExercise[] = [];
-      const apiKey = process.env.WORKOUT_API_KEY;
-      if (apiKey) {
-        try { apiExercises = await fetchAllExercises(apiKey); } catch {}
-      }
+      // Build equipment filter if user selected specific equipment
+      const equipmentFilter = equipment && equipment.length > 0
+        ? equipment.map((e: string) => e.toLowerCase())
+        : null;
 
       for (const muscle of muscleGroups) {
-        const muscleCode = MUSCLE_MAP[String(muscle).toLowerCase()] || String(muscle).toUpperCase();
+        const muscleLower = String(muscle).toLowerCase();
+        const searchTerms = MUSCLE_SEARCH_TERMS[muscleLower] || [muscleLower.replace("_", " ")];
+
+        // Build WHERE conditions for all search terms
+        const conditions = searchTerms.flatMap((term: string, i: number) => [
+          `LOWER(target_muscle) = $${i + 1}`,
+          `LOWER(body_part) = $${i + 1}`,
+        ]).join(" OR ");
+
+        let query = `SELECT exercise_name, body_part, equipment, target_muscle, instructions
+           FROM exercise_gif_cache
+           WHERE exercisedb_id IS NOT NULL
+             AND (${conditions})
+           ORDER BY RANDOM()
+           LIMIT $${searchTerms.length + 1}`;
+
+        const params: any[] = [...searchTerms, exercisesPerMuscle * 3];
+
+        const cacheResult = await pool.query(query, params);
+
         let muscleExercisesCount = 0;
+        for (const row of cacheResult.rows) {
+          if (muscleExercisesCount >= exercisesPerMuscle) break;
+          if (usedExerciseNames.has(row.exercise_name.toLowerCase())) continue;
 
-        if (apiExercises.length > 0) {
-          const apiMuscleExercises = apiExercises.filter(ex =>
-            ex.primaryMuscles.some(m => m.code === muscleCode || m.code.includes(muscleCode) || muscleCode.includes(m.code))
-          );
-          for (const ex of apiMuscleExercises) {
-            if (muscleExercisesCount >= exercisesPerMuscle) break;
-            if (usedExerciseNames.has(ex.name.toLowerCase())) continue;
-            usedExerciseNames.add(ex.name.toLowerCase());
-            routineExercises.push({
-              id: ex.id, name: ex.name,
-              muscleGroup: ex.primaryMuscles[0]?.name || muscle,
-              equipment: ex.categories[0]?.name || "Bodyweight",
-              sets: difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5,
-              reps: "10", restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
-              instructions: ex.description,
-            });
-            muscleExercisesCount++;
+          // Filter by equipment if specified
+          if (equipmentFilter) {
+            const exEquipment = (row.equipment || "").toLowerCase();
+            const matchesEquipment = equipmentFilter.some((eq: string) =>
+              exEquipment.includes(eq) || eq.includes(exEquipment)
+            );
+            if (!matchesEquipment) continue;
           }
-        }
 
-        if (muscleExercisesCount < exercisesPerMuscle) {
-          const localExercises = getExercisesByMuscle(muscle);
-          const filteredLocal = getExercisesByDifficulty(localExercises, difficultyLevel === "advanced" ? "expert" : difficultyLevel);
-          const shuffled = filteredLocal.sort(() => Math.random() - 0.5);
-          for (const ex of shuffled) {
-            if (muscleExercisesCount >= exercisesPerMuscle) break;
-            if (usedExerciseNames.has(ex.name.toLowerCase())) continue;
-            usedExerciseNames.add(ex.name.toLowerCase());
-            routineExercises.push({
-              id: ex.id, name: ex.name,
-              muscleGroup: muscle.charAt(0).toUpperCase() + muscle.slice(1).replace("_", " "),
-              equipment: ex.equipment,
-              sets: difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5,
-              reps: "10", restSeconds: difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45,
-              instructions: ex.instructions,
-            });
-            muscleExercisesCount++;
-          }
+          usedExerciseNames.add(row.exercise_name.toLowerCase());
+          routineExercises.push({
+            id: `gen-${Date.now()}-${routineExercises.length}`,
+            name: row.exercise_name,
+            muscleGroup: muscle.charAt(0).toUpperCase() + muscle.slice(1).replace("_", " "),
+            equipment: row.equipment || "body weight",
+            sets,
+            reps: "10",
+            restSeconds,
+            instructions: row.instructions,
+          });
+          muscleExercisesCount++;
         }
       }
 
@@ -1273,65 +1368,6 @@ Respond ONLY with valid JSON in this exact format:
     }
   });
 
-  // ========== Progress Photos ==========
-
-  app.get("/api/progress-photos", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const result = await pool.query(
-        "SELECT client_id, image_data, date, weight_kg, notes, created_at FROM progress_photos WHERE user_id = $1 ORDER BY date DESC",
-        [req.session.userId]
-      );
-      res.json(result.rows.map((r: any) => ({
-        id: r.client_id,
-        imageData: r.image_data,
-        date: r.date,
-        weightKg: r.weight_kg,
-        notes: r.notes,
-        createdAt: r.created_at,
-      })));
-    } catch (error) {
-      console.error("Error getting progress photos:", error);
-      res.status(500).json({ error: "Failed to get progress photos" });
-    }
-  });
-
-  app.post("/api/progress-photos", requireAuth, async (req: Request, res: Response) => {
-    try {
-      const { clientId, imageData, date, weightKg, notes } = req.body;
-      if (!clientId || !imageData || !date) {
-        res.status(400).json({ error: "clientId, imageData, and date are required" });
-        return;
-      }
-      await pool.query(
-        `INSERT INTO progress_photos (user_id, client_id, image_data, date, weight_kg, notes)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (user_id, client_id) DO UPDATE SET
-           image_data = EXCLUDED.image_data,
-           date = EXCLUDED.date,
-           weight_kg = EXCLUDED.weight_kg,
-           notes = EXCLUDED.notes`,
-        [req.session.userId, clientId, imageData, date, weightKg || null, notes || null]
-      );
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error saving progress photo:", error);
-      res.status(500).json({ error: "Failed to save progress photo" });
-    }
-  });
-
-  app.delete("/api/progress-photos/:clientId", requireAuth, async (req: Request, res: Response) => {
-    try {
-      await pool.query(
-        "DELETE FROM progress_photos WHERE user_id = $1 AND client_id = $2",
-        [req.session.userId, req.params.clientId]
-      );
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting progress photo:", error);
-      res.status(500).json({ error: "Failed to delete progress photo" });
-    }
-  });
-
   // ========== Social: Follow Routes ==========
 
   app.post("/api/social/follow/:userId", requireAuth, async (req: any, res: Response) => {
@@ -1341,6 +1377,10 @@ Respond ONLY with valid JSON in this exact format:
         return res.status(400).json({ error: "Invalid user" });
       }
       const success = await followUser(req.userId, targetId);
+      if (success) {
+        const user = await getUserById(req.userId);
+        createNotification(targetId, "follow", req.userId, null, `${user?.name || "Someone"} started following you`).catch(() => {});
+      }
       res.json({ success });
     } catch (error) {
       console.error("Error following user:", error);
@@ -1390,7 +1430,7 @@ Respond ONLY with valid JSON in this exact format:
     try {
       const cursor = req.query.cursor as string | undefined;
       const result = await getFeedPosts(req.userId, cursor);
-      res.json(result);
+      res.json({ ...result, serverTime: new Date().toISOString() });
     } catch (error) {
       console.error("Error getting feed:", error);
       res.status(500).json({ error: "Failed to get feed" });
@@ -1417,7 +1457,7 @@ Respond ONLY with valid JSON in this exact format:
       if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
       const post = await getPost(postId, req.userId);
       if (!post) return res.status(404).json({ error: "Post not found" });
-      res.json(post);
+      res.json({ ...post, serverTime: new Date().toISOString() });
     } catch (error) {
       console.error("Error getting post:", error);
       res.status(500).json({ error: "Failed to get post" });
@@ -1452,7 +1492,7 @@ Respond ONLY with valid JSON in this exact format:
       }
 
       const result = await getUserPosts(targetId, req.userId, cursor);
-      res.json(result);
+      res.json({ ...result, serverTime: new Date().toISOString() });
     } catch (error) {
       console.error("Error getting user posts:", error);
       res.status(500).json({ error: "Failed to get user posts" });
@@ -1466,6 +1506,13 @@ Respond ONLY with valid JSON in this exact format:
       const postId = parseInt(req.params.postId);
       if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
       const success = await likePost(req.userId, postId);
+      if (success) {
+        const post = await getPost(postId, req.userId);
+        if (post) {
+          const user = await getUserById(req.userId);
+          createNotification(post.userId, "like", req.userId, postId, `${user?.name || "Someone"} liked your post`).catch(() => {});
+        }
+      }
       res.json({ success });
     } catch (error) {
       console.error("Error liking post:", error);
@@ -1492,8 +1539,8 @@ Respond ONLY with valid JSON in this exact format:
       const postId = parseInt(req.params.postId);
       const page = parseInt(req.query.page as string) || 0;
       if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
-      const comments = await getPostComments(postId, page, 20);
-      res.json(comments);
+      const comments = await getPostComments(postId, req.userId, page, 20);
+      res.json({ comments, serverTime: new Date().toISOString() });
     } catch (error) {
       console.error("Error getting comments:", error);
       res.status(500).json({ error: "Failed to get comments" });
@@ -1507,6 +1554,12 @@ Respond ONLY with valid JSON in this exact format:
       if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
       if (!clientId || !content?.trim()) return res.status(400).json({ error: "clientId and content are required" });
       const comment = await addComment(req.userId, postId, clientId, content.trim());
+      // Notify post author about the comment
+      const post = await getPost(postId, req.userId);
+      if (post && post.userId !== req.userId) {
+        const user = await getUserById(req.userId);
+        createNotification(post.userId, "comment", req.userId, postId, `${user?.name || "Someone"} commented on your post`).catch(() => {});
+      }
       res.json(comment);
     } catch (error) {
       console.error("Error adding comment:", error);
@@ -1562,6 +1615,129 @@ Respond ONLY with valid JSON in this exact format:
     } catch (error) {
       console.error("Error updating social profile:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // ========== Social: Block & Report ==========
+
+  app.post("/api/social/block/:userId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      if (isNaN(targetId) || targetId === req.userId) {
+        return res.status(400).json({ error: "Invalid user" });
+      }
+      await blockUser(req.userId, targetId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      res.status(500).json({ error: "Failed to block user" });
+    }
+  });
+
+  app.delete("/api/social/block/:userId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const targetId = parseInt(req.params.userId);
+      if (isNaN(targetId)) return res.status(400).json({ error: "Invalid user" });
+      await unblockUser(req.userId, targetId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unblocking user:", error);
+      res.status(500).json({ error: "Failed to unblock user" });
+    }
+  });
+
+  app.get("/api/social/blocked", requireAuth, async (req: any, res: Response) => {
+    try {
+      const users = await getBlockedUsers(req.userId);
+      res.json(users);
+    } catch (error) {
+      console.error("Error getting blocked users:", error);
+      res.status(500).json({ error: "Failed to get blocked users" });
+    }
+  });
+
+  app.post("/api/social/report", requireAuth, async (req: any, res: Response) => {
+    try {
+      const { reportType, targetId, reason, details } = req.body;
+      if (!reportType || !targetId || !reason) {
+        return res.status(400).json({ error: "reportType, targetId, and reason are required" });
+      }
+      if (!["post", "comment", "user"].includes(reportType)) {
+        return res.status(400).json({ error: "reportType must be post, comment, or user" });
+      }
+      if (!["spam", "harassment", "inappropriate", "other"].includes(reason)) {
+        return res.status(400).json({ error: "Invalid reason" });
+      }
+      await reportContent(req.userId, reportType, targetId, reason, details);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error reporting content:", error);
+      res.status(500).json({ error: "Failed to report content" });
+    }
+  });
+
+  // ========== Social: Notifications ==========
+
+  app.get("/api/notifications", requireAuth, async (req: any, res: Response) => {
+    try {
+      const page = parseInt(req.query.page as string) || 0;
+      const notifications = await getNotifications(req.userId, page, 20);
+      res.json({ notifications });
+    } catch (error) {
+      console.error("Error getting notifications:", error);
+      res.status(500).json({ error: "Failed to get notifications" });
+    }
+  });
+
+  app.post("/api/notifications/read", requireAuth, async (req: any, res: Response) => {
+    try {
+      await markNotificationsRead(req.userId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notifications read:", error);
+      res.status(500).json({ error: "Failed to mark notifications read" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", requireAuth, async (req: any, res: Response) => {
+    try {
+      const count = await getUnreadNotificationCount(req.userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error getting unread count:", error);
+      res.status(500).json({ error: "Failed to get unread count" });
+    }
+  });
+
+  // ========== Social: Edit Post & Comment ==========
+
+  app.put("/api/social/posts/:postId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const postId = parseInt(req.params.postId);
+      if (isNaN(postId)) return res.status(400).json({ error: "Invalid post ID" });
+      const { content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ error: "Content is required" });
+      const success = await updatePost(postId, req.userId, content.trim());
+      if (!success) return res.status(404).json({ error: "Post not found or not owned" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating post:", error);
+      res.status(500).json({ error: "Failed to update post" });
+    }
+  });
+
+  app.put("/api/social/comments/:commentId", requireAuth, async (req: any, res: Response) => {
+    try {
+      const commentId = parseInt(req.params.commentId);
+      if (isNaN(commentId)) return res.status(400).json({ error: "Invalid comment ID" });
+      const { content } = req.body;
+      if (!content?.trim()) return res.status(400).json({ error: "Content is required" });
+      const success = await updateComment(commentId, req.userId, content.trim());
+      if (!success) return res.status(404).json({ error: "Comment not found or not owned" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating comment:", error);
+      res.status(500).json({ error: "Failed to update comment" });
     }
   });
 

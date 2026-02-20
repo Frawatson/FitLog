@@ -4,14 +4,14 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import ProfileScreen from "@/screens/ProfileScreen";
 import ProgressChartsScreen from "@/screens/ProgressChartsScreen";
 import AchievementsScreen from "@/screens/AchievementsScreen";
-import ProgressPhotosScreen from "@/screens/ProgressPhotosScreen";
+import SettingsScreen from "@/screens/SettingsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
 export type ProfileStackParamList = {
   Profile: undefined;
   ProgressCharts: undefined;
   Achievements: undefined;
-  ProgressPhotos: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<ProfileStackParamList>();
@@ -43,10 +43,10 @@ export default function ProfileStackNavigator() {
         }}
       />
       <Stack.Screen
-        name="ProgressPhotos"
-        component={ProgressPhotosScreen}
+        name="Settings"
+        component={SettingsScreen}
         options={{
-          headerTitle: "Progress Photos",
+          headerTitle: "Settings",
         }}
       />
     </Stack.Navigator>

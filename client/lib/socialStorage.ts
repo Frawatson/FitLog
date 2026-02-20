@@ -1,20 +1,20 @@
 import { syncToServer } from "@/lib/syncService";
-import type { Post, PostComment, SocialProfile, FollowUser, PostType, PostVisibility } from "@/types";
+import type { Post, PostComment, SocialProfile, FollowUser, PostType, PostVisibility, Notification, BlockedUser } from "@/types";
 
 // ========== Feed ==========
 
-export async function getFeed(cursor?: string): Promise<{ posts: Post[]; nextCursor?: string }> {
+export async function getFeed(cursor?: string): Promise<{ posts: Post[]; nextCursor?: string; serverTime?: string }> {
   const endpoint = cursor ? `/api/social/feed?cursor=${encodeURIComponent(cursor)}` : "/api/social/feed";
-  const result = await syncToServer<{ posts: Post[]; nextCursor?: string }>(endpoint, "GET");
+  const result = await syncToServer<{ posts: Post[]; nextCursor?: string; serverTime?: string }>(endpoint, "GET");
   if (result.success && result.data) return result.data;
   return { posts: [] };
 }
 
-export async function getUserPostsFeed(userId: number, cursor?: string): Promise<{ posts: Post[]; nextCursor?: string }> {
+export async function getUserPostsFeed(userId: number, cursor?: string): Promise<{ posts: Post[]; nextCursor?: string; serverTime?: string }> {
   const endpoint = cursor
     ? `/api/social/posts/user/${userId}?cursor=${encodeURIComponent(cursor)}`
     : `/api/social/posts/user/${userId}`;
-  const result = await syncToServer<{ posts: Post[]; nextCursor?: string }>(endpoint, "GET");
+  const result = await syncToServer<{ posts: Post[]; nextCursor?: string; serverTime?: string }>(endpoint, "GET");
   if (result.success && result.data) return result.data;
   return { posts: [] };
 }
@@ -35,8 +35,8 @@ export async function createSocialPost(post: {
   return { success: false };
 }
 
-export async function getPostById(postId: number): Promise<Post | null> {
-  const result = await syncToServer<Post>(`/api/social/posts/${postId}`, "GET");
+export async function getPostById(postId: number): Promise<(Post & { serverTime?: string }) | null> {
+  const result = await syncToServer<Post & { serverTime?: string }>(`/api/social/posts/${postId}`, "GET");
   if (result.success && result.data) return result.data;
   return null;
 }
@@ -60,10 +60,10 @@ export async function unlikePostApi(postId: number): Promise<boolean> {
 
 // ========== Comments ==========
 
-export async function getComments(postId: number, page = 0): Promise<PostComment[]> {
-  const result = await syncToServer<PostComment[]>(`/api/social/posts/${postId}/comments?page=${page}`, "GET");
+export async function getComments(postId: number, page = 0): Promise<{ comments: PostComment[]; serverTime?: string }> {
+  const result = await syncToServer<{ comments: PostComment[]; serverTime?: string }>(`/api/social/posts/${postId}/comments?page=${page}`, "GET");
   if (result.success && result.data) return result.data;
-  return [];
+  return { comments: [] };
 }
 
 export async function addCommentApi(postId: number, clientId: string, content: string): Promise<PostComment | null> {
@@ -117,5 +117,59 @@ export async function getSocialProfileApi(userId: number): Promise<SocialProfile
 
 export async function updateSocialProfileApi(data: { bio?: string; avatarUrl?: string; isPublic?: boolean }): Promise<boolean> {
   const result = await syncToServer<{ success: boolean }>("/api/social/profile", "PUT", data);
+  return result.success && !!result.data?.success;
+}
+
+// ========== Block & Report ==========
+
+export async function blockUserApi(userId: number): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(`/api/social/block/${userId}`, "POST");
+  return result.success && !!result.data?.success;
+}
+
+export async function unblockUserApi(userId: number): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(`/api/social/block/${userId}`, "DELETE");
+  return result.success && !!result.data?.success;
+}
+
+export async function getBlockedUsersApi(): Promise<BlockedUser[]> {
+  const result = await syncToServer<BlockedUser[]>("/api/social/blocked", "GET");
+  if (result.success && result.data) return result.data;
+  return [];
+}
+
+export async function reportContentApi(reportType: "post" | "comment" | "user", targetId: number, reason: string, details?: string): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>("/api/social/report", "POST", { reportType, targetId, reason, details });
+  return result.success && !!result.data?.success;
+}
+
+// ========== Notifications ==========
+
+export async function getNotificationsApi(page = 0): Promise<{ notifications: Notification[] }> {
+  const result = await syncToServer<{ notifications: Notification[] }>(`/api/notifications?page=${page}`, "GET");
+  if (result.success && result.data) return result.data;
+  return { notifications: [] };
+}
+
+export async function markNotificationsReadApi(): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>("/api/notifications/read", "POST");
+  return result.success && !!result.data?.success;
+}
+
+export async function getUnreadCountApi(): Promise<number> {
+  const result = await syncToServer<{ count: number }>("/api/notifications/unread-count", "GET");
+  if (result.success && result.data) return result.data.count;
+  return 0;
+}
+
+// ========== Edit Post & Comment ==========
+
+export async function editPostApi(postId: number, content: string): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(`/api/social/posts/${postId}`, "PUT", { content });
+  return result.success && !!result.data?.success;
+}
+
+export async function editCommentApi(commentId: number, content: string): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(`/api/social/comments/${commentId}`, "PUT", { content });
   return result.success && !!result.data?.success;
 }

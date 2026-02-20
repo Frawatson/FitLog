@@ -64,8 +64,10 @@ export default function MainTabNavigator() {
           title: "Home",
           headerShown: true,
           headerTitle: "Merge",
-          headerTransparent: true,
           headerTintColor: theme.text,
+          headerStyle: {
+            backgroundColor: theme.backgroundRoot,
+          },
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),

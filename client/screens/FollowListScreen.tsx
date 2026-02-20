@@ -29,23 +29,31 @@ export default function FollowListScreen() {
 
   const [users, setUsers] = useState<FollowUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const hasLoadedRef = useRef(false);
 
   const loadData = async (pageNum = 0) => {
     if (!hasLoadedRef.current) setIsLoading(true);
-    const fetcher = mode === "followers" ? getFollowersList : getFollowingList;
-    const result = await fetcher(userId, pageNum);
-    if (pageNum === 0) {
-      setUsers(result);
-    } else {
-      setUsers(prev => [...prev, ...result]);
-    }
-    setHasMore(result.length === 20);
-    if (!hasLoadedRef.current) {
-      hasLoadedRef.current = true;
-      setIsLoading(false);
+    try {
+      const fetcher = mode === "followers" ? getFollowersList : getFollowingList;
+      const result = await fetcher(userId, pageNum);
+      if (pageNum === 0) {
+        setUsers(result);
+      } else {
+        setUsers(prev => [...prev, ...result]);
+      }
+      setHasMore(result.length === 20);
+      setError(false);
+    } catch (e) {
+      console.log("Failed to load follow list:", e);
+      setError(true);
+    } finally {
+      if (!hasLoadedRef.current) {
+        hasLoadedRef.current = true;
+        setIsLoading(false);
+      }
     }
   };
 
@@ -77,6 +85,20 @@ export default function FollowListScreen() {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <SkeletonLoader variant="card" count={5} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center", justifyContent: "center" }]}>
+        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
+        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+          Could not load list.
+        </ThemedText>
+        <Button onPress={() => { setError(false); hasLoadedRef.current = false; loadData(); }} variant="outline">
+          Retry
+        </Button>
       </View>
     );
   }

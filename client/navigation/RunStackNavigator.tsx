@@ -27,12 +27,12 @@ export default function RunStackNavigator() {
       <Stack.Screen
         name="RunTracker"
         component={RunTrackerScreen}
-        options={{ headerShown: false, gestureEnabled: false }}
+        options={{ headerTitle: "Run", gestureEnabled: false }}
       />
       <Stack.Screen
         name="RunGoal"
         component={RunGoalScreen}
-        options={{ headerShown: false }}
+        options={{ headerTitle: "Set Goal" }}
       />
       <Stack.Screen
         name="RunDetail"

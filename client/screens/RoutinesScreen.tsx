@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Pressable } from "react-native";
+import { View, StyleSheet, FlatList, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -32,6 +32,7 @@ export default function RoutinesScreen() {
   const [loading, setLoading] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [routineToDelete, setRoutineToDelete] = useState<Routine | null>(null);
+  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(new Set());
   
   const loadRoutines = async () => {
     const data = await storage.getRoutines();
@@ -71,46 +72,87 @@ export default function RoutinesScreen() {
     navigation.navigate("ActiveWorkout", { routineId: routine.id });
   };
 
-  const renderRoutine = ({ item }: { item: Routine }) => (
-    <Card style={styles.routineCard}>
-      <View style={styles.routineHeader}>
-        <View style={{ flex: 1 }}>
-          <ThemedText type="h3">{item.name}</ThemedText>
-          <ThemedText type="small" style={styles.routineInfo}>
-            {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
-          </ThemedText>
-          {item.lastCompletedAt ? (
-            <ThemedText type="small" style={styles.lastCompleted}>
-              Last completed: {new Date(item.lastCompletedAt).toLocaleDateString()}
-            </ThemedText>
-          ) : null}
-        </View>
-        <View style={styles.routineActions}>
-          <Pressable
-            onPress={() => handleDelete(item)}
-            style={[styles.actionButton, { backgroundColor: theme.backgroundElevated }]}
-          >
-            <Feather name="trash-2" size={18} color={Colors.light.error} />
-          </Pressable>
+  const toggleExpand = (routineId: string) => {
+    setExpandedRoutines((prev) => {
+      const next = new Set(prev);
+      next.has(routineId) ? next.delete(routineId) : next.add(routineId);
+      return next;
+    });
+    Haptics.selectionAsync();
+  };
+
+  const renderRoutine = ({ item }: { item: Routine }) => {
+    const exercisePreview = item.exercises.map(e => e.exerciseName);
+    const isExpanded = expandedRoutines.has(item.id);
+
+    return (
+      <Card style={styles.routineCard}>
+        <Pressable onPress={() => toggleExpand(item.id)}>
+          <View style={styles.routineHeader}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="h3">{item.name}</ThemedText>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginTop: Spacing.xs }}>
+                <ThemedText type="small" style={{ opacity: 0.6 }}>
+                  {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
+                  {item.lastCompletedAt
+                    ? `  \u00B7  ${new Date(item.lastCompletedAt).toLocaleDateString()}`
+                    : ""}
+                </ThemedText>
+                <Feather
+                  name={isExpanded ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={theme.textSecondary}
+                />
+              </View>
+            </View>
+            <AnimatedPress
+              onPress={() => handleStartWorkout(item)}
+              style={styles.playButton}
+            >
+              <Feather name="play" size={18} color="#FFFFFF" />
+            </AnimatedPress>
+          </View>
+        </Pressable>
+
+        {isExpanded && exercisePreview.length > 0 && (
+          <View style={styles.exercisePreview}>
+            {exercisePreview.map((name, i) => (
+              <View key={i} style={styles.exercisePreviewItem}>
+                <View style={[styles.exerciseDot, { backgroundColor: Colors.light.primary }]} />
+                <ThemedText type="small" numberOfLines={1}>
+                  {name}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={[styles.secondaryActions, { borderTopColor: theme.border }]}>
           <Pressable
             onPress={() => {
               Haptics.selectionAsync();
               navigation.navigate("EditRoutine", { routineId: item.id });
             }}
-            style={[styles.actionButton, { backgroundColor: theme.backgroundElevated }]}
+            style={[styles.secondaryButton, { backgroundColor: theme.backgroundElevated }]}
           >
-            <Feather name="edit-2" size={18} color={theme.textSecondary} />
+            <Feather name="edit-2" size={16} color={theme.textSecondary} />
+            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+              Edit
+            </ThemedText>
           </Pressable>
           <Pressable
-            onPress={() => handleStartWorkout(item)}
-            style={[styles.actionButton, styles.playButton]}
+            onPress={() => handleDelete(item)}
+            style={[styles.secondaryButton, { backgroundColor: Colors.light.error + "10" }]}
           >
-            <Feather name="play" size={18} color="#FFFFFF" />
+            <Feather name="trash-2" size={16} color={Colors.light.error} />
+            <ThemedText type="small" style={{ color: Colors.light.error, marginLeft: Spacing.sm }}>
+              Delete
+            </ThemedText>
           </Pressable>
         </View>
-      </View>
-    </Card>
-  );
+      </Card>
+    );
+  };
   
   if (loading) {
     return (
@@ -152,23 +194,29 @@ export default function RoutinesScreen() {
           actionLabel="Browse Templates"
           onAction={() => navigation.navigate("RoutineTemplates")}
         />
-        <View style={styles.emptyStateButtons}>
-          <Card 
-            style={styles.emptyStateCard}
+        <View style={styles.emptyStatePills}>
+          <AnimatedPress
             onPress={() => navigation.navigate("GenerateRoutine")}
+            style={[styles.pillButton, { backgroundColor: "#9333EA" + "15" }]}
           >
-            <View style={styles.templateButtonContent}>
-              <View style={[styles.templateIcon, { backgroundColor: "#9333EA" }]}>
-                <Feather name="zap" size={16} color="#FFFFFF" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <ThemedText type="body" style={{ fontWeight: "600" }}>
-                  Generate Custom Routine
-                </ThemedText>
-              </View>
-              <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+            <View style={[styles.pillIcon, { backgroundColor: "#9333EA" }]}>
+              <Feather name="zap" size={14} color="#FFFFFF" />
             </View>
-          </Card>
+            <ThemedText type="small" style={{ fontWeight: "600", color: "#9333EA" }}>
+              Generate Routine
+            </ThemedText>
+          </AnimatedPress>
+          <AnimatedPress
+            onPress={() => navigation.navigate("ExerciseLibrary")}
+            style={[styles.pillButton, { backgroundColor: "#0D9488" + "15" }]}
+          >
+            <View style={[styles.pillIcon, { backgroundColor: "#0D9488" }]}>
+              <Feather name="book-open" size={14} color="#FFFFFF" />
+            </View>
+            <ThemedText type="small" style={{ fontWeight: "600", color: "#0D9488" }}>
+              Exercise Library
+            </ThemedText>
+          </AnimatedPress>
         </View>
       </View>
     );
@@ -219,40 +267,48 @@ export default function RoutinesScreen() {
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
         ListHeaderComponent={
-          <View style={styles.headerButtons}>
-            <Card 
-              style={styles.templateButton}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pillRow}
+            style={{ marginBottom: Spacing.lg }}
+          >
+            <AnimatedPress
               onPress={() => navigation.navigate("RoutineTemplates")}
+              style={[styles.pillButton, { backgroundColor: Colors.light.primary + "15" }]}
             >
-              <View style={styles.templateButtonContent}>
-                <View style={[styles.templateIcon, { backgroundColor: Colors.light.primary }]}>
-                  <Feather name="grid" size={16} color="#FFFFFF" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <ThemedText type="body" style={{ fontWeight: "600" }}>
-                    Browse Templates
-                  </ThemedText>
-                </View>
-                <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <View style={[styles.pillIcon, { backgroundColor: Colors.light.primary }]}>
+                <Feather name="grid" size={14} color="#FFFFFF" />
               </View>
-            </Card>
-            <Card 
-              style={styles.templateButton}
+              <ThemedText type="small" style={{ fontWeight: "600", color: Colors.light.primary }}>
+                Templates
+              </ThemedText>
+            </AnimatedPress>
+
+            <AnimatedPress
               onPress={() => navigation.navigate("GenerateRoutine")}
+              style={[styles.pillButton, { backgroundColor: "#9333EA" + "15" }]}
             >
-              <View style={styles.templateButtonContent}>
-                <View style={[styles.templateIcon, { backgroundColor: "#9333EA" }]}>
-                  <Feather name="zap" size={16} color="#FFFFFF" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <ThemedText type="body" style={{ fontWeight: "600" }}>
-                    Generate Custom Routine
-                  </ThemedText>
-                </View>
-                <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+              <View style={[styles.pillIcon, { backgroundColor: "#9333EA" }]}>
+                <Feather name="zap" size={14} color="#FFFFFF" />
               </View>
-            </Card>
-          </View>
+              <ThemedText type="small" style={{ fontWeight: "600", color: "#9333EA" }}>
+                Generate
+              </ThemedText>
+            </AnimatedPress>
+
+            <AnimatedPress
+              onPress={() => navigation.navigate("ExerciseLibrary")}
+              style={[styles.pillButton, { backgroundColor: "#0D9488" + "15" }]}
+            >
+              <View style={[styles.pillIcon, { backgroundColor: "#0D9488" }]}>
+                <Feather name="book-open" size={14} color="#FFFFFF" />
+              </View>
+              <ThemedText type="small" style={{ fontWeight: "600", color: "#0D9488" }}>
+                Exercises
+              </ThemedText>
+            </AnimatedPress>
+          </ScrollView>
         }
         data={routines}
         keyExtractor={(item) => item.id}
@@ -268,6 +324,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  pillRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  pillButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.sm,
+  },
+  pillIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   routineCard: {
     padding: Spacing.lg,
   },
@@ -280,57 +355,48 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginTop: Spacing.xs,
   },
-  lastCompleted: {
-    opacity: 0.5,
-    marginTop: Spacing.xs,
-  },
-  routineActions: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginLeft: Spacing.md,
-  },
-  actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   playButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: Colors.light.primary,
-  },
-  templateButton: {
-    padding: Spacing.lg,
-  },
-  templateButtonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  templateIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
-  headerButtons: {
-    gap: Spacing.sm,
-    marginBottom: Spacing.lg,
-  },
-  createButton: {
-    alignItems: "center",
-    padding: Spacing.lg,
-    marginHorizontal: Spacing.lg,
-    borderRadius: BorderRadius.lg,
+  exercisePreview: {
     marginTop: Spacing.md,
+    gap: Spacing.xs,
   },
-  emptyStateButtons: {
-    paddingHorizontal: Spacing.lg,
+  exercisePreviewItem: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.sm,
   },
-  emptyStateCard: {
-    padding: Spacing.lg,
+  exerciseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  secondaryActions: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+    marginTop: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.xs,
+  },
+  emptyStatePills: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
   },
   modalOverlay: {
     ...StyleSheet.absoluteFillObject,

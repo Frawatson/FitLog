@@ -36,9 +36,14 @@ export default function UserSearchScreen() {
     }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
-      const users = await searchUsersApi(text.trim());
-      setResults(users);
-      setSearching(false);
+      try {
+        const users = await searchUsersApi(text.trim());
+        setResults(users);
+      } catch (e) {
+        console.log("Search failed:", e);
+      } finally {
+        setSearching(false);
+      }
     }, 300);
   };
 

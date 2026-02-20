@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { View, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
+import { Feather } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { Card } from "@/components/Card";
-import { SelectField } from "@/components/SelectField";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -31,14 +32,14 @@ const EXPERIENCE_OPTIONS = [
 const GOAL_OPTIONS = [
   { label: "Lose Fat", value: "lose_fat" },
   { label: "Gain Muscle", value: "gain_muscle" },
-  { label: "Recomposition", value: "recomposition" },
+  { label: "Recomp", value: "recomposition" },
   { label: "Maintain", value: "maintain" },
 ];
 
 const ACTIVITY_OPTIONS = [
-  { label: "1-2 days/week", value: "1-2" },
-  { label: "3-4 days/week", value: "3-4" },
-  { label: "5-6 days/week", value: "5-6" },
+  { label: "1-2 days/wk", value: "1-2" },
+  { label: "3-4 days/wk", value: "3-4" },
+  { label: "5-6 days/wk", value: "5-6" },
 ];
 
 export default function EditProfileScreen() {
@@ -74,12 +75,11 @@ export default function EditProfileScreen() {
   }, []);
 
   useEffect(() => {
-    console.log("[EditProfile] User data:", JSON.stringify(user, null, 2));
     if (user) {
       setName(user.name || "");
       setAge(user.age?.toString() || "");
       setSex(user.sex || "");
-      
+
       if (user.heightCm) {
         if (unitSystem === "imperial") {
           const { feet, inches } = cmToFeetInches(user.heightCm);
@@ -89,7 +89,7 @@ export default function EditProfileScreen() {
           setHeightCm(user.heightCm.toString());
         }
       }
-      
+
       if (user.weightKg) {
         if (unitSystem === "imperial") {
           setWeight(kgToLbs(user.weightKg).toString());
@@ -97,7 +97,7 @@ export default function EditProfileScreen() {
           setWeight(user.weightKg.toString());
         }
       }
-      
+
       if (user.weightGoalKg) {
         if (unitSystem === "imperial") {
           setWeightGoal(kgToLbs(user.weightGoalKg).toString());
@@ -105,11 +105,10 @@ export default function EditProfileScreen() {
           setWeightGoal(user.weightGoalKg.toString());
         }
       }
-      
+
       setExperience(user.experience || "");
       setGoal(user.goal || "");
       setActivityLevel(user.activityLevel || "");
-      console.log("[EditProfile] Setting sex:", user.sex, "experience:", user.experience, "goal:", user.goal, "activityLevel:", user.activityLevel);
     }
   }, [user, unitSystem]);
 
@@ -163,6 +162,7 @@ export default function EditProfileScreen() {
         goal: goal || undefined,
         activityLevel: activityLevel || undefined,
       });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
     } catch (err: any) {
       setError(err.message || "Failed to update profile");
@@ -171,174 +171,196 @@ export default function EditProfileScreen() {
     }
   };
 
+  const renderChipGroup = (
+    label: string,
+    options: { label: string; value: string }[],
+    selected: string,
+    onSelect: (value: string) => void,
+  ) => (
+    <View style={styles.chipGroupContainer}>
+      <ThemedText type="small" style={styles.chipLabel}>{label}</ThemedText>
+      <View style={styles.chipGrid}>
+        {options.map((opt) => {
+          const isSelected = selected === opt.value;
+          return (
+            <AnimatedPress
+              key={opt.value}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: isSelected ? Colors.light.primary : theme.backgroundSecondary,
+                  borderColor: isSelected ? Colors.light.primary : theme.border,
+                },
+              ]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onSelect(opt.value);
+              }}
+            >
+              <ThemedText
+                type="small"
+                style={{ color: isSelected ? "#FFFFFF" : theme.text, fontWeight: isSelected ? "600" : "400" }}
+              >
+                {opt.label}
+              </ThemedText>
+            </AnimatedPress>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.lg,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-    >
-      {error ? (
-        <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
-          <ThemedText type="small" style={{ color: Colors.light.error }}>
-            {error}
-          </ThemedText>
-        </View>
-      ) : null}
-
-      <Card style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>Basic Info</ThemedText>
-        
-        <Input
-          label="Full Name"
-          value={name}
-          onChangeText={setName}
-          placeholder="Your name"
-        />
-
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <Input
-              label="Age"
-              value={age}
-              onChangeText={setAge}
-              placeholder="25"
-              keyboardType="number-pad"
-            />
+    <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: insets.bottom + 100,
+          paddingHorizontal: Spacing.lg,
+        }}
+      >
+        {error ? (
+          <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+            <Feather name="alert-circle" size={16} color={Colors.light.error} />
+            <ThemedText type="small" style={{ color: Colors.light.error, flex: 1 }}>
+              {error}
+            </ThemedText>
           </View>
-          <View style={styles.halfInput}>
-            <SelectField
-              label="Sex"
-              value={sex}
-              options={SEX_OPTIONS}
-              onValueChange={setSex}
-              placeholder="Select..."
-            />
-          </View>
-        </View>
-      </Card>
+        ) : null}
 
-      <Card style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>Body Metrics</ThemedText>
-        
-        {unitSystem === "imperial" ? (
-          <>
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Input
-                  label="Height (ft)"
-                  value={heightFeet}
-                  onChangeText={setHeightFeet}
-                  placeholder="5"
-                  keyboardType="number-pad"
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Input
-                  label="Height (in)"
-                  value={heightInches}
-                  onChangeText={setHeightInches}
-                  placeholder="10"
-                  keyboardType="number-pad"
-                />
-              </View>
-            </View>
-            
-            <View style={[styles.row, { marginTop: Spacing.md }]}>
-              <View style={styles.halfInput}>
-                <Input
-                  label="Weight (lbs)"
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholder="160"
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Input
-                  label="Goal Weight (lbs)"
-                  value={weightGoal}
-                  onChangeText={setWeightGoal}
-                  placeholder="150"
-                  keyboardType="decimal-pad"
-                />
-              </View>
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Input
-                  label="Height (cm)"
-                  value={heightCm}
-                  onChangeText={setHeightCm}
-                  placeholder="175"
-                  keyboardType="decimal-pad"
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Input
-                  label="Weight (kg)"
-                  value={weight}
-                  onChangeText={setWeight}
-                  placeholder="70"
-                  keyboardType="decimal-pad"
-                />
-              </View>
-            </View>
-            
-            <View style={{ marginTop: Spacing.md }}>
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Feather name="user" size={20} color={Colors.light.primary} />
+            <ThemedText type="h4">Basic Info</ThemedText>
+          </View>
+
+          <Input
+            label="Full Name"
+            value={name}
+            onChangeText={setName}
+            placeholder="Your name"
+          />
+
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
               <Input
-                label="Weight Goal (kg)"
-                value={weightGoal}
-                onChangeText={setWeightGoal}
-                placeholder="65"
-                keyboardType="decimal-pad"
+                label="Age"
+                value={age}
+                onChangeText={setAge}
+                placeholder="25"
+                keyboardType="number-pad"
               />
             </View>
-          </>
-        )}
-      </Card>
+            <View style={styles.halfInput}>
+              {renderChipGroup("Sex", SEX_OPTIONS, sex, setSex)}
+            </View>
+          </View>
+        </Card>
 
-      <Card style={styles.section}>
-        <ThemedText type="h4" style={styles.sectionTitle}>Fitness Profile</ThemedText>
-        
-        <SelectField
-          label="Experience Level"
-          value={experience}
-          options={EXPERIENCE_OPTIONS}
-          onValueChange={setExperience}
-          placeholder="Select..."
-        />
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Feather name="activity" size={20} color={Colors.light.primary} />
+            <ThemedText type="h4">Body Metrics</ThemedText>
+          </View>
 
-        <View style={{ marginTop: Spacing.md }}>
-          <SelectField
-            label="Goal"
-            value={goal}
-            options={GOAL_OPTIONS}
-            onValueChange={setGoal}
-            placeholder="Select..."
-          />
-        </View>
+          {unitSystem === "imperial" ? (
+            <>
+              <View style={styles.row}>
+                <View style={styles.halfInput}>
+                  <Input
+                    label="Height (ft)"
+                    value={heightFeet}
+                    onChangeText={setHeightFeet}
+                    placeholder="5"
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <Input
+                    label="Height (in)"
+                    value={heightInches}
+                    onChangeText={setHeightInches}
+                    placeholder="10"
+                    keyboardType="number-pad"
+                  />
+                </View>
+              </View>
 
-        <View style={{ marginTop: Spacing.md }}>
-          <SelectField
-            label="Activity Level"
-            value={activityLevel}
-            options={ACTIVITY_OPTIONS}
-            onValueChange={setActivityLevel}
-            placeholder="Select..."
-          />
-        </View>
-      </Card>
+              <View style={[styles.row, { marginTop: Spacing.md }]}>
+                <View style={styles.halfInput}>
+                  <Input
+                    label="Weight (lbs)"
+                    value={weight}
+                    onChangeText={setWeight}
+                    placeholder="160"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <Input
+                    label="Goal Weight (lbs)"
+                    value={weightGoal}
+                    onChangeText={setWeightGoal}
+                    placeholder="150"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.row}>
+                <View style={styles.halfInput}>
+                  <Input
+                    label="Height (cm)"
+                    value={heightCm}
+                    onChangeText={setHeightCm}
+                    placeholder="175"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.halfInput}>
+                  <Input
+                    label="Weight (kg)"
+                    value={weight}
+                    onChangeText={setWeight}
+                    placeholder="70"
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
 
-      <Button onPress={handleSave} disabled={loading} style={styles.saveButton}>
-        {loading ? <ActivityIndicator color="#FFFFFF" /> : "Save Changes"}
-      </Button>
-    </ScrollView>
+              <View style={{ marginTop: Spacing.md }}>
+                <Input
+                  label="Weight Goal (kg)"
+                  value={weightGoal}
+                  onChangeText={setWeightGoal}
+                  placeholder="65"
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            </>
+          )}
+        </Card>
+
+        <Card style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Feather name="target" size={20} color={Colors.light.primary} />
+            <ThemedText type="h4">Fitness Profile</ThemedText>
+          </View>
+
+          {renderChipGroup("Experience Level", EXPERIENCE_OPTIONS, experience, setExperience)}
+          {renderChipGroup("Goal", GOAL_OPTIONS, goal, setGoal)}
+          {renderChipGroup("Activity Level", ACTIVITY_OPTIONS, activityLevel, setActivityLevel)}
+        </Card>
+      </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border }]}>
+        <Button onPress={handleSave} disabled={loading}>
+          {loading ? <ActivityIndicator color="#FFFFFF" /> : "Save Changes"}
+        </Button>
+      </View>
+    </View>
   );
 }
 
@@ -347,6 +369,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   errorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
     padding: Spacing.md,
     borderRadius: BorderRadius.md,
     marginBottom: Spacing.lg,
@@ -355,8 +380,11 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.lg,
   },
-  sectionTitle: {
-    marginBottom: Spacing.md,
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
   row: {
     flexDirection: "row",
@@ -365,7 +393,31 @@ const styles = StyleSheet.create({
   halfInput: {
     flex: 1,
   },
-  saveButton: {
-    marginTop: Spacing.md,
+  chipGroupContainer: {
+    marginBottom: Spacing.md,
+  },
+  chipLabel: {
+    fontWeight: "600",
+    marginBottom: Spacing.sm,
+  },
+  chipGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  chip: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    borderTopWidth: 1,
   },
 });

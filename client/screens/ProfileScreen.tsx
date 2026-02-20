@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, Switch } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -23,9 +23,8 @@ import type { UserProfile, BodyWeightEntry, MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
+import { getLocalDateString } from "@/lib/dateUtils";
 import { formatWeight, parseWeightInput } from "@/lib/units";
-import * as notifications from "@/lib/notifications";
-import type { NotificationSettings } from "@/lib/notifications";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList & ProfileStackParamList>;
 
@@ -34,95 +33,32 @@ export default function ProfileScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
-  const { theme, isDark, themePreference, setThemePreference } = useTheme();
+  const { theme } = useTheme();
   const { user, logout, deleteAccount } = useAuth();
   
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [bodyWeights, setBodyWeights] = useState<BodyWeightEntry[]>([]);
   const [macros, setMacros] = useState<MacroTargets | null>(null);
   const [showWeightInput, setShowWeightInput] = useState(false);
+  const [showWeightHistory, setShowWeightHistory] = useState(false);
   const [newWeight, setNewWeight] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
-    workoutReminders: false,
-    streakAlerts: false,
-    reminderTime: { hour: 18, minute: 0 },
-  });
   
   const loadData = async () => {
-    const [profileData, weightData, macroData, notifData] = await Promise.all([
+    const [profileData, weightData, macroData] = await Promise.all([
       storage.getUserProfile(),
       storage.getBodyWeights(),
       storage.getMacroTargets(),
-      notifications.getNotificationSettings(),
     ]);
     setProfile(profileData);
     setBodyWeights(weightData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     setMacros(macroData);
-    setNotifSettings(notifData);
     setIsLoading(false);
   };
   
-  const handleToggleWorkoutReminders = async (value: boolean) => {
-    if (value) {
-      const granted = await notifications.requestNotificationPermissions();
-      if (!granted) {
-        if (Platform.OS === "web") {
-          window.alert("Notifications are not available on web. Please use the mobile app.");
-        } else {
-          Alert.alert("Permission Required", "Please enable notifications in your device settings.");
-        }
-        return;
-      }
-      await notifications.scheduleWorkoutReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
-    } else {
-      await notifications.cancelAllNotifications();
-    }
-    const updated = { ...notifSettings, workoutReminders: value };
-    setNotifSettings(updated);
-    await notifications.saveNotificationSettings(updated);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-  
-  const handleToggleStreakAlerts = async (value: boolean) => {
-    if (value) {
-      const granted = await notifications.requestNotificationPermissions();
-      if (!granted) {
-        if (Platform.OS === "web") {
-          window.alert("Notifications are not available on web. Please use the mobile app.");
-        } else {
-          Alert.alert("Permission Required", "Please enable notifications in your device settings.");
-        }
-        return;
-      }
-    }
-    const updated = { ...notifSettings, streakAlerts: value };
-    setNotifSettings(updated);
-    await notifications.saveNotificationSettings(updated);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const handleReminderTimeChange = async (hour: number, minute: number) => {
-    const updated = { ...notifSettings, reminderTime: { hour, minute } };
-    setNotifSettings(updated);
-    await notifications.saveNotificationSettings(updated);
-    if (notifSettings.workoutReminders) {
-      await notifications.scheduleWorkoutReminder(hour, minute);
-    }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  };
-
-  const formatTime = (hour: number, minute: number) => {
-    const period = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const displayMin = minute.toString().padStart(2, "0");
-    return `${displayHour}:${displayMin} ${period}`;
-  };
-
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -237,7 +173,7 @@ export default function ProfileScreen() {
         );
       }
 
-      const timestamp = new Date().toISOString().split("T")[0];
+      const timestamp = getLocalDateString();
 
       // Create a combined summary CSV
       const summary = [
@@ -394,10 +330,16 @@ export default function ProfileScreen() {
         
         {latestWeight ? (
           <View style={styles.latestWeight}>
-            <ThemedText type="h2">{formatWeight(latestWeight.weightKg, profile?.unitSystem || "imperial")}</ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>
-              {new Date(latestWeight.date).toLocaleDateString()}
-            </ThemedText>
+            <View style={{ alignItems: "center", flex: 1 }}>
+              <ThemedText type="h2">{formatWeight(latestWeight.weightKg, profile?.unitSystem || "imperial")}</ThemedText>
+              <ThemedText type="small" style={{ opacity: 0.6 }}>Current</ThemedText>
+            </View>
+            {profile?.weightGoalKg ? (
+              <View style={{ alignItems: "center", flex: 1 }}>
+                <ThemedText type="h2" style={{ color: Colors.light.primary }}>{formatWeight(profile.weightGoalKg, profile?.unitSystem || "imperial")}</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.6 }}>Goal</ThemedText>
+              </View>
+            ) : null}
           </View>
         ) : (
           <ThemedText type="body" style={{ opacity: 0.6 }}>
@@ -407,17 +349,36 @@ export default function ProfileScreen() {
         
         {bodyWeights.length > 1 ? (
           <View style={styles.weightHistory}>
-            <ThemedText type="small" style={styles.historyTitle}>
-              Recent History
-            </ThemedText>
-            {bodyWeights.slice(0, 5).map((entry) => (
-              <View key={entry.id} style={styles.weightEntry}>
-                <ThemedText type="body">{formatWeight(entry.weightKg, profile?.unitSystem || "imperial")}</ThemedText>
-                <ThemedText type="small" style={{ opacity: 0.6 }}>
-                  {new Date(entry.date).toLocaleDateString()}
-                </ThemedText>
-              </View>
-            ))}
+            <Pressable
+              onPress={() => setShowWeightHistory(!showWeightHistory)}
+              style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <ThemedText type="small" style={styles.historyTitle}>
+                Recent History
+              </ThemedText>
+              <Feather
+                name={showWeightHistory ? "chevron-up" : "chevron-down"}
+                size={16}
+                color={theme.textSecondary}
+              />
+            </Pressable>
+            {showWeightHistory && (
+              <>
+                {bodyWeights.slice(0, 3).map((entry) => (
+                  <View key={entry.id} style={styles.weightEntry}>
+                    <ThemedText type="body">{formatWeight(entry.weightKg, profile?.unitSystem || "imperial")}</ThemedText>
+                    <ThemedText type="small" style={{ opacity: 0.6 }}>
+                      {new Date(entry.date).toLocaleDateString()}
+                    </ThemedText>
+                  </View>
+                ))}
+                <Pressable onPress={() => navigation.navigate("ProgressCharts")}>
+                  <ThemedText type="small" style={{ color: Colors.light.primary, marginTop: Spacing.sm }}>
+                    See all
+                  </ThemedText>
+                </Pressable>
+              </>
+            )}
           </View>
         ) : null}
       </Card>
@@ -460,113 +421,12 @@ export default function ProfileScreen() {
         </Card>
       ) : null}
       
-      <Card style={styles.sectionCard}>
-        <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Appearance</ThemedText>
-        
-        <View style={styles.notificationRow}>
-          <View style={styles.notificationInfo}>
-            <Feather name={isDark ? "moon" : "sun"} size={20} color={theme.text} />
-            <View style={styles.notificationText}>
-              <ThemedText type="body">Dark Mode</ThemedText>
-              <ThemedText type="small" style={{ opacity: 0.6 }}>
-                {themePreference === "system" ? "Following system" : themePreference === "dark" ? "Always dark" : "Always light"}
-              </ThemedText>
-            </View>
-          </View>
-          <Switch
-            value={themePreference === "dark" || (themePreference === "system" && isDark)}
-            onValueChange={(value) => {
-              setThemePreference(value ? "dark" : "light");
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            }}
-            trackColor={{ false: theme.border, true: Colors.light.primary }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-        
-        <AnimatedPress
-          onPress={() => {
-            setThemePreference("system");
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          }}
-          style={[
-            styles.systemThemeButton,
-            { backgroundColor: themePreference === "system" ? Colors.light.primary + "20" : "transparent" },
-          ]}
-        >
-          <Feather name="smartphone" size={16} color={themePreference === "system" ? Colors.light.primary : theme.textSecondary} />
-          <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: themePreference === "system" ? Colors.light.primary : theme.textSecondary }}>
-            Use System Setting
-          </ThemedText>
-        </AnimatedPress>
-      </Card>
-      
-      <Card style={styles.sectionCard}>
-        <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Notifications</ThemedText>
-        
-        <View style={styles.notificationRow}>
-          <View style={styles.notificationInfo}>
-            <Feather name="bell" size={20} color={theme.text} />
-            <View style={styles.notificationText}>
-              <ThemedText type="body">Workout Reminders</ThemedText>
-              <ThemedText type="small" style={{ opacity: 0.6 }}>
-                Daily reminder at {formatTime(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute)}
-              </ThemedText>
-            </View>
-          </View>
-          <Switch
-            value={notifSettings.workoutReminders}
-            onValueChange={handleToggleWorkoutReminders}
-            trackColor={{ false: theme.border, true: Colors.light.primary }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-        
-        <AnimatedPress
-          onPress={() => setShowTimePicker(true)}
-          style={[
-            styles.timePickerButton,
-            { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" },
-          ]}
-          testID="button-change-reminder-time"
-        >
-          <Feather name="clock" size={16} color={Colors.light.primary} />
-          <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: Colors.light.primary }}>
-            Change Reminder Time
-          </ThemedText>
-        </AnimatedPress>
-        
-        <View style={[styles.notificationRow, { marginTop: Spacing.md }]}>
-          <View style={styles.notificationInfo}>
-            <Feather name="zap" size={20} color={theme.text} />
-            <View style={styles.notificationText}>
-              <ThemedText type="body">Streak Alerts</ThemedText>
-              <ThemedText type="small" style={{ opacity: 0.6 }}>
-                Get notified when your streak is at risk
-              </ThemedText>
-            </View>
-          </View>
-          <Switch
-            value={notifSettings.streakAlerts}
-            onValueChange={handleToggleStreakAlerts}
-            trackColor={{ false: theme.border, true: Colors.light.primary }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-        
-        {Platform.OS === "web" ? (
-          <ThemedText type="small" style={{ opacity: 0.5, marginTop: Spacing.md, fontStyle: "italic" }}>
-            Notifications only work on mobile devices via Expo Go
-          </ThemedText>
-        ) : null}
-      </Card>
-      
+      {/* Activity Section */}
+      <ThemedText type="caption" style={styles.sectionLabel}>ACTIVITY</ThemedText>
+
       <AnimatedPress
         onPress={() => navigation.navigate("ProgressCharts")}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
       >
         <Feather name="trending-up" size={20} color={Colors.light.primary} />
         <ThemedText type="body" style={styles.menuLabel}>Progress</ThemedText>
@@ -574,23 +434,8 @@ export default function ProfileScreen() {
       </AnimatedPress>
 
       <AnimatedPress
-        onPress={() => navigation.navigate("SocialProfile", { userId: Number(profile?.id) })}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
-      >
-        <Feather name="users" size={20} color={Colors.light.primary} />
-        <ThemedText type="body" style={styles.menuLabel}>Social Profile</ThemedText>
-        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-      </AnimatedPress>
-
-      <AnimatedPress
         onPress={() => navigation.navigate("Achievements")}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
       >
         <Feather name="award" size={20} color="#FFB300" />
         <ThemedText type="body" style={styles.menuLabel}>Achievements</ThemedText>
@@ -598,35 +443,50 @@ export default function ProfileScreen() {
       </AnimatedPress>
 
       <AnimatedPress
-        onPress={() => navigation.navigate("ProgressPhotos")}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
-      >
-        <Feather name="image" size={20} color="#9B59B6" />
-        <ThemedText type="body" style={styles.menuLabel}>Progress Photos</ThemedText>
-        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
-      </AnimatedPress>
-
-      <AnimatedPress
         onPress={() => navigation.navigate("WorkoutHistory")}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
       >
         <Feather name="clock" size={20} color={theme.text} />
         <ThemedText type="body" style={styles.menuLabel}>Workout History</ThemedText>
         <Feather name="chevron-right" size={20} color={theme.textSecondary} />
       </AnimatedPress>
-      
+
+      {/* Social Section */}
+      <ThemedText type="caption" style={styles.sectionLabel}>SOCIAL</ThemedText>
+
+      <AnimatedPress
+        onPress={() => navigation.navigate("SocialProfile", { userId: Number(user?.id) })}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
+      >
+        <Feather name="users" size={20} color={Colors.light.primary} />
+        <ThemedText type="body" style={styles.menuLabel}>Social Profile</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
+      <AnimatedPress
+        onPress={() => navigation.navigate("BlockedUsers")}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
+      >
+        <Feather name="slash" size={20} color={theme.textSecondary} />
+        <ThemedText type="body" style={styles.menuLabel}>Blocked Users</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
+      {/* Account Section */}
+      <ThemedText type="caption" style={styles.sectionLabel}>ACCOUNT</ThemedText>
+
+      <AnimatedPress
+        onPress={() => navigation.navigate("Settings")}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
+      >
+        <Feather name="settings" size={20} color={theme.text} />
+        <ThemedText type="body" style={styles.menuLabel}>Settings</ThemedText>
+        <Feather name="chevron-right" size={20} color={theme.textSecondary} />
+      </AnimatedPress>
+
       <AnimatedPress
         onPress={handleExportData}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
       >
         <Feather name="download" size={20} color={theme.text} />
         <ThemedText type="body" style={styles.menuLabel}>Export Data</ThemedText>
@@ -635,10 +495,7 @@ export default function ProfileScreen() {
 
       <AnimatedPress
         onPress={handleDeleteAccount}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
       >
         <Feather name="trash-2" size={20} color={Colors.light.error} />
         <ThemedText type="body" style={[styles.menuLabel, { color: Colors.light.error }]}>
@@ -646,123 +503,18 @@ export default function ProfileScreen() {
         </ThemedText>
         <Feather name="chevron-right" size={20} color={Colors.light.error} />
       </AnimatedPress>
-      
+
       <AnimatedPress
         onPress={handleLogout}
-        style={[
-          styles.menuItem,
-          { backgroundColor: theme.backgroundDefault },
-        ]}
+        style={[styles.menuItem, { backgroundColor: theme.backgroundDefault }]}
       >
         <Feather name="log-out" size={20} color={theme.text} />
-        <ThemedText type="body" style={styles.menuLabel}>
-          Log Out
-        </ThemedText>
+        <ThemedText type="body" style={styles.menuLabel}>Log Out</ThemedText>
         <View style={{ width: 20 }} />
       </AnimatedPress>
       </>
       )}
     </ScrollView>
-
-    <Modal
-      visible={showTimePicker}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={() => setShowTimePicker(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h3" style={styles.modalTitle}>Set Reminder Time</ThemedText>
-          
-          <View style={styles.timePickerContainer}>
-            <View style={styles.timeColumn}>
-              <Pressable onPress={() => {
-                const newHour = (notifSettings.reminderTime.hour + 1) % 24;
-                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-              }}>
-                <Feather name="chevron-up" size={28} color={theme.text} />
-              </Pressable>
-              <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
-                <ThemedText type="h2">
-                  {(notifSettings.reminderTime.hour === 0 ? 12 : notifSettings.reminderTime.hour > 12 ? notifSettings.reminderTime.hour - 12 : notifSettings.reminderTime.hour).toString().padStart(2, "0")}
-                </ThemedText>
-              </View>
-              <Pressable onPress={() => {
-                const newHour = (notifSettings.reminderTime.hour - 1 + 24) % 24;
-                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-              }}>
-                <Feather name="chevron-down" size={28} color={theme.text} />
-              </Pressable>
-              <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>Hour</ThemedText>
-            </View>
-
-            <ThemedText type="h2" style={{ marginHorizontal: Spacing.sm }}>:</ThemedText>
-
-            <View style={styles.timeColumn}>
-              <Pressable onPress={() => {
-                const newMin = (notifSettings.reminderTime.minute + 15) % 60;
-                handleReminderTimeChange(notifSettings.reminderTime.hour, newMin);
-              }}>
-                <Feather name="chevron-up" size={28} color={theme.text} />
-              </Pressable>
-              <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
-                <ThemedText type="h2">
-                  {notifSettings.reminderTime.minute.toString().padStart(2, "0")}
-                </ThemedText>
-              </View>
-              <Pressable onPress={() => {
-                const newMin = (notifSettings.reminderTime.minute - 15 + 60) % 60;
-                handleReminderTimeChange(notifSettings.reminderTime.hour, newMin);
-              }}>
-                <Feather name="chevron-down" size={28} color={theme.text} />
-              </Pressable>
-              <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>Minute</ThemedText>
-            </View>
-
-            <View style={[styles.timeColumn, { marginLeft: Spacing.md }]}>
-              <Pressable onPress={() => {
-                const currentHour = notifSettings.reminderTime.hour;
-                const newHour = currentHour >= 12 ? currentHour - 12 : currentHour + 12;
-                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-              }}>
-                <Feather name="chevron-up" size={28} color={theme.text} />
-              </Pressable>
-              <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
-                <ThemedText type="h2">
-                  {notifSettings.reminderTime.hour >= 12 ? "PM" : "AM"}
-                </ThemedText>
-              </View>
-              <Pressable onPress={() => {
-                const currentHour = notifSettings.reminderTime.hour;
-                const newHour = currentHour >= 12 ? currentHour - 12 : currentHour + 12;
-                handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-              }}>
-                <Feather name="chevron-down" size={28} color={theme.text} />
-              </Pressable>
-              <ThemedText type="small" style={{ opacity: 0 }}>Hour</ThemedText>
-            </View>
-          </View>
-
-          <Pressable
-            onPress={() => setShowTimePicker(false)}
-            style={({ pressed }) => ({
-              backgroundColor: Colors.light.primary,
-              marginTop: Spacing.lg,
-              alignSelf: "center",
-              minWidth: 140,
-              paddingVertical: Spacing.md,
-              paddingHorizontal: Spacing.xl,
-              borderRadius: BorderRadius.md,
-              alignItems: "center" as const,
-              justifyContent: "center" as const,
-              opacity: pressed ? 0.8 : 1,
-            })}
-          >
-            <ThemedText type="body" style={{ color: "#FFFFFF" }}>Done</ThemedText>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
 
     <Modal
       visible={showDeleteModal}
@@ -855,6 +607,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   latestWeight: {
+    flexDirection: "row",
     marginBottom: Spacing.md,
   },
   weightHistory: {
@@ -934,54 +687,11 @@ const styles = StyleSheet.create({
   modalButtonDelete: {
     backgroundColor: Colors.light.error,
   },
-  notificationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  notificationInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: Spacing.md,
-  },
-  notificationText: {
-    marginLeft: Spacing.md,
-    flex: 1,
-  },
-  systemThemeButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginTop: Spacing.md,
-    alignSelf: "flex-start",
-  },
-  timePickerButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderRadius: BorderRadius.sm,
-    marginTop: Spacing.sm,
-    alignSelf: "flex-start",
-  },
-  timePickerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.lg,
-  },
-  timeColumn: {
-    alignItems: "center",
-  },
-  timeDisplay: {
-    width: 64,
-    height: 64,
-    borderRadius: BorderRadius.md,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: Spacing.sm,
+  sectionLabel: {
+    opacity: 0.5,
+    letterSpacing: 1,
+    marginTop: Spacing.xl,
+    marginBottom: Spacing.sm,
+    marginLeft: Spacing.xs,
   },
 });

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, TextInput, Alert } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, Pressable, TextInput, Alert, Platform } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -13,7 +13,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { SocialProfile, Post } from "@/types";
-import { getSocialProfileApi, followUserApi, unfollowUserApi, getUserPostsFeed, updateSocialProfileApi } from "@/lib/socialStorage";
+import { getSocialProfileApi, followUserApi, unfollowUserApi, getUserPostsFeed, updateSocialProfileApi, blockUserApi, unblockUserApi } from "@/lib/socialStorage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -32,22 +32,30 @@ export default function SocialProfileScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
   const [editingBio, setEditingBio] = useState(false);
   const [bioText, setBioText] = useState("");
   const hasLoadedRef = useRef(false);
 
   const loadData = async () => {
     if (!hasLoadedRef.current) setIsLoading(true);
-    const [profileData, postsData] = await Promise.all([
-      getSocialProfileApi(targetUserId),
-      getUserPostsFeed(targetUserId),
-    ]);
-    setProfile(profileData);
-    setPosts(postsData.posts);
-    if (profileData?.bio) setBioText(profileData.bio);
-    if (!hasLoadedRef.current) {
-      hasLoadedRef.current = true;
-      setIsLoading(false);
+    try {
+      const [profileData, postsData] = await Promise.all([
+        getSocialProfileApi(targetUserId),
+        getUserPostsFeed(targetUserId),
+      ]);
+      setProfile(profileData);
+      setPosts(postsData.posts);
+      if (profileData?.bio) setBioText(profileData.bio);
+      setError(false);
+    } catch (e) {
+      console.log("Failed to load social profile:", e);
+      setError(true);
+    } finally {
+      if (!hasLoadedRef.current) {
+        hasLoadedRef.current = true;
+        setIsLoading(false);
+      }
     }
   };
 
@@ -55,8 +63,7 @@ export default function SocialProfileScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try { await loadData(); } finally { setRefreshing(false); }
   };
 
   const handleFollow = async () => {
@@ -76,7 +83,40 @@ export default function SocialProfileScreen() {
     setEditingBio(false);
   };
 
-  if (isLoading || !profile) {
+  const handleBlock = async () => {
+    if (!profile) return;
+    const action = profile.isBlockedByMe ? "Unblock" : "Block";
+    const message = profile.isBlockedByMe
+      ? "They will be able to see your posts and follow you again."
+      : "They won't be able to see your posts or find you. This will also unfollow them.";
+
+    const doAction = async () => {
+      if (profile.isBlockedByMe) {
+        await unblockUserApi(targetUserId);
+        setProfile(prev => prev ? { ...prev, isBlockedByMe: false } : prev);
+      } else {
+        await blockUserApi(targetUserId);
+        setProfile(prev => prev ? { ...prev, isBlockedByMe: true, isFollowedByMe: false } : prev);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm(`${action} ${profile.name}? ${message}`)) {
+        await doAction();
+      }
+      return;
+    }
+    Alert.alert(
+      `${action} ${profile.name}?`,
+      message,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: action, style: profile.isBlockedByMe ? "default" : "destructive", onPress: doAction },
+      ]
+    );
+  };
+
+  if (isLoading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <SkeletonLoader variant="card" count={2} />
@@ -84,7 +124,21 @@ export default function SocialProfileScreen() {
     );
   }
 
-  const renderHeader = () => (
+  if (error || !profile) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center", justifyContent: "center" }]}>
+        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
+        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+          Could not load profile.
+        </ThemedText>
+        <Button onPress={() => { setError(false); hasLoadedRef.current = false; loadData(); }} variant="outline">
+          Retry
+        </Button>
+      </View>
+    );
+  }
+
+  const headerElement = (
     <View style={{ marginBottom: Spacing.xl }}>
       {/* Avatar + Name */}
       <View style={styles.profileTop}>
@@ -148,9 +202,14 @@ export default function SocialProfileScreen() {
             Edit Bio
           </Button>
         ) : (
-          <Button onPress={handleFollow} variant={profile.isFollowedByMe ? "outline" : "filled"} style={{ flex: 1 }}>
-            {profile.isFollowedByMe ? "Following" : "Follow"}
-          </Button>
+          <>
+            <Button onPress={handleFollow} variant={profile.isFollowedByMe ? "outline" : "filled"} style={{ flex: 1 }}>
+              {profile.isFollowedByMe ? "Following" : "Follow"}
+            </Button>
+            <AnimatedPress onPress={handleBlock} style={[styles.blockBtn, { backgroundColor: theme.backgroundDefault }]}>
+              <Feather name={profile.isBlockedByMe ? "user-check" : "slash"} size={18} color={profile.isBlockedByMe ? theme.text : Colors.light.error} />
+            </AnimatedPress>
+          </>
         )}
       </View>
 
@@ -178,9 +237,10 @@ export default function SocialProfileScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <FlatList
         data={posts}
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"] }}
-        ListHeaderComponent={renderHeader}
+        ListHeaderComponent={headerElement}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
         renderItem={({ item }) => (
           <AnimatedPress
@@ -219,4 +279,5 @@ const styles = StyleSheet.create({
   fitnessStatItem: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
   bioInput: { borderWidth: 1, borderRadius: BorderRadius.sm, padding: Spacing.md, fontSize: 15, minHeight: 60, marginBottom: Spacing.sm },
   postCard: { padding: Spacing.lg, borderRadius: BorderRadius.md, borderWidth: 1, marginBottom: Spacing.md },
+  blockBtn: { width: 44, height: 44, borderRadius: BorderRadius.sm, alignItems: "center", justifyContent: "center" },
 });

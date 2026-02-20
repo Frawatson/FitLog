@@ -7,6 +7,7 @@ import EditRoutineScreen from "@/screens/EditRoutineScreen";
 import SelectRoutineScreen from "@/screens/SelectRoutineScreen";
 import ActiveWorkoutScreen from "@/screens/ActiveWorkoutScreen";
 import WorkoutCompleteScreen from "@/screens/WorkoutCompleteScreen";
+import RunCompleteScreen from "@/screens/RunCompleteScreen";
 import AddFoodScreen from "@/screens/AddFoodScreen";
 import FoodDetailScreen from "@/screens/FoodDetailScreen";
 import WorkoutHistoryScreen from "@/screens/WorkoutHistoryScreen";
@@ -21,6 +22,7 @@ import ForgotPasswordScreen from "@/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
 import PhotoReviewScreen from "@/screens/PhotoReviewScreen";
 import ExerciseHistoryScreen from "@/screens/ExerciseHistoryScreen";
+import ExerciseLibraryScreen from "@/screens/ExerciseLibraryScreen";
 import BarcodeScannerScreen from "@/screens/BarcodeScannerScreen";
 import SocialFeedScreen from "@/screens/SocialFeedScreen";
 import CreatePostScreen from "@/screens/CreatePostScreen";
@@ -28,6 +30,9 @@ import PostDetailScreen from "@/screens/PostDetailScreen";
 import SocialProfileScreen from "@/screens/SocialProfileScreen";
 import FollowListScreen from "@/screens/FollowListScreen";
 import UserSearchScreen from "@/screens/UserSearchScreen";
+import BlockedUsersScreen from "@/screens/BlockedUsersScreen";
+import NotificationsScreen from "@/screens/NotificationsScreen";
+import RunDetailScreen from "@/screens/RunDetailScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import * as storage from "@/lib/storage";
@@ -40,20 +45,23 @@ export type RootStackParamList = {
   ResetPassword: { email: string };
   Main: { screen?: string } | undefined;
   Onboarding: undefined;
-  EditRoutine: { routineId?: string };
+  EditRoutine: { routineId?: string; prefillExercise?: { id: string; name: string; muscleGroup: string } };
   SelectRoutine: undefined;
   ActiveWorkout: { routineId: string };
   WorkoutComplete: { workoutId: string };
+  RunComplete: { runId: string };
   AddFood: { prefill?: { name: string; calories: string; protein: string; carbs: string; fat: string } } | undefined;
   PhotoReview: { foods: any[]; imageUri: string; imageBase64?: string; mode?: string };
   FoodDetail: { entry: import("@/types").FoodLogEntry };
   WorkoutHistory: undefined;
   WorkoutDetail: { workoutId: string };
+  RunDetail: { run: import("@/types").RunEntry };
   EditMacros: undefined;
   RoutineTemplates: undefined;
   GenerateRoutine: undefined;
   EditProfile: undefined;
   ExerciseHistory: { exerciseId: string; exerciseName: string };
+  ExerciseLibrary: undefined;
   BarcodeScanner: undefined;
   SocialFeed: undefined;
   CreatePost: { prefill?: { postType: import("@/types").PostType; referenceId?: string; referenceData?: any } } | undefined;
@@ -61,6 +69,8 @@ export type RootStackParamList = {
   SocialProfile: { userId: number };
   FollowList: { userId: number; mode: "followers" | "following" };
   UserSearch: undefined;
+  BlockedUsers: undefined;
+  Notifications: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -188,6 +198,14 @@ export default function RootStackNavigator() {
         }}
       />
       <Stack.Screen
+        name="RunComplete"
+        component={RunCompleteScreen}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
+      <Stack.Screen
         name="AddFood"
         component={AddFoodScreen}
         options={{
@@ -214,12 +232,17 @@ export default function RootStackNavigator() {
       <Stack.Screen
         name="WorkoutHistory"
         component={WorkoutHistoryScreen}
-        options={{ headerTitle: "Workout History" }}
+        options={{ headerTitle: "Activity Calendar" }}
       />
       <Stack.Screen
         name="WorkoutDetail"
         component={WorkoutDetailScreen}
         options={{ headerTitle: "Workout Details" }}
+      />
+      <Stack.Screen
+        name="RunDetail"
+        component={RunDetailScreen}
+        options={{ headerTitle: "Run Details" }}
       />
       <Stack.Screen
         name="EditMacros"
@@ -245,6 +268,11 @@ export default function RootStackNavigator() {
         name="ExerciseHistory"
         component={ExerciseHistoryScreen}
         options={{ headerTitle: "Exercise History" }}
+      />
+      <Stack.Screen
+        name="ExerciseLibrary"
+        component={ExerciseLibraryScreen}
+        options={{ headerTitle: "Exercise Library" }}
       />
       <Stack.Screen
         name="BarcodeScanner"
@@ -286,6 +314,16 @@ export default function RootStackNavigator() {
         name="UserSearch"
         component={UserSearchScreen}
         options={{ headerTitle: "Find People" }}
+      />
+      <Stack.Screen
+        name="BlockedUsers"
+        component={BlockedUsersScreen}
+        options={{ headerTitle: "Blocked Users" }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ headerTitle: "Notifications" }}
       />
     </Stack.Navigator>
   );

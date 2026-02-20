@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, ScrollView, Platform } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -10,8 +10,6 @@ import Animated, {
   withSpring,
   withDelay,
 } from "react-native-reanimated";
-import ViewShot from "react-native-view-shot";
-import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -36,8 +34,7 @@ export default function WorkoutCompleteScreen() {
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [progressions, setProgressions] = useState<{ exercise: string; message: string }[]>([]);
   const [newPRs, setNewPRs] = useState<{ exercise: string; weight: number; reps: number }[]>([]);
-  const viewShotRef = useRef<ViewShot>(null);
-  
+
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
   
@@ -117,25 +114,6 @@ export default function WorkoutCompleteScreen() {
     });
   };
 
-  const handleShare = async () => {
-    try {
-      if (!viewShotRef.current?.capture) return;
-      const uri = await viewShotRef.current.capture();
-      if (Platform.OS !== "web") {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      const available = await Sharing.isAvailableAsync();
-      if (available) {
-        await Sharing.shareAsync(uri, {
-          mimeType: "image/png",
-          dialogTitle: "Share Workout Summary",
-        });
-      }
-    } catch (error) {
-      console.error("Error sharing workout:", error);
-    }
-  };
-  
   const checkmarkStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
@@ -170,11 +148,7 @@ export default function WorkoutCompleteScreen() {
         </Animated.View>
         
         <Animated.View style={contentStyle}>
-          <ViewShot
-            ref={viewShotRef}
-            options={{ format: "png", quality: 1 }}
-            style={{ backgroundColor: theme.backgroundRoot, padding: Spacing.lg, borderRadius: BorderRadius["2xl"] }}
-          >
+          <View style={{ backgroundColor: theme.backgroundRoot, padding: Spacing.lg, borderRadius: BorderRadius["2xl"] }}>
           <ThemedText type="h1" style={styles.title}>
             Workout Complete!
           </ThemedText>
@@ -246,24 +220,12 @@ export default function WorkoutCompleteScreen() {
               ) : null}
             </>
           ) : null}
-          </ViewShot>
+          </View>
         </Animated.View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
         <View style={styles.footerButtons}>
-          <Button
-            onPress={handleShare}
-            variant="outline"
-            style={styles.shareButton}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
-              <Feather name="share-2" size={18} color={Colors.light.primary} />
-              <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
-                Share
-              </ThemedText>
-            </View>
-          </Button>
           <Button
             onPress={() => navigation.navigate("CreatePost", {
               prefill: {
@@ -275,11 +237,15 @@ export default function WorkoutCompleteScreen() {
                   totalSets: workout.exercises.reduce((acc: number, e: any) => acc + e.sets.length, 0),
                   exerciseCount: workout.exercises.length,
                   totalVolumeKg: workout.totalVolumeKg,
+                  exercises: workout.exercises.map((e: any) => ({
+                    name: e.exerciseName,
+                    sets: e.sets.map((s: any) => ({ weight: s.weight, reps: s.reps, completed: s.completed })),
+                  })),
                 } : undefined,
               },
             })}
             variant="outline"
-            style={styles.shareButton}
+            style={styles.postButton}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
               <Feather name="users" size={18} color={Colors.light.primary} />
@@ -363,7 +329,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.md,
   },
-  shareButton: {
+  postButton: {
     flex: 1,
   },
   doneButton: {

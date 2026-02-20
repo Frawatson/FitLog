@@ -4,13 +4,11 @@ import {
   StyleSheet,
   Platform,
   ScrollView,
-  Modal,
-  TextInput,
   Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, useRoute, RouteProp, useFocusEffect } from "@react-navigation/native";
+import { useHeaderHeight } from "@react-navigation/elements";
+import { useNavigation, useRoute, RouteProp, useFocusEffect, CommonActions } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -20,26 +18,25 @@ import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { MapDisplay } from "@/components/MapDisplay";
-import { RunCompleteAnimation } from "@/components/RunCompleteAnimation";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { RunEntry, HeartRateZone, UnitSystem } from "@/types";
+import type { RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
-import { formatDistanceValue, formatDistanceUnit, formatSpeedValue, formatSpeedUnit, formatPace, formatPaceUnit } from "@/lib/units";
+import { formatDistanceValue, formatDistanceUnit, formatSpeedValue, formatSpeedUnit } from "@/lib/units";
 import { RunStackParamList, RunGoal } from "@/navigation/RunStackNavigator";
-import { getHeartRateZones, getZoneForHeartRate, getZoneColor, getZoneName } from "@/lib/heartRateZones";
+import { getZoneColor } from "@/lib/heartRateZones";
 
 type NavigationProp = NativeStackNavigationProp<RunStackParamList>;
 type RunTrackerRouteProp = RouteProp<RunStackParamList, "RunTracker">;
 
 const MAP_HEIGHT = 220;
-const ACCENT_COLOR = "#FF4500";
 
 export default function RunTrackerScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
   const route_ = useRoute<RunTrackerRouteProp>();
   const { theme } = useTheme();
@@ -55,13 +52,6 @@ export default function RunTrackerScreen() {
   const [runHistory, setRunHistory] = useState<RunEntry[]>([]);
   const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [splits, setSplits] = useState<number[]>([]);
-  const [showCompleteAnimation, setShowCompleteAnimation] = useState(false);
-  const [completedRunData, setCompletedRunData] = useState<{ distance: number; duration: number; goalReached: boolean } | null>(null);
-  const [showHRInput, setShowHRInput] = useState(false);
-  const [avgHRInput, setAvgHRInput] = useState("");
-  const [maxHRInput, setMaxHRInput] = useState("");
-  const [pendingRunId, setPendingRunId] = useState<string | null>(null);
-  const [userAge, setUserAge] = useState<number>(30);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [audioMuted, setAudioMuted] = useState(false);
 
@@ -111,19 +101,23 @@ export default function RunTrackerScreen() {
   
   const loadUserAge = async () => {
     const profile = await storage.getUserProfile();
-    if (profile?.age) {
-      setUserAge(profile.age);
-    }
     if (profile?.unitSystem) {
       setUnitSystem(profile.unitSystem);
     }
   };
   
-  // Reload run history when screen gains focus
+  // Reload run history and reset state when screen gains focus
   useFocusEffect(
     React.useCallback(() => {
       loadRunHistory();
-    }, [])
+      if (!isRunning) {
+        setDuration(0);
+        setDistance(0);
+        setRoute([]);
+        setSplits([]);
+        goalReachedRef.current = false;
+      }
+    }, [isRunning])
   );
   
   const checkPermission = async () => {
@@ -329,10 +323,39 @@ export default function RunTrackerScreen() {
     const finalDistance = distance;
     const finalDuration = duration;
     
-    if (finalDuration > 0 && finalDistance > 0) {
+    if (finalDuration > 0 && finalDistance >= 0.01) {
       const pace = finalDuration / 60 / finalDistance;
       const distanceMiles = finalDistance * 0.621371;  // always in miles for calorie estimation
       const runCalories = Math.round(distanceMiles * 100);
+
+      // Voice announcement with run summary
+      const distValue = unitSystem === "imperial"
+        ? finalDistance * 0.621371
+        : finalDistance;
+      const distUnit = unitSystem === "imperial"
+        ? (distValue >= 2 ? "miles" : "mile")
+        : (distValue >= 2 ? "kilometers" : "kilometer");
+
+      const totalMins = Math.floor(finalDuration / 60);
+      const totalSecs = finalDuration % 60;
+      let timeStr = "";
+      if (totalMins > 0) timeStr += `${totalMins} minute${totalMins !== 1 ? "s" : ""}`;
+      if (totalSecs > 0) {
+        if (totalMins > 0) timeStr += " ";
+        timeStr += `${totalSecs} second${totalSecs !== 1 ? "s" : ""}`;
+      }
+
+      const paceInUnit = unitSystem === "imperial" ? pace / 0.621371 : pace;
+      const paceMins = Math.floor(paceInUnit);
+      const paceSecs = Math.round((paceInUnit - paceMins) * 60);
+      const paceUnitLabel = unitSystem === "imperial" ? "mile" : "kilometer";
+      let paceStr = `${paceMins} minute${paceMins !== 1 ? "s" : ""}`;
+      if (paceSecs > 0) paceStr += ` ${paceSecs} second${paceSecs !== 1 ? "s" : ""}`;
+
+      speakCue(
+        `Run complete. ${distValue.toFixed(1)} ${distUnit} in ${timeStr}. Average pace: ${paceStr} per ${paceUnitLabel}.`
+      );
+
       const runId = uuidv4();
       const runEntry: RunEntry = {
         id: runId,
@@ -346,21 +369,29 @@ export default function RunTrackerScreen() {
       };
       
       await storage.saveRunEntry(runEntry);
-      setPendingRunId(runId);
-      loadRunHistory();
+
+      setIsRunning(false);
+      setIsPaused(false);
+
+      // Navigate to dedicated completion screen
+      navigation.dispatch(
+        CommonActions.navigate({ name: "RunComplete", params: { runId } })
+      );
+      return;
     }
-    
-    setCompletedRunData({
-      distance: formatDistanceValue(finalDistance, unitSystem),
-      duration: finalDuration,
-      goalReached,
-    });
-    setShowCompleteAnimation(true);
-    
+
+    speakCue("Run too short to save.");
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     setIsRunning(false);
     setIsPaused(false);
+    setDistance(0);
+    setDuration(0);
+    setRoute([]);
+    setSplits([]);
+    lastAnnouncedMile.current = 0;
+    lastSplitDistance.current = 0;
   };
-  
+
   const stopRun = async () => {
     const goalReached = goal ? (
       goal.type === "distance"
@@ -368,64 +399,6 @@ export default function RunTrackerScreen() {
         : duration / 60 >= goal.value
     ) : false;
     completeRun(goalReached);
-  };
-  
-  const handleAnimationDismiss = async () => {
-    setShowCompleteAnimation(false);
-    setCompletedRunData(null);
-    if (pendingRunId) {
-      setShowHRInput(true);
-    } else {
-      resetRunState();
-    }
-  };
-  
-  const resetRunState = async () => {
-    setDuration(0);
-    setDistance(0);
-    setRoute([]);
-    setSplits([]);
-    goalReachedRef.current = false;
-    setPendingRunId(null);
-    setAvgHRInput("");
-    setMaxHRInput("");
-    await loadRunHistory();
-  };
-  
-  const handleSaveHeartRate = async () => {
-    if (pendingRunId) {
-      const avgHR = parseInt(avgHRInput) || undefined;
-      const maxHR = parseInt(maxHRInput) || undefined;
-      
-      if (avgHR || maxHR) {
-        const runs = await storage.getRunHistory();
-        const updatedRuns = runs.map(run => {
-          if (run.id === pendingRunId) {
-            let hrZone: HeartRateZone | undefined;
-            if (avgHR) {
-              const zoneInfo = getZoneForHeartRate(avgHR, userAge);
-              hrZone = zoneInfo?.zone;
-            }
-            return {
-              ...run,
-              avgHeartRate: avgHR,
-              maxHeartRate: maxHR,
-              heartRateZone: hrZone,
-            };
-          }
-          return run;
-        });
-        await storage.saveRunHistory(updatedRuns);
-      }
-    }
-    setShowHRInput(false);
-    resetRunState();
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-  
-  const handleSkipHeartRate = () => {
-    setShowHRInput(false);
-    resetRunState();
   };
   
   const calculateDistance = (
@@ -463,7 +436,7 @@ export default function RunTrackerScreen() {
   
   if (permission === null && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top, paddingBottom: tabBarHeight }]}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <View style={styles.centered}>
           <ThemedText type="body">Checking location access...</ThemedText>
         </View>
@@ -473,9 +446,9 @@ export default function RunTrackerScreen() {
   
   if (permission !== "granted" && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: insets.top, paddingBottom: tabBarHeight }]}>
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <View style={styles.centered}>
-          <Feather name="map-pin" size={48} color={ACCENT_COLOR} />
+          <Feather name="map-pin" size={48} color={Colors.light.primary} />
           <ThemedText type="h3" style={styles.permissionTitle}>
             Track Your Runs
           </ThemedText>
@@ -498,99 +471,12 @@ export default function RunTrackerScreen() {
   
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <RunCompleteAnimation
-        visible={showCompleteAnimation}
-        distanceMiles={completedRunData?.distance ?? 0}
-        durationSeconds={completedRunData?.duration ?? 0}
-        goalReached={completedRunData?.goalReached ?? false}
-        onDismiss={handleAnimationDismiss}
-      />
-      
-      <Modal
-        visible={showHRInput}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={handleSkipHeartRate}
-      >
-        <View style={styles.hrModalOverlay}>
-          <View style={[styles.hrModalContent, { backgroundColor: theme.backgroundDefault }]}>
-            <View style={styles.hrModalHeader}>
-              <Feather name="heart" size={32} color={Colors.light.primary} />
-              <ThemedText type="h3" style={styles.hrModalTitle}>Add Heart Rate</ThemedText>
-              <ThemedText type="small" style={{ opacity: 0.6, textAlign: "center" }}>
-                Optional: Enter your heart rate data from a watch or monitor
-              </ThemedText>
-            </View>
-            
-            <View style={styles.hrInputRow}>
-              <View style={styles.hrInputGroup}>
-                <ThemedText type="small" style={{ marginBottom: Spacing.xs }}>Avg HR (bpm)</ThemedText>
-                <TextInput
-                  style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
-                  value={avgHRInput}
-                  onChangeText={setAvgHRInput}
-                  keyboardType="number-pad"
-                  placeholder="145"
-                  placeholderTextColor={theme.textSecondary}
-                />
-              </View>
-              <View style={styles.hrInputGroup}>
-                <ThemedText type="small" style={{ marginBottom: Spacing.xs }}>Max HR (bpm)</ThemedText>
-                <TextInput
-                  style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
-                  value={maxHRInput}
-                  onChangeText={setMaxHRInput}
-                  keyboardType="number-pad"
-                  placeholder="175"
-                  placeholderTextColor={theme.textSecondary}
-                />
-              </View>
-            </View>
-            
-            {avgHRInput ? (
-              <View style={styles.zonePreview}>
-                {(() => {
-                  const zoneInfo = getZoneForHeartRate(parseInt(avgHRInput) || 0, userAge);
-                  if (zoneInfo) {
-                    return (
-                      <View style={[styles.zoneBadge, { backgroundColor: zoneInfo.color + "20" }]}>
-                        <View style={[styles.zoneDot, { backgroundColor: zoneInfo.color }]} />
-                        <ThemedText type="body" style={{ color: zoneInfo.color }}>
-                          {zoneInfo.name} Zone
-                        </ThemedText>
-                      </View>
-                    );
-                  }
-                  return null;
-                })()}
-              </View>
-            ) : null}
-            
-            <View style={styles.hrModalButtons}>
-              <AnimatedPress
-                onPress={handleSkipHeartRate}
-                style={[styles.hrModalButton, { borderColor: theme.border, borderWidth: 1 }]}
-              >
-                <ThemedText type="body">Skip</ThemedText>
-              </AnimatedPress>
-              <AnimatedPress
-                onPress={handleSaveHeartRate}
-                style={[styles.hrModalButton, { backgroundColor: Colors.light.primary }]}
-              >
-                <ThemedText type="body" style={{ color: "#FFFFFF" }}>Save</ThemedText>
-              </AnimatedPress>
-            </View>
-          </View>
-        </View>
-      </Modal>
-      
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
-          paddingTop: insets.top,
-          paddingBottom: tabBarHeight + Spacing["3xl"],
+          paddingTop: headerHeight,
+          paddingBottom: insets.bottom + Spacing["3xl"],
         }}
-        scrollIndicatorInsets={{ bottom: tabBarHeight }}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mapContainer}>
@@ -636,24 +522,24 @@ export default function RunTrackerScreen() {
           <View style={styles.mainStatsRow}>
             <View style={styles.mainStat}>
               <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>{distanceUnit.toUpperCase()}</ThemedText>
-              <ThemedText style={[styles.bigStatValue, { color: theme.text }]}>{displayDistance.toFixed(2)}</ThemedText>
+              <ThemedText type="display" style={{ fontWeight: "700" }}>{displayDistance.toFixed(2)}</ThemedText>
             </View>
             <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.mainStat}>
               <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Min : Sec</ThemedText>
-              <ThemedText style={[styles.bigStatValue, { color: theme.text }]}>{formatDuration(duration)}</ThemedText>
+              <ThemedText type="display" style={{ fontWeight: "700" }}>{formatDuration(duration)}</ThemedText>
             </View>
           </View>
           
           <View style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}>
             <View style={styles.secondaryStat}>
               <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Speed ({speedUnit})</ThemedText>
-              <ThemedText style={[styles.mediumStatValue, { color: theme.text }]}>{speed.toFixed(2)}</ThemedText>
+              <ThemedText type="h1" style={{ fontWeight: "600" }}>{speed.toFixed(2)}</ThemedText>
             </View>
             <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
             <View style={styles.secondaryStat}>
               <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Calories</ThemedText>
-              <ThemedText style={[styles.mediumStatValue, { color: theme.text }]}>{calories}</ThemedText>
+              <ThemedText type="h1" style={{ fontWeight: "600" }}>{calories}</ThemedText>
             </View>
           </View>
           
@@ -676,15 +562,17 @@ export default function RunTrackerScreen() {
           {!isRunning ? (
             <View style={styles.startControls}>
               <AnimatedPress onPress={() => navigation.navigate("RunGoal")} style={[styles.goalButton, { backgroundColor: theme.backgroundSecondary }]}>
-                <Feather name="target" size={20} color={ACCENT_COLOR} />
+                <Feather name="target" size={20} color={Colors.light.primary} />
                 <ThemedText style={[styles.goalButtonText, { color: theme.text }]}>Set Goal</ThemedText>
               </AnimatedPress>
-              <AnimatedPress onPress={startRun} style={styles.startButton}>
-                <Feather name="play" size={32} color="#FFFFFF" />
-                <ThemedText style={styles.startButtonText}>
-                  {goal ? `START ${goal.type === "distance" ? `${goal.value} ${distanceUnit.toUpperCase()}` : `${goal.value} MIN`} RUN` : "FREE RUN"}
-                </ThemedText>
-              </AnimatedPress>
+              <Button onPress={startRun} style={styles.startButton}>
+                <View style={styles.startButtonContent}>
+                  <Feather name="play" size={28} color="#fff" />
+                  <ThemedText type="body" style={styles.startButtonText}>
+                    {goal ? `START ${goal.type === "distance" ? `${goal.value} ${distanceUnit.toUpperCase()}` : `${goal.value} MIN`} RUN` : "FREE RUN"}
+                  </ThemedText>
+                </View>
+              </Button>
             </View>
           ) : (
             <View style={styles.activeControls}>
@@ -705,22 +593,21 @@ export default function RunTrackerScreen() {
         </View>
         
         <View style={styles.historySection}>
-          <ThemedText style={[styles.historyTitle, { color: theme.text }]}>Run History</ThemedText>
+          <ThemedText type="h3" style={{ marginBottom: Spacing.md }}>Run History</ThemedText>
           {runHistory.length > 0 ? (
             runHistory.slice(0, 5).map((run) => (
-              <Pressable
+              <Card
                 key={run.id}
                 onPress={() => {
-                  Haptics.selectionAsync();
                   navigation.navigate("RunDetail" as any, { run });
                 }}
-                style={[styles.historyCard, { backgroundColor: theme.backgroundSecondary }]}
+                style={styles.historyCard}
               >
                 <View style={styles.historyHeader}>
-                  <ThemedText style={[styles.historyDate, { color: theme.text }]}>
+                  <ThemedText type="body" style={{ fontWeight: "600" }}>
                     {new Date(run.completedAt).toLocaleDateString()}
                   </ThemedText>
-                  <ThemedText style={[styles.historyTime, { color: theme.textSecondary }]}>
+                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                     {new Date(run.completedAt).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -729,44 +616,44 @@ export default function RunTrackerScreen() {
                 </View>
                 <View style={styles.historyStats}>
                   <View style={styles.historyStat}>
-                    <ThemedText style={styles.historyValue}>
+                    <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
                       {formatDistanceValue(run.distanceKm, unitSystem).toFixed(2)}
                     </ThemedText>
-                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>{distanceUnit}</ThemedText>
+                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>{distanceUnit}</ThemedText>
                   </View>
                   <View style={styles.historyStat}>
-                    <ThemedText style={styles.historyValue}>
+                    <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
                       {formatDuration(run.durationSeconds)}
                     </ThemedText>
-                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>time</ThemedText>
+                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>time</ThemedText>
                   </View>
                   <View style={styles.historyStat}>
-                    <ThemedText style={styles.historyValue}>
+                    <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
                       {run.calories || Math.round(run.distanceKm * 60)}
                     </ThemedText>
-                    <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>kcal</ThemedText>
+                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>kcal</ThemedText>
                   </View>
                   {run.avgHeartRate ? (
                     <View style={styles.historyStat}>
                       <View style={{ flexDirection: "row", alignItems: "center" }}>
                         <Feather name="heart" size={12} color={run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary} style={{ marginRight: 4 }} />
-                        <ThemedText style={[styles.historyValue, { color: run.heartRateZone ? getZoneColor(run.heartRateZone) : theme.text }]}>
+                        <ThemedText type="body" style={[styles.historyValue, { color: run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary }]}>
                           {run.avgHeartRate}
                         </ThemedText>
                       </View>
-                      <ThemedText style={[styles.historyLabel, { color: theme.textSecondary }]}>bpm</ThemedText>
+                      <ThemedText type="caption" style={{ color: theme.textSecondary }}>bpm</ThemedText>
                     </View>
                   ) : null}
                 </View>
-              </Pressable>
+              </Card>
             ))
           ) : (
-            <View style={[styles.emptyHistoryCard, { backgroundColor: theme.backgroundSecondary }]}>
+            <Card style={styles.emptyHistoryCard}>
               <Feather name="map-pin" size={32} color={theme.textSecondary} />
-              <ThemedText style={[styles.emptyHistoryText, { color: theme.textSecondary }]}>
+              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
                 No runs yet. Start your first run!
               </ThemedText>
-            </View>
+            </Card>
           )}
         </View>
       </ScrollView>
@@ -797,13 +684,9 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     minWidth: 200,
   },
-  webMessage: {
-    marginTop: Spacing.md,
-    color: "#888",
-  },
   mapContainer: {
     height: MAP_HEIGHT,
-    backgroundColor: "#0D1117",
+    backgroundColor: "#1a1a2e",
     position: "relative",
   },
   map: {
@@ -816,7 +699,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   mapPlaceholderText: {
-    color: "#4A5568",
+    opacity: 0.6,
   },
   mapOverlay: {
     position: "absolute",
@@ -837,9 +720,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   dateText: {
-    color: "#FFFFFF",
+    color: "#fff",
     opacity: 0.8,
-    fontSize: 12,
   },
   statsContainer: {
     padding: Spacing.lg,
@@ -865,12 +747,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: Spacing.xs,
   },
-  bigStatValue: {
-    fontSize: 42,
-    fontWeight: "700",
-    fontFamily: "Montserrat_700Bold",
-    lineHeight: 52,
-  },
   secondaryStatsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -883,19 +759,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: Spacing.sm,
   },
-  mediumStatValue: {
-    fontSize: 28,
-    fontWeight: "600",
-    fontFamily: "Montserrat_600SemiBold",
-    lineHeight: 36,
-  },
   splitsContainer: {
     marginTop: Spacing.lg,
     paddingTop: Spacing.lg,
     borderTopWidth: 1,
   },
   splitsLabel: {
-    fontSize: 11,
     letterSpacing: 1,
     marginBottom: Spacing.sm,
   },
@@ -910,7 +779,7 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
   },
   splitMile: {
-    color: ACCENT_COLOR,
+    color: Colors.light.primary,
     fontSize: 12,
     fontWeight: "600",
   },
@@ -942,33 +811,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   startButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: ACCENT_COLOR,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing["2xl"],
-    borderRadius: BorderRadius.full,
-    gap: Spacing.md,
     width: "100%",
     maxWidth: 300,
   },
+  startButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
   startButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
+    color: "#fff",
     fontWeight: "700",
   },
   goalBadge: {
     position: "absolute",
     bottom: Spacing.md,
     left: Spacing.md,
-    backgroundColor: "rgba(255, 69, 0, 0.9)",
+    backgroundColor: Colors.light.primary + "E6",
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.md,
   },
   goalBadgeText: {
-    color: "#FFFFFF",
+    color: "#fff",
     fontSize: 12,
     fontWeight: "600",
   },
@@ -983,7 +848,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: "100%",
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: Colors.light.primary,
     borderRadius: 4,
   },
   progressText: {
@@ -1003,7 +868,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resumeButton: {
-    backgroundColor: ACCENT_COLOR,
+    backgroundColor: Colors.light.primary,
     paddingLeft: 4,
   },
   pauseButton: {
@@ -1015,38 +880,18 @@ const styles = StyleSheet.create({
   historySection: {
     padding: Spacing.lg,
   },
-  historyTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: Spacing.md,
-  },
   historyCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
     marginBottom: Spacing.sm,
   },
   emptyHistoryCard: {
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.xl,
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.md,
-  },
-  emptyHistoryText: {
-    textAlign: "center",
-    fontSize: 14,
   },
   historyHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: Spacing.md,
-  },
-  historyDate: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  historyTime: {
-    fontSize: 12,
   },
   historyStats: {
     flexDirection: "row",
@@ -1058,73 +903,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   historyValue: {
-    color: ACCENT_COLOR,
-    fontSize: 18,
     fontWeight: "600",
-  },
-  historyLabel: {
-    fontSize: 12,
-  },
-  hrModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  hrModalContent: {
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    paddingBottom: Spacing["4xl"],
-  },
-  hrModalHeader: {
-    alignItems: "center",
-    marginBottom: Spacing.xl,
-  },
-  hrModalTitle: {
-    marginTop: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  hrInputRow: {
-    flexDirection: "row",
-    gap: Spacing.lg,
-  },
-  hrInputGroup: {
-    flex: 1,
-  },
-  hrInput: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
-    fontSize: 18,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  zonePreview: {
-    alignItems: "center",
-    marginTop: Spacing.lg,
-  },
-  zoneBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.sm,
-  },
-  zoneDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  hrModalButtons: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginTop: Spacing.xl,
-  },
-  hrModalButton: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.md,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

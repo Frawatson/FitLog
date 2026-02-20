@@ -23,6 +23,7 @@ import type { MacroTargets, FoodLogEntry } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type PeriodMode = "day" | "week" | "month";
@@ -43,8 +44,8 @@ function getDateRange(date: string, mode: PeriodMode): { start: string; end: str
     const actualEnd = end > today ? today : end;
     const dayCount = Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
     return {
-      start: start.toISOString().split("T")[0],
-      end: actualEnd.toISOString().split("T")[0],
+      start: getLocalDateString(start),
+      end: getLocalDateString(actualEnd),
       days: Math.max(dayCount, 1),
     };
   }
@@ -56,8 +57,8 @@ function getDateRange(date: string, mode: PeriodMode): { start: string; end: str
   const actualEnd = endOfMonth > today ? today : endOfMonth;
   const dayCount = Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
   return {
-    start: start.toISOString().split("T")[0],
-    end: actualEnd.toISOString().split("T")[0],
+    start: getLocalDateString(start),
+    end: getLocalDateString(actualEnd),
     days: Math.max(dayCount, 1),
   };
 }
@@ -68,8 +69,8 @@ function formatPeriodLabel(date: string, mode: PeriodMode): string {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    if (date === today.toISOString().split("T")[0]) return "Today";
-    if (date === yesterday.toISOString().split("T")[0]) return "Yesterday";
+    if (date === getLocalDateString(today)) return "Today";
+    if (date === getLocalDateString(yesterday)) return "Yesterday";
     return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   }
   if (mode === "week") {
@@ -89,7 +90,7 @@ export default function NutritionScreen() {
   const { theme } = useTheme();
 
   const [periodMode, setPeriodMode] = useState<PeriodMode>("day");
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [macroTargets, setMacroTargets] = useState<MacroTargets | null>(null);
   const [todayTotals, setTodayTotals] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [periodAverages, setPeriodAverages] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
@@ -178,11 +179,11 @@ export default function NutritionScreen() {
     } else {
       current.setMonth(current.getMonth() + direction);
     }
-    setSelectedDate(current.toISOString().split("T")[0]);
+    setSelectedDate(getLocalDateString(current));
   };
 
   const isAtToday = (() => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     if (periodMode === "day") return selectedDate === today;
     const range = getDateRange(selectedDate, periodMode);
     return range.end >= today;
@@ -290,7 +291,7 @@ export default function NutritionScreen() {
               key={mode}
               onPress={() => {
                 setPeriodMode(mode);
-                setSelectedDate(new Date().toISOString().split("T")[0]);
+                setSelectedDate(getLocalDateString());
               }}
               style={[
                 styles.periodButton,

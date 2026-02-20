@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, FlatList, Pressable, Modal } from "react-native";
+import React, { useState, useEffect, useMemo } from "react";
+import { View, StyleSheet, FlatList, Pressable, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -16,11 +16,15 @@ import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { ExerciseInfoModal } from "@/components/ExerciseInfoModal";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine, RoutineExercise, Exercise } from "@/types";
 import * as storage from "@/lib/storage";
+import { syncToServer } from "@/lib/syncService";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, "EditRoutine">;
@@ -40,6 +44,9 @@ export default function EditRoutineScreen() {
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [showExerciseList, setShowExerciseList] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
+  const [showExerciseInfo, setShowExerciseInfo] = useState(false);
+  const [selectedExerciseName, setSelectedExerciseName] = useState("");
+  const [exerciseSearch, setExerciseSearch] = useState("");
   
   useEffect(() => {
     loadData();
@@ -82,9 +89,29 @@ export default function EditRoutineScreen() {
   }, [name, exercises, theme, showExerciseList]);
   
   const loadData = async () => {
-    const exerciseData = await storage.getExercises();
-    setAllExercises(exerciseData);
-    
+    const localExercises = await storage.getExercises();
+
+    // Also fetch the full library for a comprehensive exercise list
+    let libraryExercises: Exercise[] = [];
+    try {
+      const libResult = await syncToServer<any[]>("/api/exercises/library", "GET");
+      if (libResult.success && libResult.data) {
+        const localNames = new Set(localExercises.map(e => e.name.toLowerCase()));
+        libraryExercises = libResult.data
+          .filter((e: any) => !localNames.has(e.name.toLowerCase()))
+          .map((e: any) => ({
+            id: `lib-${e.name}`,
+            name: e.name,
+            muscleGroup: capitalize(e.bodyPart || "Other"),
+            isCustom: false,
+          }));
+      }
+    } catch {
+      // Fall back to local exercises only
+    }
+
+    setAllExercises([...localExercises, ...libraryExercises]);
+
     if (routineId) {
       const routines = await storage.getRoutines();
       const existing = routines.find((r) => r.id === routineId);
@@ -92,6 +119,14 @@ export default function EditRoutineScreen() {
         setName(existing.name);
         setExercises(existing.exercises);
       }
+    }
+
+    const prefillExercise = route.params?.prefillExercise;
+    if (prefillExercise && isNew) {
+      setExercises((prev) => {
+        if (prev.some((e) => e.exerciseName === prefillExercise.name)) return prev;
+        return [...prev, { exerciseId: prefillExercise.id, exerciseName: prefillExercise.name, order: prev.length }];
+      });
     }
   };
   
@@ -130,7 +165,15 @@ export default function EditRoutineScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
   
-  const groupedExercises = allExercises.reduce((acc, ex) => {
+  const filteredExercises = useMemo(() => {
+    if (!exerciseSearch.trim()) return allExercises;
+    const q = exerciseSearch.toLowerCase();
+    return allExercises.filter(
+      (ex) => ex.name.toLowerCase().includes(q) || ex.muscleGroup.toLowerCase().includes(q)
+    );
+  }, [allExercises, exerciseSearch]);
+
+  const groupedExercises = filteredExercises.reduce((acc, ex) => {
     if (!acc[ex.muscleGroup]) {
       acc[ex.muscleGroup] = [];
     }
@@ -141,6 +184,22 @@ export default function EditRoutineScreen() {
   if (showExerciseList) {
     return (
       <ThemedView style={[styles.container, { paddingTop: headerHeight + Spacing.xl }]}>
+        <View style={[styles.searchBar, { backgroundColor: theme.backgroundCard, borderColor: theme.border, marginHorizontal: Spacing.lg, marginBottom: Spacing.md }]}>
+          <Feather name="search" size={18} color={theme.textSecondary} />
+          <TextInput
+            style={[styles.searchInput, { color: theme.text }]}
+            placeholder="Search exercises..."
+            placeholderTextColor={theme.textSecondary}
+            value={exerciseSearch}
+            onChangeText={setExerciseSearch}
+            autoCorrect={false}
+          />
+          {exerciseSearch.length > 0 && (
+            <Pressable onPress={() => setExerciseSearch("")}>
+              <Feather name="x" size={18} color={theme.textSecondary} />
+            </Pressable>
+          )}
+        </View>
         <FlatList
           data={Object.entries(groupedExercises)}
           keyExtractor={([group]) => group}
@@ -161,7 +220,16 @@ export default function EditRoutineScreen() {
                     },
                   ]}
                 >
-                  <ThemedText type="body">{ex.name}</ThemedText>
+                  <Pressable
+                    onPress={() => {
+                      setSelectedExerciseName(ex.name);
+                      setShowExerciseInfo(true);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Feather name="info" size={16} color={Colors.light.primary} />
+                  </Pressable>
+                  <ThemedText type="body" style={{ flex: 1 }}>{ex.name}</ThemedText>
                   <Feather name="plus" size={20} color={Colors.light.primary} />
                 </AnimatedPress>
               ))}
@@ -200,7 +268,16 @@ export default function EditRoutineScreen() {
                 key={`${exercise.exerciseId}-${index}`}
                 style={[styles.exerciseItem, { backgroundColor: theme.backgroundDefault }]}
               >
-                <View style={styles.exerciseInfo}>
+                <Pressable
+                  onPress={() => {
+                    setSelectedExerciseName(exercise.exerciseName);
+                    setShowExerciseInfo(true);
+                  }}
+                  hitSlop={8}
+                >
+                  <Feather name="info" size={16} color={Colors.light.primary} />
+                </Pressable>
+                <View style={[styles.exerciseInfo, { flex: 1 }]}>
                   <ThemedText type="body" style={{ fontWeight: "600" }}>
                     {index + 1}. {exercise.exerciseName}
                   </ThemedText>
@@ -264,6 +341,11 @@ export default function EditRoutineScreen() {
           </View>
         </Pressable>
       </Modal>
+      <ExerciseInfoModal
+        visible={showExerciseInfo}
+        exerciseName={selectedExerciseName}
+        onClose={() => setShowExerciseInfo(false)}
+      />
     </>
   );
 }
@@ -344,5 +426,19 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: BorderRadius.md,
     alignItems: "center",
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    gap: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: Spacing.xs,
   },
 });

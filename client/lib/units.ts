@@ -99,7 +99,7 @@ export function formatDistanceUnit(unitSystem: UnitSystem): string {
 }
 
 export function formatPace(paceMinPerKm: number, unitSystem: UnitSystem): string {
-  if (!isFinite(paceMinPerKm) || paceMinPerKm <= 0 || paceMinPerKm > 60) return "--:--";
+  if (!isFinite(paceMinPerKm) || paceMinPerKm <= 0 || paceMinPerKm > 30) return "--:--";
   const pace = unitSystem === "imperial" ? paceMinPerKm / KM_TO_MILES : paceMinPerKm;
   const mins = Math.floor(pace);
   const secs = Math.round((pace - mins) * 60);
@@ -124,4 +124,14 @@ export function formatSpeedUnit(unitSystem: UnitSystem): string {
 
 export function weightLabel(unitSystem: UnitSystem): string {
   return unitSystem === "imperial" ? "lbs" : "kg";
+}
+
+export function simplifyRoute(
+  route: { latitude: number; longitude: number }[],
+  maxPoints: number = 80
+): { latitude: number; longitude: number }[] {
+  if (!route || route.length === 0) return [];
+  if (route.length <= maxPoints) return route;
+  const step = Math.ceil(route.length / maxPoints);
+  return route.filter((_, i) => i % step === 0 || i === route.length - 1);
 }

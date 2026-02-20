@@ -15,6 +15,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { ExerciseInfoModal } from "@/components/ExerciseInfoModal";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine, Workout, WorkoutExercise, WorkoutSet, UnitSystem } from "@/types";
@@ -39,7 +40,10 @@ export default function ActiveWorkoutScreen() {
   const [isResting, setIsResting] = useState(false);
   const [restDuration, setRestDuration] = useState(90);
   const [showRestPicker, setShowRestPicker] = useState(false);
+  const [restingExerciseIndex, setRestingExerciseIndex] = useState<number | null>(null);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+  const [showExerciseInfo, setShowExerciseInfo] = useState(false);
+  const [selectedExerciseName, setSelectedExerciseName] = useState("");
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
@@ -146,7 +150,7 @@ export default function ActiveWorkoutScreen() {
     
     if (updated[exerciseIndex].sets[setIndex].completed) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      startRestTimer();
+      startRestTimer(exerciseIndex);
     }
   };
   
@@ -170,16 +174,18 @@ export default function ActiveWorkoutScreen() {
     setExercises(updated);
   };
   
-  const startRestTimer = () => {
+  const startRestTimer = (exerciseIndex: number) => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
+    setRestingExerciseIndex(exerciseIndex);
     setRestTimer(restDuration);
     setIsResting(true);
     timerRef.current = setInterval(() => {
       setRestTimer((prev) => {
         if (prev <= 1) {
           setIsResting(false);
+          setRestingExerciseIndex(null);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           if (timerRef.current) clearInterval(timerRef.current);
           return 0;
@@ -194,6 +200,7 @@ export default function ActiveWorkoutScreen() {
       clearInterval(timerRef.current);
     }
     setIsResting(false);
+    setRestingExerciseIndex(null);
     setRestTimer(0);
   };
   
@@ -239,24 +246,6 @@ export default function ActiveWorkoutScreen() {
   
   return (
     <ThemedView style={styles.container}>
-      {isResting ? (
-        <View style={[styles.restBanner, { backgroundColor: Colors.light.primary }]}>
-          <View style={styles.restContent}>
-            <ThemedText type="small" style={{ color: "#FFFFFF" }}>
-              Rest Timer
-            </ThemedText>
-            <ThemedText type="h1" style={{ color: "#FFFFFF" }}>
-              {formatTime(restTimer)}
-            </ThemedText>
-          </View>
-          <AnimatedPress onPress={stopRestTimer} style={styles.skipButton}>
-            <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
-              Skip
-            </ThemedText>
-          </AnimatedPress>
-        </View>
-      ) : null}
-
       {showRestPicker ? (
         <View style={[styles.restPickerOverlay, { backgroundColor: theme.backgroundDefault }]}>
           <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Rest Duration</ThemedText>
@@ -296,7 +285,7 @@ export default function ActiveWorkoutScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: headerHeight + Spacing.xl + (isResting ? 80 : 0),
+            paddingTop: headerHeight + Spacing.xl,
             paddingBottom: insets.bottom + 100,
           },
         ]}
@@ -308,19 +297,31 @@ export default function ActiveWorkoutScreen() {
         
         {exercises.map((exercise, exerciseIndex) => (
           <Card key={exercise.exerciseId} style={styles.exerciseCard}>
-            <Pressable
-              onPress={() => navigation.navigate("ExerciseHistory", {
-                exerciseId: exercise.exerciseId,
-                exerciseName: exercise.exerciseName,
-              })}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
-                <ThemedText type="h4" style={styles.exerciseName}>
-                  {exercise.exerciseName}
-                </ThemedText>
-                <Feather name="chevron-right" size={16} color={theme.textSecondary} />
-              </View>
-            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+              <Pressable
+                onPress={() => {
+                  setSelectedExerciseName(exercise.exerciseName);
+                  setShowExerciseInfo(true);
+                }}
+                hitSlop={8}
+              >
+                <Feather name="info" size={18} color={Colors.light.primary} />
+              </Pressable>
+              <Pressable
+                onPress={() => navigation.navigate("ExerciseHistory", {
+                  exerciseId: exercise.exerciseId,
+                  exerciseName: exercise.exerciseName,
+                })}
+                style={{ flex: 1 }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
+                  <ThemedText type="h4" style={styles.exerciseName}>
+                    {exercise.exerciseName}
+                  </ThemedText>
+                  <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                </View>
+              </Pressable>
+            </View>
             
             <View style={styles.setHeader}>
               <ThemedText type="small" style={[styles.headerCell, { flex: 0.5 }]}>
@@ -388,33 +389,50 @@ export default function ActiveWorkoutScreen() {
               </View>
             ))}
             
-            <AnimatedPress
-              onPress={() => addSet(exerciseIndex)}
-              style={styles.addSetButton}
-            >
-              <Feather name="plus" size={18} color={Colors.light.primary} />
-              <ThemedText type="small" style={{ color: Colors.light.primary, marginLeft: Spacing.xs }}>
-                Add Set
-              </ThemedText>
-            </AnimatedPress>
+            <View style={styles.cardFooter}>
+              <AnimatedPress
+                onPress={() => addSet(exerciseIndex)}
+                style={styles.addSetButton}
+              >
+                <Feather name="plus" size={18} color={Colors.light.primary} />
+                <ThemedText type="small" style={{ color: Colors.light.primary, marginLeft: Spacing.xs }}>
+                  Add Set
+                </ThemedText>
+              </AnimatedPress>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+                {isResting && restingExerciseIndex === exerciseIndex ? (
+                  <View style={[styles.restTimerInline, { backgroundColor: Colors.light.primary }]}>
+                    <Feather name="clock" size={14} color="#FFFFFF" />
+                    <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "700", marginLeft: Spacing.xs }}>
+                      {formatTime(restTimer)}
+                    </ThemedText>
+                    <AnimatedPress onPress={stopRestTimer} style={styles.skipButtonInline}>
+                      <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600" }}>Skip</ThemedText>
+                    </AnimatedPress>
+                  </View>
+                ) : null}
+                <AnimatedPress onPress={() => setShowRestPicker(!showRestPicker)} style={styles.restSettingsButton}>
+                  <Feather name="clock" size={18} color={Colors.light.primary} />
+                  <ThemedText type="small" style={{ color: Colors.light.primary }}>
+                    {restDuration < 60 ? `${restDuration}s` : `${restDuration / 60}m`}
+                  </ThemedText>
+                </AnimatedPress>
+              </View>
+            </View>
           </Card>
         ))}
       </ScrollView>
       
       <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        <AnimatedPress
-          onPress={() => setShowRestPicker(!showRestPicker)}
-          style={styles.restSettingsButton}
-        >
-          <Feather name="clock" size={16} color={Colors.light.primary} />
-          <ThemedText type="small" style={{ color: Colors.light.primary, marginLeft: Spacing.xs }}>
-            Rest: {restDuration < 60 ? `${restDuration}s` : `${restDuration / 60}m`}
-          </ThemedText>
-        </AnimatedPress>
         <Button onPress={finishWorkout} style={styles.finishButton}>
           Finish Workout
         </Button>
       </View>
+      <ExerciseInfoModal
+        visible={showExerciseInfo}
+        exerciseName={selectedExerciseName}
+        onClose={() => setShowExerciseInfo(false)}
+      />
     </ThemedView>
   );
 }
@@ -423,27 +441,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  restBanner: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
+  cardFooter: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.lg,
-    paddingTop: 60,
-    paddingBottom: Spacing.md,
+    marginTop: Spacing.sm,
   },
-  restContent: {
+  restTimerInline: {
+    flexDirection: "row",
     alignItems: "center",
-  },
-  skipButton: {
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.full,
+    gap: Spacing.xs,
+  },
+  skipButtonInline: {
+    marginLeft: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    borderRadius: BorderRadius.xs,
   },
   scrollContent: {
     paddingHorizontal: Spacing.lg,
@@ -497,9 +514,7 @@ const styles = StyleSheet.create({
   addSetButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     paddingVertical: Spacing.md,
-    marginTop: Spacing.sm,
   },
   footer: {
     position: "absolute",
@@ -539,7 +554,6 @@ const styles = StyleSheet.create({
   restSettingsButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
   },
 });

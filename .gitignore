@@ -42,3 +42,10 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Claude Code
+.claude/
+
+# temporary files
+tmp_exercises.json
+*.tmp

@@ -1,19 +1,21 @@
-import React, { useState, useEffect } from "react";
-import { View, StyleSheet, FlatList, Pressable } from "react-native";
+import React, { useState, useCallback } from "react";
+import { View, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
-import { EmptyState } from "@/components/EmptyState";
+import { WorkoutCalendar } from "@/components/WorkoutCalendar";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, Colors } from "@/constants/theme";
-import type { Workout } from "@/types";
+import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import type { Workout, RunEntry } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -22,117 +24,140 @@ export default function WorkoutHistoryScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  
+
   const [workouts, setWorkouts] = useState<Workout[]>([]);
-  
-  useEffect(() => {
-    loadWorkouts();
+  const [runs, setRuns] = useState<RunEntry[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    const [workoutData, runData] = await Promise.all([
+      storage.getWorkouts(),
+      storage.getRunHistory(),
+    ]);
+    setWorkouts(workoutData.filter((w) => w.completedAt));
+    setRuns(runData);
   }, []);
-  
-  const loadWorkouts = async () => {
-    const data = await storage.getWorkouts();
-    const completed = data
-      .filter((w) => w.completedAt)
-      .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
-    setWorkouts(completed);
-  };
-  
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  const formatSelectedDate = (dateStr: string) => {
+    const date = new Date(dateStr + "T12:00:00");
     return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
+      weekday: "long",
+      month: "long",
       day: "numeric",
     });
   };
-  
-  const renderWorkout = ({ item }: { item: Workout }) => {
-    const totalSets = item.exercises.reduce(
-      (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
-      0
-    );
-    
-    return (
-      <Pressable 
-        onPress={() => navigation.navigate("WorkoutDetail", { workoutId: item.id })}
-      >
-        <Card style={styles.workoutCard}>
-          <View style={styles.workoutHeader}>
-            <View style={styles.workoutInfo}>
-              <ThemedText type="h4">{item.routineName}</ThemedText>
-              <ThemedText type="small" style={styles.workoutDate}>
-                {formatDate(item.completedAt!)}
-              </ThemedText>
-            </View>
-            <View style={styles.workoutStats}>
-              <View style={styles.stat}>
-                <Feather name="clock" size={14} color={theme.textSecondary} />
-                <ThemedText type="small" style={styles.statText}>
-                  {item.durationMinutes}m
-                </ThemedText>
-              </View>
-              <View style={styles.stat}>
-                <Feather name="check-circle" size={14} color={Colors.light.success} />
-                <ThemedText type="small" style={styles.statText}>
-                  {totalSets} sets
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-          <View style={styles.exerciseList}>
-            {item.exercises.slice(0, 3).map((ex, index) => (
-              <ThemedText
-                key={`${ex.exerciseId}-${index}`}
-                type="small"
-                style={styles.exerciseName}
-              >
-                {ex.exerciseName}
-              </ThemedText>
-            ))}
-            {item.exercises.length > 3 ? (
-              <ThemedText type="small" style={styles.moreExercises}>
-                +{item.exercises.length - 3} more
-              </ThemedText>
-            ) : null}
-          </View>
-        </Card>
-      </Pressable>
-    );
-  };
-  
-  if (workouts.length === 0) {
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: theme.backgroundRoot,
-            paddingTop: headerHeight,
-          },
-        ]}
-      >
-        <EmptyState
-          image={require("../../assets/images/empty-history.png")}
-          title="No workout history"
-          message="Complete your first workout to see it here"
-        />
-      </View>
-    );
-  }
-  
+
+  const dayWorkouts = selectedDate
+    ? workouts.filter((w) => {
+        if (!w.completedAt) return false;
+        return getLocalDateString(new Date(w.completedAt)) === selectedDate;
+      })
+    : [];
+
+  const dayRuns = selectedDate
+    ? runs.filter((r) => {
+        const d = r.completedAt || r.startedAt;
+        return getLocalDateString(new Date(d)) === selectedDate;
+      })
+    : [];
+
   return (
-    <FlatList
+    <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.xl,
-        paddingBottom: insets.bottom + Spacing.xl,
+        paddingTop: headerHeight + Spacing.lg,
+        paddingBottom: insets.bottom + Spacing["3xl"],
         paddingHorizontal: Spacing.lg,
       }}
-      data={workouts}
-      keyExtractor={(item) => item.id}
-      renderItem={renderWorkout}
-      ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
-    />
+    >
+      <WorkoutCalendar
+        workouts={workouts}
+        runs={runs}
+        onDayPress={(date) => setSelectedDate(date)}
+      />
+
+      {selectedDate && (
+        <View style={styles.selectedDay}>
+          <ThemedText type="h4" style={styles.selectedDateText}>
+            {formatSelectedDate(selectedDate)}
+          </ThemedText>
+
+          {dayWorkouts.length === 0 && dayRuns.length === 0 ? (
+            <View style={[styles.emptyDay, { backgroundColor: theme.backgroundDefault }]}>
+              <Feather name="calendar" size={24} color={theme.textSecondary} />
+              <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+                No activity on this day
+              </ThemedText>
+            </View>
+          ) : (
+            <View style={styles.activityList}>
+              {dayWorkouts.map((w) => {
+                const totalSets = w.exercises.reduce(
+                  (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
+                  0
+                );
+                return (
+                  <AnimatedPress
+                    key={w.id}
+                    onPress={() => navigation.navigate("WorkoutDetail", { workoutId: w.id })}
+                    style={[styles.activityItem, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}
+                  >
+                    <View style={[styles.activityIcon, { backgroundColor: `${Colors.light.primary}15` }]}>
+                      <Feather name="activity" size={18} color={Colors.light.primary} />
+                    </View>
+                    <View style={styles.activityInfo}>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>{w.routineName}</ThemedText>
+                      <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                        {w.exercises.length} exercises · {totalSets} sets
+                        {w.durationMinutes ? ` · ${w.durationMinutes}m` : ""}
+                      </ThemedText>
+                    </View>
+                    <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                  </AnimatedPress>
+                );
+              })}
+
+              {dayRuns.map((r) => (
+                <AnimatedPress
+                  key={r.id}
+                  onPress={() => navigation.navigate("RunDetail", { run: r })}
+                  style={[styles.activityItem, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}
+                >
+                  <View style={[styles.activityIcon, { backgroundColor: `${Colors.light.success}15` }]}>
+                    <Feather name="map-pin" size={18} color={Colors.light.success} />
+                  </View>
+                  <View style={styles.activityInfo}>
+                    <ThemedText type="body" style={{ fontWeight: "600" }}>
+                      {r.distanceKm.toFixed(1)} km Run
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                      {r.durationSeconds ? `${Math.round(r.durationSeconds / 60)} min` : ""}
+                      {r.calories ? ` · ${r.calories} cal` : ""}
+                    </ThemedText>
+                  </View>
+                  <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                </AnimatedPress>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {!selectedDate && (
+        <View style={[styles.emptyDay, { backgroundColor: theme.backgroundDefault, marginTop: Spacing.xl }]}>
+          <Feather name="hand-pointing" size={24} color={theme.textSecondary} />
+          <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+            Tap a day to see your activities
+          </ThemedText>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
@@ -140,47 +165,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  workoutCard: {
-    padding: Spacing.lg,
+  selectedDay: {
+    marginTop: Spacing.xl,
   },
-  workoutHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  selectedDateText: {
     marginBottom: Spacing.md,
   },
-  workoutInfo: {
-    flex: 1,
-  },
-  workoutDate: {
-    opacity: 0.6,
-    marginTop: Spacing.xs,
-  },
-  workoutStats: {
-    alignItems: "flex-end",
-    gap: Spacing.xs,
-  },
-  stat: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.xs,
-  },
-  statText: {
-    opacity: 0.7,
-  },
-  exerciseList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  activityList: {
     gap: Spacing.sm,
   },
-  exerciseName: {
-    backgroundColor: "rgba(0,0,0,0.05)",
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: 4,
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
   },
-  moreExercises: {
-    opacity: 0.6,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+  activityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.md,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  emptyDay: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing["3xl"],
+    borderRadius: BorderRadius.md,
   },
 });

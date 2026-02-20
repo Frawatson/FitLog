@@ -23,6 +23,7 @@ import { FOOD_DATABASE, FoodDatabaseItem, searchFoods } from "@/lib/foodDatabase
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type AddFoodRouteProp = RouteProp<RootStackParamList, "AddFood">;
@@ -110,7 +111,7 @@ export default function AddFoodScreen() {
   };
 
   const handleRelogMeal = async (entry: import("@/types").FoodLogEntry) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     await storage.addFoodLogEntry(entry.food, today, entry.imageUri);
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -381,7 +382,7 @@ export default function AddFoodScreen() {
   };
   
   const handleQuickAdd = async (food: Food) => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     await storage.addFoodLogEntry(food, today);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.goBack();
@@ -397,7 +398,7 @@ export default function AddFoodScreen() {
       fat: food.fat,
       isSaved: false,
     };
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     await storage.addFoodLogEntry(foodEntry, today);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.goBack();
@@ -449,7 +450,7 @@ export default function AddFoodScreen() {
       persistentImageUri = await createPersistentImageUri(foodImage);
     }
     
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     await storage.addFoodLogEntry(food, today, persistentImageUri);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();

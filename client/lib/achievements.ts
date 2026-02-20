@@ -1,4 +1,5 @@
 import type { Workout, RunEntry, FoodLogEntry, BodyWeightEntry } from "@/types";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 export interface Achievement {
   id: string;
@@ -197,7 +198,7 @@ export function checkAchievements(data: AchievementData): Achievement[] {
 function calculateStreak(dates: string[]): number {
   if (dates.length === 0) return 0;
 
-  const uniqueDays = new Set(dates.map((d) => new Date(d).toISOString().split("T")[0]));
+  const uniqueDays = new Set(dates.map((d) => getLocalDateString(new Date(d))));
   const sortedDays = Array.from(uniqueDays).sort().reverse();
 
   let streak = 0;
@@ -205,7 +206,7 @@ function calculateStreak(dates: string[]): number {
   const checkDate = new Date(today);
 
   for (let i = 0; i < 365; i++) {
-    const dateStr = checkDate.toISOString().split("T")[0];
+    const dateStr = getLocalDateString(checkDate);
     if (uniqueDays.has(dateStr)) {
       streak++;
     } else if (i > 0) {

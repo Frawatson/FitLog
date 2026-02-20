@@ -13,6 +13,7 @@ import type {
 } from "@/types";
 import { getApiUrl } from "@/lib/query-client";
 import { syncToServer, syncWithRetry, isAuthenticated, initSyncService } from "@/lib/syncService";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 export { initSyncService };
 
@@ -28,26 +29,26 @@ const STORAGE_KEYS = {
   RUN_HISTORY: "@merge_run_history",
 };
 
-// Default exercises
+// Default exercises — names match ExerciseDB for guaranteed GIF lookup
 const DEFAULT_EXERCISES: Exercise[] = [
-  { id: "1", name: "Squat", muscleGroup: "Legs", isCustom: false },
-  { id: "2", name: "Bench Press", muscleGroup: "Chest", isCustom: false },
-  { id: "3", name: "Deadlift", muscleGroup: "Back", isCustom: false },
-  { id: "4", name: "Barbell Row", muscleGroup: "Back", isCustom: false },
-  { id: "5", name: "Lat Pulldown", muscleGroup: "Back", isCustom: false },
-  { id: "6", name: "Overhead Press", muscleGroup: "Shoulders", isCustom: false },
-  { id: "7", name: "Bicep Curl", muscleGroup: "Arms", isCustom: false },
-  { id: "8", name: "Tricep Extension", muscleGroup: "Arms", isCustom: false },
-  { id: "9", name: "Leg Press", muscleGroup: "Legs", isCustom: false },
-  { id: "10", name: "Romanian Deadlift", muscleGroup: "Legs", isCustom: false },
-  { id: "11", name: "Incline DB Press", muscleGroup: "Chest", isCustom: false },
-  { id: "12", name: "Dumbbell Fly", muscleGroup: "Chest", isCustom: false },
-  { id: "13", name: "Lateral Raise", muscleGroup: "Shoulders", isCustom: false },
-  { id: "14", name: "Face Pull", muscleGroup: "Shoulders", isCustom: false },
-  { id: "15", name: "Leg Curl", muscleGroup: "Legs", isCustom: false },
-  { id: "16", name: "Leg Extension", muscleGroup: "Legs", isCustom: false },
-  { id: "17", name: "Calf Raise", muscleGroup: "Legs", isCustom: false },
-  { id: "18", name: "Cable Row", muscleGroup: "Back", isCustom: false },
+  { id: "1", name: "barbell full squat", muscleGroup: "Legs", isCustom: false },
+  { id: "2", name: "barbell bench press", muscleGroup: "Chest", isCustom: false },
+  { id: "3", name: "barbell deadlift", muscleGroup: "Back", isCustom: false },
+  { id: "4", name: "barbell bent over row", muscleGroup: "Back", isCustom: false },
+  { id: "5", name: "cable lat pulldown full range of motion", muscleGroup: "Back", isCustom: false },
+  { id: "6", name: "barbell seated overhead press", muscleGroup: "Shoulders", isCustom: false },
+  { id: "7", name: "barbell curl", muscleGroup: "Arms", isCustom: false },
+  { id: "8", name: "cable pushdown", muscleGroup: "Arms", isCustom: false },
+  { id: "9", name: "sled 45 degrees leg press", muscleGroup: "Legs", isCustom: false },
+  { id: "10", name: "barbell romanian deadlift", muscleGroup: "Legs", isCustom: false },
+  { id: "11", name: "dumbbell incline bench press", muscleGroup: "Chest", isCustom: false },
+  { id: "12", name: "dumbbell fly", muscleGroup: "Chest", isCustom: false },
+  { id: "13", name: "dumbbell lateral raise", muscleGroup: "Shoulders", isCustom: false },
+  { id: "14", name: "cable rear delt row (with rope)", muscleGroup: "Shoulders", isCustom: false },
+  { id: "15", name: "lever lying leg curl", muscleGroup: "Legs", isCustom: false },
+  { id: "16", name: "lever leg extension", muscleGroup: "Legs", isCustom: false },
+  { id: "17", name: "barbell standing calf raise", muscleGroup: "Legs", isCustom: false },
+  { id: "18", name: "cable seated row", muscleGroup: "Back", isCustom: false },
 ];
 
 // User Profile
@@ -368,7 +369,7 @@ export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
 
 export async function addBodyWeight(weightKg: number): Promise<BodyWeightEntry> {
   const entries = await getBodyWeightsLocal();
-  const today = new Date().toISOString().split("T")[0];
+  const today = getLocalDateString();
   
   const existingIndex = entries.findIndex((e) => e.date === today);
   let entry: BodyWeightEntry = {

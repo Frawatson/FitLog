@@ -17,6 +17,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRouteProp = RouteProp<RootStackParamList, "PhotoReview">;
@@ -108,7 +109,7 @@ export default function PhotoReviewScreen() {
   const handleLogAll = async () => {
     if (items.length === 0) return;
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDateString();
     let persistentImageUri: string | undefined;
     if (imageUri) {
       persistentImageUri = await createPersistentImageUri(imageUri);

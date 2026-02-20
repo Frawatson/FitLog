@@ -167,7 +167,7 @@ export default function GenerateRoutineScreen() {
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [selectedGoal, setSelectedGoal] = useState<string>("build_muscle");
   const [routineName, setRoutineName] = useState("");
-  const [notes, setNotes] = useState("");
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -237,7 +237,6 @@ export default function GenerateRoutineScreen() {
           name: routineName || undefined,
           equipment: selectedEquipment.length > 0 ? selectedEquipment : undefined,
           goal: selectedGoal,
-          notes: notes.trim() || undefined,
         }),
       });
 
@@ -283,6 +282,7 @@ export default function GenerateRoutineScreen() {
     <ThemedView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
+        automaticallyAdjustKeyboardInsets={true}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.lg,
           paddingBottom: insets.bottom + Spacing["3xl"],
@@ -465,8 +465,8 @@ export default function GenerateRoutineScreen() {
         </CollapsibleSection>
 
         <CollapsibleSection
-          title="Name & Notes"
-          subtitle={routineName || notes ? (routineName || notes).substring(0, 40) : "Optional"}
+          title="Routine Name"
+          subtitle={routineName ? routineName.substring(0, 40) : "Optional"}
           isExpanded={expandedSections.extras}
           onToggle={() => toggleSection("extras")}
           theme={theme}
@@ -489,28 +489,6 @@ export default function GenerateRoutineScreen() {
             onChangeText={setRoutineName}
             testID="input-routine-name"
           />
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.sm, marginTop: Spacing.lg }}>
-            Notes for AI
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              styles.multilineInput,
-              {
-                backgroundColor: theme.backgroundDefault,
-                color: theme.text,
-                borderColor: theme.border,
-              },
-            ]}
-            placeholder="e.g., shoulder injury, focus on hypertrophy..."
-            placeholderTextColor={theme.textSecondary}
-            value={notes}
-            onChangeText={setNotes}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            testID="input-notes"
-          />
         </CollapsibleSection>
 
         {error ? (
@@ -532,7 +510,7 @@ export default function GenerateRoutineScreen() {
             <View style={styles.loadingContainer}>
               <ActivityIndicator color="#FFFFFF" size="small" />
               <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>
-                AI is building your workout...
+                Building your workout...
               </ThemedText>
             </View>
           ) : (
@@ -562,11 +540,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     fontSize: 16,
     borderWidth: 1,
-  },
-  multilineInput: {
-    height: 80,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.md,
   },
   chipGrid: {
     flexDirection: "row",

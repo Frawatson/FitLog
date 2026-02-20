@@ -15,14 +15,14 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
-import { formatDistanceValue, formatDistanceUnit, formatPace, formatPaceUnit } from "@/lib/units";
+import { formatDistanceValue, formatDistanceUnit, formatPace, formatPaceUnit, simplifyRoute } from "@/lib/units";
 import { getZoneColor, getZoneName } from "@/lib/heartRateZones";
 import { RunStackParamList } from "@/navigation/RunStackNavigator";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RunStackParamList>;
+type RootNav = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RunStackParamList, "RunDetail">;
-
-const ACCENT_COLOR = "#FF4500";
 
 export default function RunDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -72,6 +72,25 @@ export default function RunDetailScreen() {
           { text: "Delete", style: "destructive", onPress: doDelete },
         ]
       );
+    }
+  };
+
+  const handleShare = () => {
+    const rootNav = navigation.getParent<RootNav>();
+    if (rootNav) {
+      rootNav.navigate("CreatePost", {
+        prefill: {
+          postType: "run",
+          referenceId: run.id,
+          referenceData: {
+            distanceKm: run.distanceKm,
+            durationMinutes: Math.round(run.durationSeconds / 60),
+            pace: formatPace(run.paceMinPerKm, unitSystem),
+            calories: run.calories,
+            route: run.route ? simplifyRoute(run.route) : undefined,
+          },
+        },
+      });
     }
   };
 
@@ -128,7 +147,7 @@ export default function RunDetailScreen() {
       <Card style={styles.statsCard}>
         <View style={styles.mainStatsRow}>
           <View style={styles.mainStat}>
-            <ThemedText style={[styles.bigValue, { color: ACCENT_COLOR }]}>
+            <ThemedText style={[styles.bigValue, { color: Colors.light.primary }]}>
               {distanceDisplay}
             </ThemedText>
             <ThemedText type="small" style={{ opacity: 0.6 }}>{distUnit}</ThemedText>
@@ -193,6 +212,17 @@ export default function RunDetailScreen() {
         </Card>
       ) : null}
 
+      {/* Share to Community */}
+      <AnimatedPress
+        onPress={handleShare}
+        style={[styles.deleteButton, { backgroundColor: Colors.light.primary + "10" }]}
+      >
+        <Feather name="users" size={18} color={Colors.light.primary} />
+        <ThemedText type="body" style={{ color: Colors.light.primary, marginLeft: Spacing.sm }}>
+          Share to Community
+        </ThemedText>
+      </AnimatedPress>
+
       {/* Delete */}
       <AnimatedPress
         onPress={handleDelete}
@@ -213,7 +243,7 @@ const styles = StyleSheet.create({
   },
   mapContainer: {
     height: 220,
-    backgroundColor: "#0D1117",
+    backgroundColor: "#1a1a2e",
   },
   noMapContainer: {
     height: 160,

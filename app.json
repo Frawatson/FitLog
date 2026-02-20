@@ -10,7 +10,9 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.merge.app",
+      "bundleIdentifier": "fitness.mergefitness.app",
+      "buildNumber": "1",
+      "privacyUrl": "https://mergefitness.fitness/privacy",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Merge uses your location to track your running routes, distance, and pace.",
         "NSCameraUsageDescription": "Merge uses the camera to photograph food for nutritional analysis.",
@@ -24,7 +26,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.merge.app",
+      "package": "fitness.mergefitness.app",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

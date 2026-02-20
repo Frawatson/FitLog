@@ -134,7 +134,7 @@ export interface HeartRateZoneInfo {
 }
 
 // Social Types
-export type PostType = 'workout' | 'run' | 'meal' | 'progress_photo' | 'achievement' | 'text';
+export type PostType = 'workout' | 'run' | 'meal' | 'achievement' | 'text';
 export type PostVisibility = 'followers' | 'public';
 
 export interface Post {
@@ -175,6 +175,7 @@ export interface SocialProfile {
   followersCount: number;
   followingCount: number;
   isFollowedByMe: boolean;
+  isBlockedByMe?: boolean;
   totalWorkouts: number;
   totalRuns: number;
   totalDistanceKm: number;
@@ -188,6 +189,26 @@ export interface FollowUser {
   avatarUrl?: string;
   bio?: string;
   isFollowedByMe: boolean;
+}
+
+export interface Notification {
+  id: number;
+  userId: number;
+  type: 'like' | 'comment' | 'follow';
+  actorId: number;
+  actorName: string;
+  actorAvatarUrl?: string;
+  referenceId?: number;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface BlockedUser {
+  userId: number;
+  name: string;
+  avatarUrl?: string;
+  blockedAt: string;
 }
 
 // Run Tracking Types
