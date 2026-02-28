@@ -405,10 +405,6 @@ router.post("/forgot-password", resetLimiter, async (req: Request, res: Response
           subject: "Your Merge Password Reset Code",
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-              <div style="text-align: center; margin-bottom: 32px;">
-                <h1 style="color: #FF4500; font-size: 28px; margin: 0;">Merge</h1>
-                <p style="color: #666; margin-top: 4px;">Fitness Tracking</p>
-              </div>
               <h2 style="color: #1A1A1A; font-size: 20px;">Password Reset</h2>
               <p style="color: #333; line-height: 1.6;">You requested a password reset. Enter this code in the app:</p>
               <div style="background: #F5F5F5; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
