@@ -10,7 +10,7 @@ just slipped through. Grouped by area, tagged by priority.
 - **P2** — Real-impact improvement; not blocking but noticeably better when done
 - **P3** — Polish, internal hygiene, "would be nice"
 
-Updated: 2026-05-27
+Updated: 2026-05-27 (after PR C: dead-code strip + desktop max-width)
 
 ---
 
@@ -57,10 +57,11 @@ Updated: 2026-05-27
   `SocialFeedScreen.tsx:191-201` has no catch. Show a transient banner on
   failure. Also re-fetch `getUnreadCountApi` during refresh.
 
-- [ ] **P2** Strip dead code from `SocialProfileScreen.tsx` — the
-  `isOwnProfile` / `editingBio` / `bioText` / `handleSaveBio` branches +
-  `updateSocialProfileApi` import are unreachable now that Profile owns
-  bio editing. ~30 lines.
+- [x] **P2** Strip dead code from `SocialProfileScreen.tsx` — the
+  `editingBio` / `bioText` / `handleSaveBio` branches +
+  `updateSocialProfileApi` + `TextInput` imports removed. `isOwnProfile`
+  retained to hide follow/block buttons when viewing your own profile.
+  *(Done in `28bab09`.)*
 
 - [ ] **P2** Pagination on `SocialProfileScreen` user posts — currently
   fetches only the first page from `getUserPostsFeed`.
@@ -115,10 +116,12 @@ Updated: 2026-05-27
 
 ## Web / Desktop
 
-- [ ] **P1** Lists stretch edge-to-edge at desktop widths (no max-width).
-  Feed, Profile, FollowList, UserSearch, Notifications, BlockedUsers,
-  Settings all render full-width up to 1920px → ~1700px-wide post cards.
-  Wrap each scroll container with `maxWidth: 680, alignSelf: "center"`.
+- [x] **P1** Lists stretch edge-to-edge at desktop widths (no max-width).
+  Added `width: "100%", maxWidth: 720, alignSelf: "center"` to the
+  contentContainerStyle of 7 social FlatLists (Feed, PostDetail,
+  SocialProfile, FollowList, UserSearch, Notifications, BlockedUsers).
+  Settings + Profile tabs still uncapped — separate follow-up. *(Done in
+  `28bab09`.)*
 
 - [ ] **P2** Deep-link-after-auth redirect. Unauth user clicks
   `/community` → lands on Login → after login goes to Onboarding/Home, NOT
