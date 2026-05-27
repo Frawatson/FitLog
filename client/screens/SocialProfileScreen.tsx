@@ -9,6 +9,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -142,9 +143,7 @@ export default function SocialProfileScreen() {
     <View style={{ marginBottom: Spacing.xl }}>
       {/* Avatar + Name */}
       <View style={styles.profileTop}>
-        <View style={[styles.avatar, { backgroundColor: theme.backgroundSecondary }]}>
-          <ThemedText type="display" style={{ fontSize: 32 }}>{profile.name?.charAt(0)?.toUpperCase()}</ThemedText>
-        </View>
+        <Avatar uri={profile.avatarUrl} name={profile.name} size={80} />
         <ThemedText type="h1" style={{ marginTop: Spacing.md }}>{profile.name}</ThemedText>
         {profile.bio && !editingBio ? (
           <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
@@ -271,7 +270,6 @@ export default function SocialProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   profileTop: { alignItems: "center", marginBottom: Spacing.xl },
-  avatar: { width: 80, height: 80, borderRadius: 40, alignItems: "center", justifyContent: "center" },
   statsRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: Spacing.xl },
   statItem: { alignItems: "center" },
   actionRow: { flexDirection: "row", gap: Spacing.md, marginBottom: Spacing.xl },

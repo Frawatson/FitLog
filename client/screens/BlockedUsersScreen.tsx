@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { BlockedUser } from "@/types";
@@ -75,11 +76,7 @@ export default function BlockedUsersScreen() {
       keyExtractor={(item) => item.userId.toString()}
       renderItem={({ item }) => (
         <View style={[styles.row, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}>
-          <View style={[styles.avatar, { backgroundColor: theme.backgroundSecondary }]}>
-            <ThemedText type="h4" style={{ fontSize: 16 }}>
-              {item.name?.charAt(0)?.toUpperCase()}
-            </ThemedText>
-          </View>
+          <Avatar uri={item.avatarUrl} name={item.name} size={40} />
           <View style={{ flex: 1 }}>
             <ThemedText type="body" style={{ fontWeight: "600" }}>{item.name}</ThemedText>
             <ThemedText type="caption" style={{ color: theme.textSecondary }}>
@@ -113,13 +110,6 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: BorderRadius.md,
     borderWidth: 1,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
   unblockBtn: {
     paddingHorizontal: Spacing.md,

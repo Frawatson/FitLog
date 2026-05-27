@@ -9,6 +9,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -116,9 +117,7 @@ export default function FollowListScreen() {
             onPress={() => navigation.navigate("SocialProfile", { userId: item.userId })}
             style={[styles.userRow, { borderBottomColor: theme.border }]}
           >
-            <View style={[styles.avatar, { backgroundColor: theme.backgroundSecondary }]}>
-              <ThemedText type="h4">{item.name?.charAt(0)?.toUpperCase()}</ThemedText>
-            </View>
+            <Avatar uri={item.avatarUrl} name={item.name} size={44} />
             <View style={{ flex: 1 }}>
               <ThemedText type="h4">{item.name}</ThemedText>
               {item.bio ? <ThemedText type="caption" numberOfLines={1} style={{ color: theme.textSecondary }}>{item.bio}</ThemedText> : null}
@@ -148,6 +147,5 @@ export default function FollowListScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   userRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
-  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   followBtn: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.sm },
 });

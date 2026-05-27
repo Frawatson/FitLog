@@ -10,6 +10,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Post, PostType } from "@/types";
@@ -42,11 +43,7 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime }: {
   return (
     <AnimatedPress onPress={() => onPress(post)} style={[styles.postCard, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}>
       <View style={styles.postHeader}>
-        <View style={[styles.avatar, { backgroundColor: theme.backgroundSecondary }]}>
-          <ThemedText type="h4" style={{ fontSize: 16 }}>
-            {post.authorName?.charAt(0)?.toUpperCase() || "?"}
-          </ThemedText>
-        </View>
+        <Avatar uri={post.authorAvatarUrl} name={post.authorName} size={40} />
         <View style={{ flex: 1 }}>
           <ThemedText type="h4" style={{ fontSize: 15 }}>{post.authorName}</ThemedText>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -401,13 +398,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.md,
     marginBottom: Spacing.md,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
   },
   typeBadge: {
     flexDirection: "row",

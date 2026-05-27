@@ -10,6 +10,7 @@ import { v4 as uuid } from "uuid";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -247,9 +248,7 @@ export default function PostDetailScreen() {
             <View style={{ marginBottom: Spacing.xl }}>
               {/* Post Header */}
               <View style={styles.postHeader}>
-                <View style={[styles.avatar, { backgroundColor: theme.backgroundSecondary }]}>
-                  <ThemedText type="h4" style={{ fontSize: 18 }}>{post.authorName?.charAt(0)?.toUpperCase()}</ThemedText>
-                </View>
+                <Avatar uri={post.authorAvatarUrl} name={post.authorName} size={48} />
                 <View style={{ flex: 1 }}>
                   <Pressable onPress={() => navigation.navigate("SocialProfile", { userId: post.userId })}>
                     <ThemedText type="h3">{post.authorName}</ThemedText>
@@ -398,9 +397,7 @@ export default function PostDetailScreen() {
           }
           renderItem={({ item }) => (
             <View style={[styles.commentRow, { borderBottomColor: theme.border }]}>
-              <View style={[styles.commentAvatar, { backgroundColor: theme.backgroundSecondary }]}>
-                <ThemedText type="caption" style={{ fontWeight: "700" }}>{item.authorName?.charAt(0)?.toUpperCase()}</ThemedText>
-              </View>
+              <Avatar uri={item.authorAvatarUrl} name={item.authorName} size={32} />
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
                   <Pressable onPress={() => navigation.navigate("SocialProfile", { userId: item.userId })}>
@@ -474,14 +471,12 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   postHeader: { flexDirection: "row", alignItems: "center", gap: Spacing.md, marginBottom: Spacing.lg },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
   postImage: { width: "100%", height: 250, borderRadius: BorderRadius.sm, marginBottom: Spacing.lg },
   refCard: { padding: Spacing.md, borderRadius: BorderRadius.sm, marginBottom: Spacing.lg },
   actions: { flexDirection: "row", gap: Spacing["2xl"], marginBottom: Spacing.lg },
   actionBtn: { flexDirection: "row", alignItems: "center", gap: 6 },
   divider: { height: 1, marginBottom: Spacing.lg },
   commentRow: { flexDirection: "row", gap: Spacing.sm, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
-  commentAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   editInput: { borderWidth: 1, borderRadius: BorderRadius.sm, padding: Spacing.md, fontSize: 15, minHeight: 40, marginBottom: Spacing.sm },
   commentInput: {
     flexDirection: "row",
