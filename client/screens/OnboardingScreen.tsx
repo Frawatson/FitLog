@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, StyleSheet, Pressable, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -105,10 +105,16 @@ export default function OnboardingScreen() {
       
       setLoading(true);
       try {
-        await register(email.trim(), password, name.trim());
-        // The useEffect will handle skipping to step 2 when user updates
+        const result = await register(email.trim(), password, name.trim());
         setLoading(false);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // The server sent a confirmation email; the user finishes onboarding
+        // only after confirming and signing in. Send them to Login.
+        Alert.alert(
+          "Check your email",
+          result.message,
+          [{ text: "OK", onPress: () => navigation.replace("Login") }],
+        );
         return;
       } catch (err: any) {
         setError(err.message || "Failed to create account");

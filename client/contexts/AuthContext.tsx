@@ -24,7 +24,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name: string) => Promise<{ confirmationRequired: true; message: string }>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -101,6 +101,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const userData = await response.json();
+
+    // If the previously-stored profile belonged to a different user, wipe
+    // local app data so the freshly-signed-in user doesn't see leftover
+    // workouts/food logs/etc. Previously this was implicit in register's
+    // auto-login flow; now that register requires email confirmation, we
+    // have to do it at sign-in time.
+    const existingProfile = await storage.getUserProfile();
+    if (
+      existingProfile?.email &&
+      existingProfile.email.toLowerCase() !== userData.email?.toLowerCase()
+    ) {
+      await storage.clearAllData();
+    }
+
     // Store token for mobile clients
     if (userData.token) {
       await AsyncStorage.setItem(AUTH_TOKEN_KEY, userData.token);
@@ -112,9 +126,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, name: string) => {
-    // Clear any existing local data from previous users
-    await storage.clearAllData();
-    
+    // Don't clear local data here — register no longer auto-logs in. We'll
+    // clear it on the next successful login if it doesn't match the user.
     const response = await fetch(new URL("/api/auth/register", getApiUrl()).toString(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -123,19 +136,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({}));
       throw new Error(error.error || "Registration failed");
     }
 
-    const userData = await response.json();
-    // Store token for mobile clients
-    if (userData.token) {
-      await AsyncStorage.setItem(AUTH_TOKEN_KEY, userData.token);
-      setAuthToken(userData.token);
-    }
-    setUser(userData);
-    // Initialize sync service for authenticated user
-    initSyncService();
+    const data = await response.json();
+    // Server now responds with { confirmationRequired: true } and does NOT
+    // return a session token — the user becomes authenticated only after
+    // clicking the email link and then signing in.
+    return {
+      confirmationRequired: true as const,
+      message: data.message || "Check your email to confirm your account.",
+    };
   };
 
   const logout = async () => {

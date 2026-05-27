@@ -191,6 +191,147 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   });
 }
 
+// Registration uses an email-confirmation flow so /register cannot be used
+// to enumerate which addresses already have accounts: the endpoint always
+// responds the same way, and the differentiation happens only inside the
+// email we send (confirmation link vs. "someone tried to register").
+
+const REGISTER_CONFIRM_TOKEN_TYPE = "register-confirm";
+const REGISTER_CONFIRM_EXPIRES_IN = "24h";
+
+interface RegisterConfirmPayload {
+  type: typeof REGISTER_CONFIRM_TOKEN_TYPE;
+  email: string;
+  passwordHash: string;
+  name: string;
+}
+
+function signRegisterConfirmToken(payload: Omit<RegisterConfirmPayload, "type">): string {
+  return jwt.sign(
+    { type: REGISTER_CONFIRM_TOKEN_TYPE, ...payload },
+    JWT_SECRET,
+    { algorithm: JWT_ALGORITHM, expiresIn: REGISTER_CONFIRM_EXPIRES_IN },
+  );
+}
+
+function verifyRegisterConfirmToken(token: string): RegisterConfirmPayload | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: [JWT_ALGORITHM],
+    }) as RegisterConfirmPayload;
+    if (decoded.type !== REGISTER_CONFIRM_TOKEN_TYPE) return null;
+    if (typeof decoded.email !== "string" || typeof decoded.passwordHash !== "string" || typeof decoded.name !== "string") {
+      return null;
+    }
+    return decoded;
+  } catch {
+    return null;
+  }
+}
+
+function registerConfirmUrl(token: string): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  // EXPO_PUBLIC_DOMAIN may be a bare host or a full URL; normalize to https.
+  const base = domain
+    ? (domain.startsWith("http") ? domain : `https://${domain}`)
+    : "http://localhost:5000";
+  return `${base.replace(/\/$/, "")}/api/auth/register/confirm?token=${encodeURIComponent(token)}`;
+}
+
+async function sendRegisterConfirmEmail(email: string, name: string, token: string): Promise<void> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const url = registerConfirmUrl(token);
+  if (!resendApiKey) {
+    console.log(`[DEV] Registration confirmation for ${email}: ${url}`);
+    return;
+  }
+  try {
+    const resend = new Resend(resendApiKey);
+    await resend.emails.send({
+      from: "Merge <support@mergefitness.fitness>",
+      to: [email.toLowerCase()],
+      subject: "Confirm your Merge account",
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+          <h2 style="color: #1A1A1A; font-size: 20px;">Confirm your account</h2>
+          <p style="color: #333; line-height: 1.6;">Hi ${escapeHtml(name)}, tap the button below to finish creating your Merge account. The link expires in 24 hours.</p>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${url}" style="background: #FF4500; color: #FFFFFF; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; display: inline-block;">Confirm Account</a>
+          </div>
+          <p style="color: #666; font-size: 14px;">If you didn't try to create a Merge account, you can ignore this email — no account will be created.</p>
+        </div>
+      `,
+    });
+  } catch (emailError) {
+    console.error("Failed to send registration confirmation email:", emailError);
+  }
+}
+
+async function sendRegisterAttemptEmail(email: string): Promise<void> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+  if (!resendApiKey) {
+    console.log(`[DEV] Registration attempt notice for existing user ${email}`);
+    return;
+  }
+  try {
+    const resend = new Resend(resendApiKey);
+    await resend.emails.send({
+      from: "Merge <support@mergefitness.fitness>",
+      to: [email.toLowerCase()],
+      subject: "Someone tried to register with your email",
+      html: `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+          <h2 style="color: #1A1A1A; font-size: 20px;">Account already exists</h2>
+          <p style="color: #333; line-height: 1.6;">Someone just tried to create a Merge account using this email address, but you already have one.</p>
+          <p style="color: #333; line-height: 1.6;">If this was you, open the Merge app and sign in. If you've forgotten your password, use the "Forgot password" link on the sign-in screen.</p>
+          <p style="color: #666; font-size: 14px;">If it wasn't you, no action is needed — your account is unchanged.</p>
+        </div>
+      `,
+    });
+  } catch (emailError) {
+    console.error("Failed to send registration attempt email:", emailError);
+  }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderConfirmationPage(opts: { title: string; body: string }): string {
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(opts.title)}</title>
+    <style>
+      body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #F7F7F7; color: #1A1A1A; }
+      .card { max-width: 480px; margin: 64px auto; padding: 32px; background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
+      h1 { font-size: 22px; margin: 0 0 16px; }
+      p { line-height: 1.6; color: #333; margin: 0 0 16px; }
+      a.button { display: inline-block; margin-top: 16px; background: #FF4500; color: #FFFFFF; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>${escapeHtml(opts.title)}</h1>
+      ${opts.body}
+    </div>
+  </body>
+</html>`;
+}
+
+const GENERIC_REGISTER_RESPONSE = {
+  success: true,
+  confirmationRequired: true,
+  message: "If the email is valid, a confirmation link has been sent. Check your inbox to finish creating your account.",
+} as const;
+
 router.post("/register", authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password, name } = req.body;
@@ -198,9 +339,12 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
     if (!email || !password || !name) {
       return res.status(400).json({ error: "Email, password, and name are required" });
     }
+    if (typeof email !== "string" || typeof password !== "string" || typeof name !== "string") {
+      return res.status(400).json({ error: "Invalid input" });
+    }
 
-    // Validate email format
-    if (!EMAIL_REGEX.test(email)) {
+    // Validate email format and length (RFC 5321 caps at 254).
+    if (!EMAIL_REGEX.test(email) || email.length > 254) {
       return res.status(400).json({ error: "Please enter a valid email address" });
     }
 
@@ -210,26 +354,90 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
       return res.status(400).json({ error: passwordValidation.message });
     }
 
-    const existing = await getUserByEmail(email);
+    const normalizedName = name.trim().slice(0, 255);
+    if (normalizedName.length === 0) {
+      return res.status(400).json({ error: "Name is required" });
+    }
+    const normalizedEmail = email.toLowerCase();
+
+    // Always hash the password before the existence check so the request
+    // takes a roughly constant amount of CPU regardless of whether the email
+    // is new (closes a timing side-channel for enumeration).
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    const existing = await getUserByEmail(normalizedEmail);
     if (existing) {
-      return res.status(400).json({ error: "Email already registered" });
+      // Fire-and-forget so response timing doesn't leak whether we sent
+      // "you already have an account" vs. "confirm your registration".
+      sendRegisterAttemptEmail(normalizedEmail).catch(() => {});
+    } else {
+      const confirmToken = signRegisterConfirmToken({
+        email: normalizedEmail,
+        passwordHash,
+        name: normalizedName,
+      });
+      sendRegisterConfirmEmail(normalizedEmail, normalizedName, confirmToken).catch(() => {});
     }
 
-    const passwordHash = await bcrypt.hash(password, 12); // Increased from 10 to 12 rounds
-    const user = await createUser({ email, passwordHash, name });
-
-    req.session.userId = user.id;
-    const token = generateToken(user.id);
-
-    res.status(201).json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      token, // Return JWT token for mobile clients
-    });
+    return res.status(202).json(GENERIC_REGISTER_RESPONSE);
   } catch (error) {
     console.error("Registration error:", error);
     res.status(500).json({ error: "Failed to register" });
+  }
+});
+
+const registerConfirmLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many confirmation attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.get("/register/confirm", registerConfirmLimiter, async (req: Request, res: Response) => {
+  const token = typeof req.query.token === "string" ? req.query.token : "";
+  const payload = token ? verifyRegisterConfirmToken(token) : null;
+
+  if (!payload) {
+    return res.status(400).type("html").send(
+      renderConfirmationPage({
+        title: "Link expired",
+        body: `<p>This confirmation link is invalid or has expired. Open the Merge app and tap <strong>Create Account</strong> again to receive a new link.</p>`,
+      }),
+    );
+  }
+
+  try {
+    const existing = await getUserByEmail(payload.email);
+    if (!existing) {
+      try {
+        await createUser({
+          email: payload.email,
+          passwordHash: payload.passwordHash,
+          name: payload.name,
+        });
+      } catch (createError: any) {
+        // 23505 = unique_violation. Treat as "another request just created
+        // this account" — confirmation is idempotent from the user's POV.
+        if (createError?.code !== "23505") throw createError;
+      }
+    }
+
+    return res.type("html").send(
+      renderConfirmationPage({
+        title: "Account confirmed",
+        body: `<p>Your Merge account is ready. Open the app and sign in with your email and password to continue.</p>
+               <a class="button" href="merge://login">Open Merge</a>`,
+      }),
+    );
+  } catch (error) {
+    console.error("Registration confirmation error:", error);
+    return res.status(500).type("html").send(
+      renderConfirmationPage({
+        title: "Something went wrong",
+        body: `<p>We couldn't confirm your account right now. Please try the link again in a few minutes, or contact support if the problem continues.</p>`,
+      }),
+    );
   }
 });
 
