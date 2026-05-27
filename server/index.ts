@@ -63,9 +63,13 @@ async function startServer() {
 
       const origin = req.header("origin");
 
+      // Localhost origins are only honored in development. In production a
+      // malicious local app served on http://localhost:* could otherwise
+      // ride the user's logged-in session against the API.
       const isLocalhost =
-        origin?.startsWith("http://localhost:") ||
-        origin?.startsWith("http://127.0.0.1:");
+        !isProduction &&
+        (origin?.startsWith("http://localhost:") ||
+          origin?.startsWith("http://127.0.0.1:"));
 
       if (origin && (origins.has(origin) || isLocalhost)) {
         res.header("Access-Control-Allow-Origin", origin);
