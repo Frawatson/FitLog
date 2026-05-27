@@ -1,0 +1,17 @@
+# Railway deploy config. Explicit build + start commands so Nixpacks
+# doesn't have to guess. The build chains the web bundle (Expo web
+# export → dist/) and the server bundle (esbuild → server_dist/).
+#
+# Native OTA bundles (static-build/{ios,android}) are NOT built here —
+# that pipeline (scripts/build.js) requires a running Metro server and
+# is run manually or via a separate workflow when shipping native
+# updates.
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npm run server:prod"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

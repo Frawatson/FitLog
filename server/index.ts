@@ -192,10 +192,12 @@ async function startServer() {
     });
 
     app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-    // index:false so a request for "/" doesn't get the raw index.html
-    // from static — we want it to fall through to the SPA fallback below
-    // so meta tags get injected. Asset files are still served normally.
+    // static-build/ holds native OTA bundles (manifests served above);
+    // dist/ holds the Expo web export (built by `npm run web:build`).
+    // index:false on both so "/" falls through to the SPA fallback for
+    // SEO meta injection rather than getting served as raw HTML.
     app.use(express.static(path.resolve(process.cwd(), "static-build"), { index: false }));
+    app.use(express.static(path.resolve(process.cwd(), "dist"), { index: false }));
 
     // SPA fallback with SEO meta injection. React Navigation's web linking
     // maps URLs like /community, /profile/settings, /posts/42 to in-app
@@ -203,7 +205,10 @@ async function startServer() {
     // that path directly. We serve the SPA shell so the client-side router
     // can take over, and inject route-specific <title> / og:* meta so
     // social-share previews and search-crawler snapshots are sensible.
-    const indexHtmlPath = path.resolve(process.cwd(), "static-build", "index.html");
+    // The Expo web export writes index.html to dist/. If the build hasn't
+    // run yet, the SPA fallback short-circuits (next() → 404) so requests
+    // surface as obvious deploy errors rather than empty HTML.
+    const indexHtmlPath = path.resolve(process.cwd(), "dist", "index.html");
     let cachedIndexHtml: string | null = null;
 
     function loadIndexHtml(): string | null {
