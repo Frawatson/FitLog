@@ -53,10 +53,10 @@ export default function App() {
                   <NavigationContainer
                     linking={linking}
                     documentTitle={{
-                      formatter: (options, route) =>
-                        options?.title ?? route?.name
-                          ? `${options?.title ?? route?.name} · Merge`
-                          : "Merge",
+                      formatter: (options, route) => {
+                        const label = options?.title ?? route?.name;
+                        return label ? `${label} · Merge` : "Merge";
+                      },
                     }}
                   >
                     <RootStackNavigator />

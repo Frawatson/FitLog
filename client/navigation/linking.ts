@@ -18,6 +18,12 @@ function buildPrefixes(): string[] {
 // from a URL (web) or deep link (native). Path params use :param syntax.
 // Nested stacks are declared via a `screens` block so URLs like
 // /profile/settings resolve to the right tab + child route.
+//
+// Path-collision note: React Navigation's matcher prefers literal segments
+// over :param segments, so /workouts/active resolves to ActiveWorkout (not
+// WorkoutDetail with workoutId="active"). Declaration order below doesn't
+// affect this; the matcher specificity does. If you add a new
+// /workouts/something literal path, you don't need to reorder anything.
 export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: buildPrefixes(),
   config: {

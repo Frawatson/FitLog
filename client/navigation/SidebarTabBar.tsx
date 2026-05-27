@@ -17,6 +17,7 @@ export function SidebarTabBar({ state, descriptors, navigation }: BottomTabBarPr
 
   return (
     <View
+      accessibilityRole={"tablist" as any}
       style={[
         styles.container,
         { backgroundColor: theme.backgroundCard, borderRightColor: theme.border },

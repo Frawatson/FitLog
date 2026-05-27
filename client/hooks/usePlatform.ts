@@ -7,13 +7,13 @@ export interface PlatformInfo {
   isIOS: boolean;
   isAndroid: boolean;
   breakpoint: Breakpoint;
+  // Breakpoint-based — reflects the current viewport size on any platform.
   isMobile: boolean;
   isTablet: boolean;
   isDesktop: boolean;
-  // Convenience: most UI decisions branch on these combos.
+  // Convenience combos: most UI decisions branch on platform + size together.
   isDesktopWeb: boolean;
   isMobileWeb: boolean;
-  isNativeMobile: boolean;
 }
 
 // Single place to decide "is this a phone, a tablet, or a desktop browser?"
@@ -36,6 +36,5 @@ export function usePlatform(): PlatformInfo {
     isDesktop: breakpoint === "desktop",
     isDesktopWeb: isWeb && breakpoint === "desktop",
     isMobileWeb: isWeb && breakpoint === "mobile",
-    isNativeMobile: !isWeb,
   };
 }
