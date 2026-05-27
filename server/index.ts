@@ -233,7 +233,7 @@ async function startServer() {
     }
 
     const DEFAULT_META: MetaTags = {
-      title: "Merge — Fitness & AI Nutrition",
+      title: "Gbolo Fitness and Nutrition",
       description:
         "Track workouts, runs, and food with AI-powered macro estimation from a single photo.",
       // Path-only — converted to an absolute URL per request so social-share
@@ -257,14 +257,14 @@ async function startServer() {
     }
 
     // Keep in sync with public routes in client/navigation/linking.ts.
-    // The root URL "/" inherits DEFAULT_META (Merge branding) — no entry
+    // The root URL "/" inherits DEFAULT_META (Gbolo branding) — no entry
     // needed. Private (auth-only) routes also inherit defaults; those URLs
     // aren't crawled or shared, so per-page meta is wasted effort there.
     const PUBLIC_PAGE_META: Record<string, Partial<MetaTags>> = {
-      "/login": { title: "Sign in · Merge" },
-      "/register": { title: "Create your Merge account" },
-      "/forgot-password": { title: "Reset your password · Merge" },
-      "/reset-password": { title: "Reset your password · Merge" },
+      "/login": { title: "Sign in · Gbolo" },
+      "/register": { title: "Create your Gbolo account" },
+      "/forgot-password": { title: "Reset your password · Gbolo" },
+      "/reset-password": { title: "Reset your password · Gbolo" },
     };
 
     function injectMeta(html: string, req: Request): string {

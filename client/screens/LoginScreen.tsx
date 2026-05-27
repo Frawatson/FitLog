@@ -62,7 +62,7 @@ export default function LoginScreen() {
             <View style={[styles.iconContainer, { backgroundColor: Colors.light.primary }]}>
               <MaterialCommunityIcons name="dumbbell" size={40} color="#FFFFFF" />
             </View>
-            <ThemedText type="h1" style={styles.title}>Merge</ThemedText>
+            <ThemedText type="h1" style={styles.title}>Gbolo</ThemedText>
             <ThemedText type="body" style={styles.subtitle}>
               Track your fitness journey
             </ThemedText>

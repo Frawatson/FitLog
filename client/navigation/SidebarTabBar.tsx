@@ -25,7 +25,7 @@ export function SidebarTabBar({ state, descriptors, navigation }: BottomTabBarPr
     >
       <View style={styles.header}>
         <ThemedText type="h2" style={{ color: Colors.light.primary }}>
-          Merge
+          Gbolo
         </ThemedText>
       </View>
 

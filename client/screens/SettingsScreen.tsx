@@ -218,7 +218,8 @@ export default function SettingsScreen() {
               <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Legal</ThemedText>
 
               <AnimatedPress
-                onPress={() => WebBrowser.openBrowserAsync("https://mergefitness.fitness/privacy")}
+                // TODO: stand up privacy page on gbolofitness.com before launch
+                onPress={() => WebBrowser.openBrowserAsync("https://gbolofitness.com/privacy")}
                 style={styles.settingRow}
               >
                 <View style={styles.settingInfo}>
@@ -231,7 +232,8 @@ export default function SettingsScreen() {
               </AnimatedPress>
 
               <AnimatedPress
-                onPress={() => WebBrowser.openBrowserAsync("https://mergefitness.fitness/terms")}
+                // TODO: stand up terms page on gbolofitness.com before launch
+                onPress={() => WebBrowser.openBrowserAsync("https://gbolofitness.com/terms")}
                 style={[styles.settingRow, { marginTop: Spacing.lg }]}
               >
                 <View style={styles.settingInfo}>

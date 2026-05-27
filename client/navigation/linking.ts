@@ -6,7 +6,7 @@ import type { RootStackParamList } from "./RootStackNavigator";
 // origin handles same-origin URLs automatically. Production builds also
 // match the public domain so emailed links resolve correctly.
 function buildPrefixes(): string[] {
-  const prefixes = ["merge://"];
+  const prefixes = ["gbolo://"];
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   if (domain) {
     prefixes.push(domain.startsWith("http") ? domain : `https://${domain}`);

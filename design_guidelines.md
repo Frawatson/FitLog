@@ -1,4 +1,4 @@
-# Merge - Design Guidelines
+# Gbolo Fitness and Nutrition - Design Guidelines
 
 ## Brand Identity
 

@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "Merge - Fitness & AI Nutrition",
-    "slug": "merge",
+    "name": "Gbolo Fitness and Nutrition",
+    "slug": "gbolo-fitness",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "merge",
+    "scheme": "gbolo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "fitness.mergefitness.app",
       "buildNumber": "1",
-      "privacyUrl": "https://mergefitness.fitness/privacy",
+      "privacyUrl": "https://gbolofitness.com/privacy",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Merge uses your location to track your running routes, distance, and pace.",
-        "NSCameraUsageDescription": "Merge uses the camera to photograph food for nutritional analysis.",
-        "NSPhotoLibraryUsageDescription": "Merge accesses your photo library to select food photos for nutritional analysis."
+        "NSLocationWhenInUseUsageDescription": "Gbolo uses your location to track your running routes, distance, and pace.",
+        "NSCameraUsageDescription": "Gbolo uses the camera to photograph food for nutritional analysis.",
+        "NSPhotoLibraryUsageDescription": "Gbolo accesses your photo library to select food photos for nutritional analysis."
       }
     },
     "android": {
@@ -52,13 +52,13 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Merge uses your location to track your running routes, distance, and pace."
+          "locationWhenInUsePermission": "Gbolo uses your location to track your running routes, distance, and pace."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Merge uses the camera to photograph food for nutritional analysis."
+          "cameraPermission": "Gbolo uses the camera to photograph food for nutritional analysis."
         }
       ]
     ],

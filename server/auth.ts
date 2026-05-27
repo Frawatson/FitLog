@@ -248,17 +248,20 @@ async function sendRegisterConfirmEmail(email: string, name: string, token: stri
   try {
     const resend = new Resend(resendApiKey);
     await resend.emails.send({
-      from: "Merge <support@mergefitness.fitness>",
+      // TODO: switch sender domain to gbolofitness.com once DNS is configured
+      // on Resend (currently still using the verified mergefitness.fitness
+      // sender — domain change is non-functional until that DNS lands).
+      from: "Gbolo Fitness and Nutrition <support@mergefitness.fitness>",
       to: [email.toLowerCase()],
-      subject: "Confirm your Merge account",
+      subject: "Confirm your Gbolo account",
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
           <h2 style="color: #1A1A1A; font-size: 20px;">Confirm your account</h2>
-          <p style="color: #333; line-height: 1.6;">Hi ${escapeHtml(name)}, tap the button below to finish creating your Merge account. The link expires in 24 hours.</p>
+          <p style="color: #333; line-height: 1.6;">Hi ${escapeHtml(name)}, tap the button below to finish creating your Gbolo Fitness and Nutrition account. The link expires in 24 hours.</p>
           <div style="text-align: center; margin: 32px 0;">
             <a href="${url}" style="background: #FF4500; color: #FFFFFF; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; display: inline-block;">Confirm Account</a>
           </div>
-          <p style="color: #666; font-size: 14px;">If you didn't try to create a Merge account, you can ignore this email — no account will be created.</p>
+          <p style="color: #666; font-size: 14px;">If you didn't try to create a Gbolo account, you can ignore this email — no account will be created.</p>
         </div>
       `,
     });
@@ -276,14 +279,15 @@ async function sendRegisterAttemptEmail(email: string): Promise<void> {
   try {
     const resend = new Resend(resendApiKey);
     await resend.emails.send({
-      from: "Merge <support@mergefitness.fitness>",
+      // TODO: switch sender to support@gbolofitness.com once DNS is configured
+      from: "Gbolo Fitness and Nutrition <support@mergefitness.fitness>",
       to: [email.toLowerCase()],
       subject: "Someone tried to register with your email",
       html: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
           <h2 style="color: #1A1A1A; font-size: 20px;">Account already exists</h2>
-          <p style="color: #333; line-height: 1.6;">Someone just tried to create a Merge account using this email address, but you already have one.</p>
-          <p style="color: #333; line-height: 1.6;">If this was you, open the Merge app and sign in. If you've forgotten your password, use the "Forgot password" link on the sign-in screen.</p>
+          <p style="color: #333; line-height: 1.6;">Someone just tried to create a Gbolo Fitness and Nutrition account using this email address, but you already have one.</p>
+          <p style="color: #333; line-height: 1.6;">If this was you, open the Gbolo app and sign in. If you've forgotten your password, use the "Forgot password" link on the sign-in screen.</p>
           <p style="color: #666; font-size: 14px;">If it wasn't you, no action is needed — your account is unchanged.</p>
         </div>
       `,
@@ -402,7 +406,7 @@ router.get("/register/confirm", registerConfirmLimiter, async (req: Request, res
     return res.status(400).type("html").send(
       renderConfirmationPage({
         title: "Link expired",
-        body: `<p>This confirmation link is invalid or has expired. Open the Merge app and tap <strong>Create Account</strong> again to receive a new link.</p>`,
+        body: `<p>This confirmation link is invalid or has expired. Open the Gbolo app and tap <strong>Create Account</strong> again to receive a new link.</p>`,
       }),
     );
   }
@@ -426,7 +430,7 @@ router.get("/register/confirm", registerConfirmLimiter, async (req: Request, res
     return res.type("html").send(
       renderConfirmationPage({
         title: "Account confirmed",
-        body: `<p>Your Merge account is ready. Sign in with your email and password to continue.</p>
+        body: `<p>Your Gbolo Fitness and Nutrition account is ready. Sign in with your email and password to continue.</p>
                <a class="button" href="/login">Sign In</a>
                <p style="margin-top: 24px; font-size: 13px; color: #888;">Have the mobile app? Open it and sign in there instead.</p>`,
       }),
@@ -628,9 +632,10 @@ router.post("/forgot-password", resetLimiter, async (req: Request, res: Response
       try {
         const resend = new Resend(resendApiKey);
         await resend.emails.send({
-          from: "Merge <support@mergefitness.fitness>",
+          // TODO: switch sender to support@gbolofitness.com once DNS is configured
+          from: "Gbolo Fitness and Nutrition <support@mergefitness.fitness>",
           to: [email.toLowerCase()],
-          subject: "Your Merge Password Reset Code",
+          subject: "Your Gbolo Password Reset Code",
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
               <h2 style="color: #1A1A1A; font-size: 20px;">Password Reset</h2>

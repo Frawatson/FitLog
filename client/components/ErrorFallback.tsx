@@ -59,7 +59,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
         </View>
         
         <Text style={styles.title}>
-          Merge hit a snag
+          Gbolo hit a snag
         </Text>
 
         <Text style={styles.message}>

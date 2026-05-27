@@ -74,7 +74,7 @@ export default function MainTabNavigator() {
         options={{
           title: "Home",
           headerShown: true,
-          headerTitle: "Merge",
+          headerTitle: "Gbolo",
           headerTintColor: theme.text,
           headerStyle: {
             backgroundColor: theme.backgroundRoot,

@@ -177,7 +177,7 @@ export default function ProfileScreen() {
 
       // Create a combined summary CSV
       const summary = [
-        `Merge Data Export - ${timestamp}`,
+        `Gbolo Data Export - ${timestamp}`,
         "",
         `Workouts: ${workouts.length} records`,
         `Runs: ${runs.length} records`,
@@ -197,14 +197,14 @@ export default function ProfileScreen() {
         foodRows.join("\n"),
       ].join("\n");
 
-      const file = new File(Paths.cache, `merge_export_${timestamp}.csv`);
+      const file = new File(Paths.cache, `gbolo_export_${timestamp}.csv`);
       file.write(summary);
 
       const available = await Sharing.isAvailableAsync();
       if (available) {
         await Sharing.shareAsync(file.uri, {
           mimeType: "text/csv",
-          dialogTitle: "Export Merge Data",
+          dialogTitle: "Export Gbolo Data",
         });
       } else {
         Alert.alert("Export Complete", "Your data has been exported.");
