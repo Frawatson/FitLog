@@ -1,5 +1,5 @@
 import React, { useState, useLayoutEffect } from "react";
-import { View, StyleSheet, TextInput, ScrollView, Image, Dimensions, Alert } from "react-native";
+import { View, StyleSheet, TextInput, ScrollView, Image, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -15,6 +15,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
 import * as storage from "@/lib/storage";
+import { showSystemMenu } from "@/components/SystemMenu";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -46,22 +47,22 @@ export default function FoodDetailScreen() {
   }, [isEditing, entry.food.name]);
 
   const handleDelete = () => {
-    Alert.alert(
-      "Delete Food",
-      `Are you sure you want to delete "${entry.food.name}"? This action cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
+    showSystemMenu({
+      title: "Delete Food",
+      message: `Are you sure you want to delete "${entry.food.name}"? This action cannot be undone.`,
+      options: [
         {
-          text: "Delete",
-          style: "destructive",
+          label: "Delete",
+          destructive: true,
           onPress: async () => {
             await storage.deleteFoodLogEntry(entry.id);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             navigation.goBack();
           },
         },
-      ]
-    );
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   const startEditing = () => {

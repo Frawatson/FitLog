@@ -309,18 +309,15 @@ export default function DashboardScreen() {
 
             <View style={styles.macroPills}>
               {([
-                { label: "Protein", value: todayMacros.protein, target: macros.protein, color: Colors.light.primary },
-                { label: "Carbs", value: todayMacros.carbs, target: macros.carbs, color: "#818cf8" },
-                { label: "Fat", value: todayMacros.fat, target: macros.fat, color: "#FFB300" },
+                { label: "Protein", value: todayMacros.protein, target: macros.protein },
+                { label: "Carbs", value: todayMacros.carbs, target: macros.carbs },
+                { label: "Fat", value: todayMacros.fat, target: macros.fat },
               ] as const).map((m) => (
                 <View key={m.label} style={[styles.macroPill, { backgroundColor: theme.backgroundDefault }]}>
                   <ThemedText type="caption" style={{ color: theme.textSecondary }}>{m.label}</ThemedText>
                   <ThemedText type="body" style={{ fontWeight: "600" }}>
                     {m.value}g <ThemedText type="caption" style={{ color: theme.textSecondary }}>/ {m.target}g</ThemedText>
                   </ThemedText>
-                  <View style={[styles.miniBar, { backgroundColor: theme.backgroundSecondary }]}>
-                    <View style={[styles.miniBarFill, { backgroundColor: m.color, width: `${Math.min(m.target > 0 ? (m.value / m.target) * 100 : 0, 100)}%` }]} />
-                  </View>
                 </View>
               ))}
             </View>
