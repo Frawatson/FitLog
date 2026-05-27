@@ -37,6 +37,13 @@ const VARIANTS = [
   { name: "splash-icon.png", size: 1024, background: null }, // transparent
 ];
 
+// Fraction of the lockup width that the icon mark is assumed to occupy
+// (when the source is a wide icon+wordmark lockup). Adjust if your brand
+// lockup has different proportions — too small and the icon gets cut,
+// too large and you'll see the start of the wordmark on the right edge.
+const LOCKUP_ICON_FRACTION = 0.4;
+const LOCKUP_ASPECT_THRESHOLD = 1.2; // anything wider than this is treated as a lockup
+
 async function generate(sourcePath) {
   if (!fs.existsSync(sourcePath)) {
     console.error(`✗ Source not found: ${sourcePath}`);
@@ -46,9 +53,35 @@ async function generate(sourcePath) {
   }
 
   console.log(`Source: ${sourcePath}`);
+
+  // If the source is a wide lockup (icon + wordmark), crop the icon-only
+  // region out of the leftmost portion so app-icon variants don't end up
+  // showing a tiny letterboxed lockup. Square sources are used as-is.
+  const meta = await sharp(sourcePath).metadata();
+  const srcWidth = meta.width || 0;
+  const srcHeight = meta.height || 0;
+  const aspect = srcHeight ? srcWidth / srcHeight : 1;
+  let sourceBuffer;
+  if (aspect > LOCKUP_ASPECT_THRESHOLD) {
+    const cropSize = Math.min(
+      Math.round(srcWidth * LOCKUP_ICON_FRACTION),
+      srcHeight,
+    );
+    const top = Math.max(0, Math.round((srcHeight - cropSize) / 2));
+    console.log(
+      `  Wide source detected (${srcWidth}×${srcHeight}); extracting icon region ` +
+      `${cropSize}×${cropSize} from the left (LOCKUP_ICON_FRACTION=${LOCKUP_ICON_FRACTION}).`,
+    );
+    sourceBuffer = await sharp(sourcePath)
+      .extract({ left: 0, top, width: cropSize, height: cropSize })
+      .toBuffer();
+  } else {
+    sourceBuffer = await sharp(sourcePath).toBuffer();
+  }
+
   for (const v of VARIANTS) {
     const out = path.join(OUT_DIR, v.name);
-    let pipeline = sharp(sourcePath).resize(v.size, v.size, {
+    let pipeline = sharp(sourceBuffer).resize(v.size, v.size, {
       fit: "contain",
       background: v.background || { r: 0, g: 0, b: 0, alpha: 0 },
     });
