@@ -1,5 +1,5 @@
 import type { Request } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 
 // Centralized input limits. Adjust here, not at call sites.
 export const LIMITS = {
@@ -184,7 +184,10 @@ export function optionalBoolean(
 
 // Per-authenticated-user rate limiter. Falls back to IP for unauthenticated
 // requests (which shouldn't hit AI endpoints anyway thanks to requireAuth,
-// but keep a safe default).
+// but keep a safe default). The IP fallback uses express-rate-limit's
+// ipKeyGenerator helper so IPv6 addresses are normalized to a /64 prefix —
+// otherwise an attacker on IPv6 could rotate addresses within their subnet
+// to bypass per-IP limits.
 export function userRateLimiter(opts: {
   windowMs: number;
   max: number;
@@ -198,7 +201,8 @@ export function userRateLimiter(opts: {
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
       const userId = (req as Request & { userId?: number }).userId;
-      return userId !== undefined ? `u:${userId}` : `ip:${req.ip ?? "unknown"}`;
+      if (userId !== undefined) return `u:${userId}`;
+      return ipKeyGenerator(req.ip ?? "");
     },
   });
 }

@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "expo:dev": "npx expo start",
-    "server:dev": "NODE_ENV=development tsx server/index.ts",
+    "server:dev": "cross-env NODE_ENV=development tsx server/index.ts",
     "expo:start:static:build": "npx expo start --no-dev --minify --localhost",
     "expo:static:build": "node scripts/build.js",
     "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist",
@@ -99,6 +99,7 @@
     "@types/node": "24.10.0",
     "@types/react": "~19.1.0",
     "babel-plugin-module-resolver": "^5.0.2",
+    "cross-env": "^10.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "eslint-config-prettier": "^10.1.8",
