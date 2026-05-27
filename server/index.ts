@@ -346,7 +346,13 @@ async function startServer() {
       "https://*.basemaps.cartocdn.com", // Map tiles
       "https://unpkg.com", // Leaflet's CSS references marker icons here
     ],
-    scriptSrc: ["'self'", "'unsafe-inline'"],
+    scriptSrc: [
+      "'self'",
+      "'unsafe-inline'",
+      // expo-camera's web build lazy-loads jsQR from jsDelivr for barcode
+      // decoding. The worker (see workerSrc below) also importScripts() it.
+      "https://cdn.jsdelivr.net",
+    ],
     // Reanimated 4's web worklet runtime spawns a worker from a blob: URL
     // generated client-side. Helmet defaults don't declare worker-src, so
     // the browser falls back to script-src (which doesn't allow blob:) and

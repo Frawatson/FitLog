@@ -5,16 +5,26 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
+  const host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
-  // Support both full URLs (http://...) and bare hosts
-  let url = host.startsWith("http") ? new URL(host) : new URL(`http://${host}`);
+  // Default to https:// for bare hosts so a production deploy works even
+  // when EXPO_PUBLIC_DOMAIN is set without a scheme. http:// would trigger
+  // mixed-content blocks on any HTTPS page. Localhost stays on http://
+  // because dev environments don't have TLS.
+  let urlString: string;
+  if (host.startsWith("http://") || host.startsWith("https://")) {
+    urlString = host;
+  } else if (host.startsWith("localhost") || host.startsWith("127.")) {
+    urlString = `http://${host}`;
+  } else {
+    urlString = `https://${host}`;
+  }
 
-  return url.href;
+  return new URL(urlString).href;
 }
 
 async function throwIfResNotOk(res: Response) {
