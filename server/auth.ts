@@ -13,11 +13,19 @@ declare module "express-session" {
 
 const router = Router();
 
-// JWT secret from environment (required)
-const JWT_SECRET = process.env.SESSION_SECRET;
+// JWT and session secrets must be distinct so a leak of one (or rotation of
+// one) does not invalidate the other. Both are required at startup.
+const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
+if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET environment variable is required");
 }
+if (JWT_SECRET === process.env.SESSION_SECRET) {
+  throw new Error("JWT_SECRET and SESSION_SECRET must be different values");
+}
+const JWT_ALGORITHM = "HS256" as const;
 const JWT_EXPIRES_IN = "30d"; // 30 days
 
 // Rate limiter for auth routes (5 attempts per 15 minutes)
@@ -56,16 +64,22 @@ function validatePassword(password: string): { valid: boolean; message: string }
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MINUTES = 15;
 
-// Track failed login attempts
+// Track failed login attempts. If the previous attempt is older than the
+// lockout window, restart the counter at 1 so users aren't permanently
+// stranded at MAX_FAILED_ATTEMPTS after one bad attempt long ago.
 async function recordFailedAttempt(email: string): Promise<void> {
   try {
     await pool.query(`
       INSERT INTO login_attempts (email, attempt_count, last_attempt_at)
       VALUES ($1, 1, NOW())
       ON CONFLICT (email) DO UPDATE SET
-        attempt_count = login_attempts.attempt_count + 1,
+        attempt_count = CASE
+          WHEN login_attempts.last_attempt_at < NOW() - ($2 || ' minutes')::interval
+            THEN 1
+          ELSE login_attempts.attempt_count + 1
+        END,
         last_attempt_at = NOW()
-    `, [email.toLowerCase()]);
+    `, [email.toLowerCase(), String(LOCKOUT_DURATION_MINUTES)]);
   } catch (error) {
     console.error("Error recording failed attempt:", error);
   }
@@ -115,12 +129,17 @@ async function isAccountLocked(email: string): Promise<{ locked: boolean; remain
 }
 
 function generateToken(userId: number): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign({ userId }, JWT_SECRET, {
+    algorithm: JWT_ALGORITHM,
+    expiresIn: JWT_EXPIRES_IN,
+  });
 }
 
 function decodeToken(token: string): { userId: number; iat: number } | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; iat: number };
+    const decoded = jwt.verify(token, JWT_SECRET, {
+      algorithms: [JWT_ALGORITHM],
+    }) as { userId: number; iat: number };
     return decoded;
   } catch (error) {
     return null;
@@ -450,7 +469,10 @@ router.post("/reset-password", resetLimiter, async (req: Request, res: Response)
     await markResetCodeUsed(email, code);
     await clearFailedAttempts(email);
 
-    await pool.query("DELETE FROM session WHERE sess::text LIKE $1", [`%"userId":${verification.userId}%`]);
+    await pool.query(
+      "DELETE FROM session WHERE (sess::jsonb)->>'userId' = $1",
+      [String(verification.userId)],
+    );
 
     res.json({ success: true, message: "Password has been reset successfully" });
   } catch (error) {
