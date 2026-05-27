@@ -426,8 +426,9 @@ router.get("/register/confirm", registerConfirmLimiter, async (req: Request, res
     return res.type("html").send(
       renderConfirmationPage({
         title: "Account confirmed",
-        body: `<p>Your Merge account is ready. Open the app and sign in with your email and password to continue.</p>
-               <a class="button" href="merge://login">Open Merge</a>`,
+        body: `<p>Your Merge account is ready. Sign in with your email and password to continue.</p>
+               <a class="button" href="/login">Sign In</a>
+               <p style="margin-top: 24px; font-size: 13px; color: #888;">Have the mobile app? Open it and sign in there instead.</p>`,
       }),
     );
   } catch (error) {
