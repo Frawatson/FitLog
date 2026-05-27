@@ -24,6 +24,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
+import { exerciseSlug } from "@/lib/exerciseSlug";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { Routine, RoutineExercise } from "@/types";
 import { v4 as uuidv4 } from "uuid";
@@ -59,7 +60,7 @@ const MUSCLE_GROUPS = [
 const DIFFICULTY_LEVELS = [
   { id: "beginner", label: "Beginner", description: "New to lifting" },
   { id: "intermediate", label: "Intermediate", description: "1-3 years" },
-  { id: "expert", label: "Advanced", description: "3+ years" },
+  { id: "advanced", label: "Advanced", description: "3+ years" },
 ];
 
 const EQUIPMENT_OPTIONS = [
@@ -250,7 +251,9 @@ export default function GenerateRoutineScreen() {
     const data = await response.json();
     const rawExercises = Array.isArray(data.exercises) ? data.exercises : [];
     const exercises: RoutineExercise[] = rawExercises.map((ex: any, index: number) => ({
-      exerciseId: uuidv4(),
+      // Slug-derived id so this exercise's history matches the same lift
+      // saved from a template or the exercise library.
+      exerciseId: typeof ex.name === "string" && ex.name ? exerciseSlug(ex.name) : uuidv4(),
       exerciseName: ex.name,
       order: index,
     }));

@@ -22,6 +22,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine, RoutineExercise, Exercise } from "@/types";
 import * as storage from "@/lib/storage";
 import { syncToServer } from "@/lib/syncService";
+import { exerciseSlug } from "@/lib/exerciseSlug";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -125,7 +126,7 @@ export default function EditRoutineScreen() {
     if (prefillExercise && isNew) {
       setExercises((prev) => {
         if (prev.some((e) => e.exerciseName === prefillExercise.name)) return prev;
-        return [...prev, { exerciseId: prefillExercise.id, exerciseName: prefillExercise.name, order: prev.length }];
+        return [...prev, { exerciseId: exerciseSlug(prefillExercise.name), exerciseName: prefillExercise.name, order: prev.length }];
       });
     }
   };
@@ -150,7 +151,9 @@ export default function EditRoutineScreen() {
   
   const addExercise = (exercise: Exercise) => {
     const newExercise: RoutineExercise = {
-      exerciseId: exercise.id,
+      // Slug-derived id so per-exercise history (last weight, PR) stays
+      // matched across templates, generated routines, and library adds.
+      exerciseId: exerciseSlug(exercise.name),
       exerciseName: exercise.name,
       order: exercises.length,
     };

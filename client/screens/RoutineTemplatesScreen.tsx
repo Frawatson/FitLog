@@ -9,14 +9,16 @@ import * as Haptics from "expo-haptics";
 import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
-import { ThemedView } from "@/components/ThemedView";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { ROUTINE_TEMPLATES, RoutineTemplate } from "@/lib/routineTemplates";
+import { exerciseSlug } from "@/lib/exerciseSlug";
 import * as storage from "@/lib/storage";
+import type { Routine } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -50,17 +52,41 @@ export default function RoutineTemplatesScreen() {
   };
   
   const handleAddTemplate = async (template: RoutineTemplate) => {
-    const routine = {
-      id: uuidv4(),
-      name: template.name,
-      exercises: template.exercises,
-      createdAt: new Date().toISOString(),
+    // Derive the saved routine's exerciseIds from the exercise name so
+    // history (getLastWorkoutForExercise, ExerciseHistoryScreen) matches
+    // across templates, generated routines, and library adds. The "tN"
+    // ids on the template itself stay as-is — they only key the preview
+    // list in this screen.
+    const doAdd = async () => {
+      const routine: Routine = {
+        id: uuidv4(),
+        name: template.name,
+        exercises: template.exercises.map((e, i) => ({
+          exerciseId: exerciseSlug(e.exerciseName),
+          exerciseName: e.exerciseName,
+          order: i,
+        })),
+        createdAt: new Date().toISOString(),
+      };
+      await storage.saveRoutine(routine);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.goBack();
     };
-    
-    await storage.saveRoutine(routine);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
-    navigation.goBack();
+
+    const existing = await storage.getRoutines();
+    const duplicate = existing.some((r) => r.name === template.name);
+    if (duplicate) {
+      showSystemMenu({
+        title: "Already added",
+        message: `You already have a routine called "${template.name}". Add another copy?`,
+        options: [
+          { label: "Add Anyway", onPress: doAdd },
+          { label: "Cancel", cancel: true },
+        ],
+      });
+      return;
+    }
+    await doAdd();
   };
   
   const renderFilter = (category: FilterCategory, label: string) => (

@@ -22,6 +22,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { syncToServer } from "@/lib/syncService";
 import * as storage from "@/lib/storage";
+import { exerciseSlug } from "@/lib/exerciseSlug";
 import type { Routine } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -110,7 +111,9 @@ export default function ExerciseLibraryScreen() {
       exercises: [
         ...routine.exercises,
         {
-          exerciseId: pendingExercise.id,
+          // Slug-derived id keeps history aligned with the same lift
+          // saved from a template or generated routine.
+          exerciseId: exerciseSlug(pendingExercise.name),
           exerciseName: pendingExercise.name,
           order: routine.exercises.length,
         },
