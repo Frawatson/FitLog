@@ -10,48 +10,46 @@ just slipped through. Grouped by area, tagged by priority.
 - **P2** — Real-impact improvement; not blocking but noticeably better when done
 - **P3** — Polish, internal hygiene, "would be nice"
 
-Updated: 2026-05-27 (after PR C: dead-code strip + desktop max-width)
+Updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
 
 ---
 
 ## Social & Community
 
-- [ ] **P1** Build a `webSafeMenu(title, options)` component so the
-  Report/Block + report-reason flows work on web. Currently web users hit
-  a chain of sequential `window.confirm`s — clicking "Cancel" on the first
-  ("Report this post?") immediately prompts for the next ("Block this
-  user?"), so accidental blocks are easy. Replace `Alert.alert(title,
-  undefined, [...])` call sites in `SocialFeedScreen.tsx:243`,
-  `PostDetailScreen.tsx:134`, `PostDetailScreen.tsx:150`,
-  `PostDetailScreen.tsx:174`, `PostDetailScreen.tsx:278`. Native path
-  can keep `Alert.alert`; the helper just abstracts both.
+- [x] **P1** `SystemMenu` component shipped. `showSystemMenu({title,
+  options})` delegates to `Alert.alert` on native and renders a Modal
+  sheet on web (mounted at app root via `<SystemMenuRoot/>`). Replaced
+  every `Platform.OS === "web"` branch in `SocialFeedScreen`,
+  `PostDetailScreen`, `BlockedUsersScreen`. The buggy sequential
+  `window.confirm` Report/Block chain is gone. *(Done in `d7907f2`.)*
 
-- [ ] **P1** Optimistic like / follow / block rollback. Currently the UI
-  flips on tap and stays flipped even when the server rejects, because
-  `syncToServer` returns success-shaped failures. Need to:
-  (a) make `syncToServer` propagate errors via a discriminated return type,
-  (b) wrap the handlers in `SocialFeedScreen`, `PostDetailScreen`,
-      `SocialProfileScreen`, `FollowListScreen`, `UserSearchScreen` to
-      capture prior state, await result, revert on failure.
+- [x] **P1** Optimistic like / follow / block rollback. Handlers in
+  `SocialFeedScreen`, `PostDetailScreen`, `SocialProfileScreen`,
+  `FollowListScreen`, `UserSearchScreen` now do targeted per-row
+  rollback (only revert the toggled row, not the whole list, so
+  concurrent toggles on other rows survive a failure). *(Done in
+  `d7907f2`.)*
 
-- [ ] **P1** Delete post → feed becomes stale until next refresh. After
-  `PostDetailScreen` deletes a post and `navigation.goBack()`s, the feed
-  still shows the now-deleted post in its cached list. Needs a shared
-  invalidation mechanism (event bus, callback param, or shared store).
+- [x] **P1** Delete-post feed invalidation. `client/lib/postEvents.ts`
+  exposes `emitPostDeleted` / `onPostDeleted`. `PostDetailScreen`
+  emits on successful delete; `SocialFeedScreen` subscribes and drops
+  the row so navigate-back doesn't show a stale post. *(Done in
+  `d7907f2`.)*
 
-- [ ] **P1** NotificationsScreen has no error state — network failure
-  renders identically to "no notifications". Add retry UI matching the
-  pattern in `FollowListScreen.tsx:93-105`.
+- [x] **P1** NotificationsScreen error state — `error` state +
+  `Could not load notifications.` + Retry button, matching the
+  `FollowListScreen` pattern. *(Done in `d7907f2`.)*
 
-- [ ] **P1** Comments hard-cap at 20 with no load-more. `PostDetailScreen.tsx`
-  `getComments(postId, 0)` is called once. Server endpoint already accepts
-  a `page` param. Wire `onEndReached` + cursor.
+- [x] **P1** Comments pagination. `PostDetailScreen` now paginates
+  comments in pages of 20 via `onEndReached` + `loadMoreComments`.
+  *(Done in `d7907f2`.)*
 
-- [ ] **P1** Comment send is fully blocking (no optimistic). User taps Send,
-  sees nothing for several seconds on flaky networks, taps again, double-
-  posts. `PostDetailScreen.tsx:78-88`. Append a `pending: true` bubble
-  immediately, replace with server response on success / mark error / let
-  user retry on failure.
+- [x] **P1** Optimistic comment send. Temp comment with negative id
+  appended on submit, matched + replaced by `clientId` (uuid, unique
+  per send) on success, rolled back + input restored on failure.
+  `handleDeleteComment` short-circuits for negative ids (no server
+  call). Comments FlatList `keyExtractor` switched to `clientId` to
+  avoid duplicate-key warnings. *(Done in `d7907f2`.)*
 
 - [ ] **P2** Pull-to-refresh on feed silently swallows errors —
   `SocialFeedScreen.tsx:191-201` has no catch. Show a transient banner on
@@ -169,8 +167,9 @@ Updated: 2026-05-27 (after PR C: dead-code strip + desktop max-width)
   users with many food photos. Drop `image_data` from list query; add a
   separate `GET /api/food-logs/:clientId/image` endpoint OR paginate.
 
-- [ ] **P1** Lower pg pool `max` to ~6 (`server/db.ts:9`). At 4 workers ×
-  30 max = 120 connections, exceeds Railway's plan caps. One-line fix.
+- [x] **P1** Lowered pg pool `max` from 30 to 6 (`server/db.ts`). 4
+  workers × 6 = 24 connections, well under Railway's Hobby cap.
+  *(Done in `d7907f2`.)*
 
 - [ ] **P2** Graceful SIGTERM handler (`server/index.ts`). Currently every
   Railway redeploy drops in-flight requests and leaks DB connections.
@@ -226,9 +225,9 @@ Updated: 2026-05-27 (after PR C: dead-code strip + desktop max-width)
 
 ## Infrastructure / Deploy
 
-- [ ] **P1** Delete dead `/api/sync/bulk` endpoint (`server/routes.ts:1207`).
-  Zero callers in client AND the transaction wrapping is a no-op
-  (helpers use `pool.query` not `client.query`). Pure foot-gun.
+- [x] **P1** Deleted dead `/api/sync/bulk` endpoint. Zero callers AND
+  the transaction wrapping was a no-op (helpers used `pool.query` not
+  `client.query`). *(Done in `d7907f2`.)*
 
 - [ ] **P2** Bump Node version pin in Railway. Deploy log shows Node
   18.20.5 which reached end-of-life April 2026. Add
