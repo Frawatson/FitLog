@@ -49,13 +49,19 @@ export default function UserSearchScreen() {
   };
 
   const handleFollow = async (targetUser: FollowUser) => {
+    // Targeted optimistic + rollback so a failing request only reverts its
+    // own row; concurrent toggles on other rows keep their state.
+    const wasFollowed = targetUser.isFollowedByMe;
     setResults(prev => prev.map(u =>
       u.userId === targetUser.userId ? { ...u, isFollowedByMe: !u.isFollowedByMe } : u
     ));
-    if (targetUser.isFollowedByMe) {
-      await unfollowUserApi(targetUser.userId);
-    } else {
-      await followUserApi(targetUser.userId);
+    const ok = wasFollowed
+      ? await unfollowUserApi(targetUser.userId)
+      : await followUserApi(targetUser.userId);
+    if (!ok) {
+      setResults(prev => prev.map(u =>
+        u.userId === targetUser.userId ? { ...u, isFollowedByMe: wasFollowed } : u
+      ));
     }
   };
 

@@ -1209,69 +1209,6 @@ Return JSON only:
     }
   });
 
-  // ========== Bulk Sync Endpoint ==========
-  app.post("/api/sync/bulk", requireAuth, async (req: Request, res: Response) => {
-    const userId = (req as any).userId;
-    const { routines, workouts, runs, foodLogs, bodyWeights } = req.body;
-    const synced = { routines: 0, workouts: 0, runs: 0, foodLogs: 0, bodyWeights: 0 };
-    const errors: string[] = [];
-
-    const client = await (await import("./db")).pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      if (Array.isArray(routines)) {
-        for (const r of routines) {
-          try {
-            await saveRoutine(userId, r);
-            synced.routines++;
-          } catch (e: any) { errors.push(`routine ${r.clientId}: ${e.message}`); }
-        }
-      }
-      if (Array.isArray(workouts)) {
-        for (const w of workouts) {
-          try {
-            await saveWorkout(userId, w);
-            synced.workouts++;
-          } catch (e: any) { errors.push(`workout ${w.clientId}: ${e.message}`); }
-        }
-      }
-      if (Array.isArray(runs)) {
-        for (const r of runs) {
-          try {
-            await saveRun(userId, r);
-            synced.runs++;
-          } catch (e: any) { errors.push(`run ${r.clientId}: ${e.message}`); }
-        }
-      }
-      if (Array.isArray(foodLogs)) {
-        for (const f of foodLogs) {
-          try {
-            await saveFoodLog(userId, f);
-            synced.foodLogs++;
-          } catch (e: any) { errors.push(`foodLog ${f.clientId}: ${e.message}`); }
-        }
-      }
-      if (Array.isArray(bodyWeights)) {
-        for (const b of bodyWeights) {
-          try {
-            await addBodyWeight(userId, b.weightKg, new Date(b.date));
-            synced.bodyWeights++;
-          } catch (e: any) { errors.push(`bodyWeight: ${e.message}`); }
-        }
-      }
-
-      await client.query("COMMIT");
-      res.json({ synced, errors });
-    } catch (error) {
-      await client.query("ROLLBACK");
-      console.error("Bulk sync error:", error);
-      res.status(500).json({ error: "Bulk sync failed" });
-    } finally {
-      client.release();
-    }
-  });
-
   // ========== Workout Analytics Endpoint ==========
   app.get("/api/workouts/analytics", requireAuth, async (req: Request, res: Response) => {
     try {

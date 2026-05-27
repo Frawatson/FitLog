@@ -3,10 +3,15 @@ import { Pool, types } from "pg";
 // Force pg to parse TIMESTAMP (without timezone) as UTC
 types.setTypeParser(1114, (str: string) => new Date(str + "Z"));
 
+// Cluster mode forks N workers; each opens its own pool. With 4 workers
+// and max:30 we'd hit 120 connections — exceeds Railway's PG plan caps
+// (Hobby ~22, Pro ~100). Per-worker max:6 means up to 24 connections
+// across the cluster; idle connections drop after 30s so steady-state
+// is much lower.
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  max: 30,
+  max: 6,
   idleTimeoutMillis: 30000,
 });
 

@@ -65,13 +65,19 @@ export default function FollowListScreen() {
   }, [mode]);
 
   const handleFollow = async (targetUser: FollowUser) => {
+    // Targeted optimistic + rollback — see SocialFeedScreen.handleLike for
+    // why we don't capture/restore the whole list.
+    const wasFollowed = targetUser.isFollowedByMe;
     setUsers(prev => prev.map(u =>
       u.userId === targetUser.userId ? { ...u, isFollowedByMe: !u.isFollowedByMe } : u
     ));
-    if (targetUser.isFollowedByMe) {
-      await unfollowUserApi(targetUser.userId);
-    } else {
-      await followUserApi(targetUser.userId);
+    const ok = wasFollowed
+      ? await unfollowUserApi(targetUser.userId)
+      : await followUserApi(targetUser.userId);
+    if (!ok) {
+      setUsers(prev => prev.map(u =>
+        u.userId === targetUser.userId ? { ...u, isFollowedByMe: wasFollowed } : u
+      ));
     }
   };
 

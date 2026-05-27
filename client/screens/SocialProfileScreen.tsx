@@ -66,12 +66,15 @@ export default function SocialProfileScreen() {
 
   const handleFollow = async () => {
     if (!profile) return;
+    const previous = profile;
     if (profile.isFollowedByMe) {
       setProfile({ ...profile, isFollowedByMe: false, followersCount: profile.followersCount - 1 });
-      await unfollowUserApi(targetUserId);
+      const ok = await unfollowUserApi(targetUserId);
+      if (!ok) setProfile(previous);
     } else {
       setProfile({ ...profile, isFollowedByMe: true, followersCount: profile.followersCount + 1 });
-      await followUserApi(targetUserId);
+      const ok = await followUserApi(targetUserId);
+      if (!ok) setProfile(previous);
     }
   };
 

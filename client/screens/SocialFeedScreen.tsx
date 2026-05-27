@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image, Alert, Platform } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -15,6 +15,9 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Post, PostType } from "@/types";
 import { getFeed, likePostApi, unlikePostApi, getUnreadCountApi, blockUserApi, reportContentApi } from "@/lib/socialStorage";
+import { onPostDeleted } from "@/lib/postEvents";
+import { showSystemMenu } from "@/components/SystemMenu";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { useAuth } from "@/contexts/AuthContext";
 import { timeAgo } from "@/lib/timeAgo";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -185,6 +188,13 @@ export default function SocialFeedScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); }, []));
 
+  // Drop deleted posts immediately when emitted from PostDetailScreen,
+  // so navigating back doesn't show a row that no longer exists on the
+  // server. Subscriber lives for the lifetime of the screen.
+  React.useEffect(() => onPostDeleted((postId) => {
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  }), []);
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -210,16 +220,23 @@ export default function SocialFeedScreen() {
   };
 
   const handleLike = async (post: Post) => {
-    // Optimistic update
+    // Optimistic update with targeted rollback. Capturing the whole posts
+    // array would clobber any concurrent optimistic update to other rows
+    // (e.g. user double-likes B while A is still in-flight) — so we only
+    // touch the one post on rollback too.
+    const wasLiked = post.likedByMe;
     setPosts(prev => prev.map(p =>
       p.id === post.id
         ? { ...p, likedByMe: !p.likedByMe, likesCount: p.likedByMe ? p.likesCount - 1 : p.likesCount + 1 }
         : p
     ));
-    if (post.likedByMe) {
-      await unlikePostApi(post.id);
-    } else {
-      await likePostApi(post.id);
+    const ok = wasLiked ? await unlikePostApi(post.id) : await likePostApi(post.id);
+    if (!ok) {
+      setPosts(prev => prev.map(p =>
+        p.id === post.id
+          ? { ...p, likedByMe: wasLiked, likesCount: wasLiked ? p.likesCount + 1 : p.likesCount - 1 }
+          : p
+      ));
     }
   };
 
@@ -228,54 +245,47 @@ export default function SocialFeedScreen() {
   };
 
   const handleMorePress = (post: Post) => {
-    if (Platform.OS === "web") {
-      if (window.confirm("Report this post?")) {
-        reportContentApi("post", post.id, "inappropriate");
-        window.alert("Reported. Thanks for letting us know.");
-      } else if (window.confirm(`Block ${post.authorName}? They won't be able to see your posts or find you.`)) {
-        blockUserApi(post.userId).then(() => {
-          window.alert(`${post.authorName} has been blocked.`);
-          setPosts(prev => prev.filter(p => p.userId !== post.userId));
-        });
-      }
-      return;
-    }
-    Alert.alert("Post Options", undefined, [
-      {
-        text: "Report Post",
-        onPress: () => {
-          Alert.alert("Report Post", "Why are you reporting this post?", [
-            { text: "Spam", onPress: () => { reportContentApi("post", post.id, "spam"); Alert.alert("Reported", "Thanks for letting us know."); } },
-            { text: "Harassment", onPress: () => { reportContentApi("post", post.id, "harassment"); Alert.alert("Reported", "Thanks for letting us know."); } },
-            { text: "Inappropriate", onPress: () => { reportContentApi("post", post.id, "inappropriate"); Alert.alert("Reported", "Thanks for letting us know."); } },
-            { text: "Cancel", style: "cancel" },
-          ]);
-        },
-      },
-      {
-        text: "Block User",
-        style: "destructive",
-        onPress: () => {
-          Alert.alert(
-            "Block User",
-            `Block ${post.authorName}? They won't be able to see your posts or find you.`,
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Block",
-                style: "destructive",
-                onPress: async () => {
-                  await blockUserApi(post.userId);
-                  Alert.alert("Blocked", `${post.authorName} has been blocked.`);
-                  setPosts(prev => prev.filter(p => p.userId !== post.userId));
-                },
-              },
-            ]
-          );
-        },
-      },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    const reportWith = (reason: "spam" | "harassment" | "inappropriate") => {
+      reportContentApi("post", post.id, reason);
+      webSafeAlert("Reported", "Thanks for letting us know.");
+    };
+    const confirmBlock = () => {
+      showSystemMenu({
+        title: `Block ${post.authorName}?`,
+        message: "They won't be able to see your posts or find you.",
+        options: [
+          {
+            label: "Block",
+            destructive: true,
+            onPress: async () => {
+              await blockUserApi(post.userId);
+              setPosts(prev => prev.filter(p => p.userId !== post.userId));
+              webSafeAlert("Blocked", `${post.authorName} has been blocked.`);
+            },
+          },
+          { label: "Cancel", cancel: true },
+        ],
+      });
+    };
+    const openReportReasons = () => {
+      showSystemMenu({
+        title: "Why are you reporting this post?",
+        options: [
+          { label: "Spam", onPress: () => reportWith("spam") },
+          { label: "Harassment", onPress: () => reportWith("harassment") },
+          { label: "Inappropriate", onPress: () => reportWith("inappropriate") },
+          { label: "Cancel", cancel: true },
+        ],
+      });
+    };
+    showSystemMenu({
+      title: "Post Options",
+      options: [
+        { label: "Report Post", onPress: openReportReasons },
+        { label: "Block User", destructive: true, onPress: confirmBlock },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   if (isLoading) {

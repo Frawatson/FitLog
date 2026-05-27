@@ -9,6 +9,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Notification } from "@/types";
@@ -33,13 +34,16 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
   const loadData = async () => {
     try {
       const result = await getNotificationsApi();
       setNotifications(result.notifications);
+      setError(false);
     } catch (e) {
       console.log("Failed to load notifications:", e);
+      setError(true);
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +73,20 @@ export default function NotificationsScreen() {
     return (
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
         <SkeletonLoader variant="list" lines={5} height={60} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center", justifyContent: "center" }]}>
+        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
+        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+          Could not load notifications.
+        </ThemedText>
+        <Button onPress={() => { setError(false); setIsLoading(true); loadData(); }} variant="outline">
+          Retry
+        </Button>
       </View>
     );
   }

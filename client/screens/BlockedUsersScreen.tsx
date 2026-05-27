@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Alert, Platform } from "react-native";
+import { View, StyleSheet, FlatList } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
@@ -10,9 +10,10 @@ import { Button } from "@/components/Button";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import { Spacing, BorderRadius } from "@/constants/theme";
 import type { BlockedUser } from "@/types";
 import { getBlockedUsersApi, unblockUserApi } from "@/lib/socialStorage";
+import { showSystemMenu } from "@/components/SystemMenu";
 
 export default function BlockedUsersScreen() {
   const headerHeight = useHeaderHeight();
@@ -37,23 +38,17 @@ export default function BlockedUsersScreen() {
 
   const handleUnblock = (user: BlockedUser) => {
     const doUnblock = async () => {
-      await unblockUserApi(user.userId);
-      setUsers(prev => prev.filter(u => u.userId !== user.userId));
+      const ok = await unblockUserApi(user.userId);
+      if (ok) setUsers(prev => prev.filter(u => u.userId !== user.userId));
     };
-    if (Platform.OS === "web") {
-      if (window.confirm(`Unblock ${user.name}? They will be able to see your posts and follow you again.`)) {
-        doUnblock();
-      }
-    } else {
-      Alert.alert(
-        `Unblock ${user.name}?`,
-        "They will be able to see your posts and follow you again.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Unblock", onPress: doUnblock },
-        ]
-      );
-    }
+    showSystemMenu({
+      title: `Unblock ${user.name}?`,
+      message: "They will be able to see your posts and follow you again.",
+      options: [
+        { label: "Unblock", onPress: doUnblock },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   if (isLoading) {

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, TextInput, Pressable, KeyboardAvoidingView, Platform, Alert, Image } from "react-native";
+import { View, StyleSheet, FlatList, TextInput, Pressable, KeyboardAvoidingView, Platform, Image } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
@@ -17,6 +17,9 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { MapDisplay } from "@/components/MapDisplay";
 import type { Post, PostComment } from "@/types";
 import { getPostById, getComments, addCommentApi, deleteCommentApi, likePostApi, unlikePostApi, deleteSocialPost, reportContentApi, blockUserApi, editPostApi, editCommentApi } from "@/lib/socialStorage";
+import { emitPostDeleted } from "@/lib/postEvents";
+import { showSystemMenu } from "@/components/SystemMenu";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { timeAgo } from "@/lib/timeAgo";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -43,17 +46,27 @@ export default function PostDetailScreen() {
   const [editPostText, setEditPostText] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
+  // Pagination state for the comments list. Page size is 20 (server
+  // default for getPostComments); if a fetched page returns < 20 we
+  // know there's no more to load.
+  const [commentsPage, setCommentsPage] = useState(0);
+  const [hasMoreComments, setHasMoreComments] = useState(false);
+  const [loadingMoreComments, setLoadingMoreComments] = useState(false);
   const hasLoadedRef = useRef(false);
+
+  const COMMENTS_PAGE_SIZE = 20;
 
   const loadData = async () => {
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
       const [postData, commentResult] = await Promise.all([
         getPostById(postId),
-        getComments(postId),
+        getComments(postId, 0),
       ]);
       setPost(postData);
       setComments(commentResult.comments);
+      setHasMoreComments(commentResult.comments.length === COMMENTS_PAGE_SIZE);
+      setCommentsPage(0);
       setServerTime(postData?.serverTime || commentResult.serverTime);
       setError(false);
     } catch (e) {
@@ -69,117 +82,166 @@ export default function PostDetailScreen() {
 
   useFocusEffect(useCallback(() => { loadData(); }, []));
 
+  const loadMoreComments = async () => {
+    if (loadingMoreComments || !hasMoreComments) return;
+    setLoadingMoreComments(true);
+    try {
+      const next = commentsPage + 1;
+      const result = await getComments(postId, next);
+      setComments(prev => [...prev, ...result.comments]);
+      setCommentsPage(next);
+      setHasMoreComments(result.comments.length === COMMENTS_PAGE_SIZE);
+    } catch (e) {
+      console.log("Failed to load more comments:", e);
+    } finally {
+      setLoadingMoreComments(false);
+    }
+  };
+
   const handleLike = async () => {
     if (!post) return;
+    const prev = post;
     setPost({ ...post, likedByMe: !post.likedByMe, likesCount: post.likedByMe ? post.likesCount - 1 : post.likesCount + 1 });
-    if (post.likedByMe) await unlikePostApi(post.id);
-    else await likePostApi(post.id);
+    const ok = post.likedByMe ? await unlikePostApi(post.id) : await likePostApi(post.id);
+    if (!ok) setPost(prev);
   };
 
   const handleSendComment = async () => {
-    if (!commentText.trim() || sending) return;
+    const text = commentText.trim();
+    if (!text || sending || !user) return;
     setSending(true);
-    const result = await addCommentApi(postId, uuid(), commentText.trim());
-    if (result) {
-      setComments(prev => [...prev, result]);
-      setPost(prev => prev ? { ...prev, commentsCount: prev.commentsCount + 1 } : prev);
-      setCommentText("");
+
+    // Optimistic insert: append a temp comment with a negative id (server
+    // ids are positive serial). We match on clientId (uuid) for replace /
+    // rollback so two near-simultaneous sends can't collide on a shared
+    // tempId; clientId is guaranteed unique per send.
+    const clientId = uuid();
+    const tempComment: PostComment = {
+      id: -Date.now(),
+      postId,
+      userId: Number(user.id),
+      clientId,
+      content: text,
+      createdAt: new Date().toISOString(),
+      authorName: user.name || "You",
+      authorAvatarUrl: undefined,
+    };
+    setComments(prev => [...prev, tempComment]);
+    setPost(prev => prev ? { ...prev, commentsCount: prev.commentsCount + 1 } : prev);
+    setCommentText("");
+
+    try {
+      const result = await addCommentApi(postId, clientId, text);
+      if (result) {
+        setComments(prev => prev.map(c => c.clientId === clientId ? result : c));
+      } else {
+        // Roll back
+        setComments(prev => prev.filter(c => c.clientId !== clientId));
+        setPost(prev => prev ? { ...prev, commentsCount: Math.max(prev.commentsCount - 1, 0) } : prev);
+        setCommentText(text);
+      }
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
-  const handleDeleteComment = async (commentId: number) => {
+  const handleDeleteComment = (commentId: number) => {
     const doDelete = async () => {
+      // Pending optimistic comment (negative id) — just drop locally;
+      // server has no record.
+      if (commentId < 0) {
+        setComments(prev => prev.filter(c => c.id !== commentId));
+        setPost(prev => prev ? { ...prev, commentsCount: Math.max(prev.commentsCount - 1, 0) } : prev);
+        return;
+      }
       const success = await deleteCommentApi(commentId);
       if (success) {
         setComments(prev => prev.filter(c => c.id !== commentId));
         setPost(prev => prev ? { ...prev, commentsCount: Math.max(prev.commentsCount - 1, 0) } : prev);
       }
     };
-    if (Platform.OS === "web") {
-      if (window.confirm("Delete this comment?")) doDelete();
-    } else {
-      Alert.alert("Delete Comment", "Are you sure?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: doDelete },
-      ]);
-    }
+    showSystemMenu({
+      title: "Delete Comment",
+      message: "Are you sure?",
+      options: [
+        { label: "Delete", destructive: true, onPress: doDelete },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
-  const handleDeletePost = async () => {
+  const handleDeletePost = () => {
     if (!post) return;
     const doDelete = async () => {
-      await deleteSocialPost(post.id);
+      const ok = await deleteSocialPost(post.id);
+      if (ok) {
+        // Tell the feed (and any other subscriber) to drop the row so
+        // navigating back doesn't show a stale post pending refresh.
+        emitPostDeleted(post.id);
+      }
       navigation.goBack();
     };
-    if (Platform.OS === "web") {
-      if (window.confirm("Delete this post?")) doDelete();
-    } else {
-      Alert.alert("Delete Post", "Are you sure you want to delete this post?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: doDelete },
-      ]);
-    }
+    showSystemMenu({
+      title: "Delete Post",
+      message: "Are you sure you want to delete this post?",
+      options: [
+        { label: "Delete", destructive: true, onPress: doDelete },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   const handleReportPost = () => {
     if (!post) return;
-    if (Platform.OS === "web") {
-      if (window.confirm("Report this post as inappropriate?")) {
-        reportContentApi("post", post.id, "inappropriate");
-        window.alert("Reported. Thanks for letting us know.");
-      }
-      return;
-    }
-    Alert.alert("Report Post", "Why are you reporting this post?", [
-      { text: "Spam", onPress: () => { reportContentApi("post", post.id, "spam"); Alert.alert("Reported", "Thanks for letting us know."); } },
-      { text: "Harassment", onPress: () => { reportContentApi("post", post.id, "harassment"); Alert.alert("Reported", "Thanks for letting us know."); } },
-      { text: "Inappropriate", onPress: () => { reportContentApi("post", post.id, "inappropriate"); Alert.alert("Reported", "Thanks for letting us know."); } },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    const postId = post.id;
+    const reportWith = (reason: "spam" | "harassment" | "inappropriate") => {
+      reportContentApi("post", postId, reason);
+      webSafeAlert("Reported", "Thanks for letting us know.");
+    };
+    showSystemMenu({
+      title: "Report Post",
+      message: "Why are you reporting this post?",
+      options: [
+        { label: "Spam", onPress: () => reportWith("spam") },
+        { label: "Harassment", onPress: () => reportWith("harassment") },
+        { label: "Inappropriate", onPress: () => reportWith("inappropriate") },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   const handleReportComment = (commentId: number) => {
-    if (Platform.OS === "web") {
-      if (window.confirm("Report this comment as inappropriate?")) {
-        reportContentApi("comment", commentId, "inappropriate");
-        window.alert("Reported. Thanks for letting us know.");
-      }
-      return;
-    }
-    Alert.alert("Report Comment", "Why are you reporting this comment?", [
-      { text: "Spam", onPress: () => { reportContentApi("comment", commentId, "spam"); Alert.alert("Reported", "Thanks for letting us know."); } },
-      { text: "Harassment", onPress: () => { reportContentApi("comment", commentId, "harassment"); Alert.alert("Reported", "Thanks for letting us know."); } },
-      { text: "Inappropriate", onPress: () => { reportContentApi("comment", commentId, "inappropriate"); Alert.alert("Reported", "Thanks for letting us know."); } },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    const reportWith = (reason: "spam" | "harassment" | "inappropriate") => {
+      reportContentApi("comment", commentId, reason);
+      webSafeAlert("Reported", "Thanks for letting us know.");
+    };
+    showSystemMenu({
+      title: "Report Comment",
+      message: "Why are you reporting this comment?",
+      options: [
+        { label: "Spam", onPress: () => reportWith("spam") },
+        { label: "Harassment", onPress: () => reportWith("harassment") },
+        { label: "Inappropriate", onPress: () => reportWith("inappropriate") },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   const handleBlockUser = () => {
     if (!post) return;
+    const { userId, authorName } = post;
     const doBlock = async () => {
-      await blockUserApi(post.userId);
-      if (Platform.OS === "web") {
-        window.alert(`${post.authorName} has been blocked.`);
-      } else {
-        Alert.alert("Blocked", `${post.authorName} has been blocked.`);
-      }
-      navigation.goBack();
+      await blockUserApi(userId);
+      webSafeAlert("Blocked", `${authorName} has been blocked.`, () => navigation.goBack());
     };
-    if (Platform.OS === "web") {
-      if (window.confirm(`Block ${post.authorName}? They won't be able to see your posts or find you.`)) {
-        doBlock();
-      }
-    } else {
-      Alert.alert(
-        "Block User",
-        `Block ${post.authorName}? They won't be able to see your posts or find you.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Block", style: "destructive", onPress: doBlock },
-        ]
-      );
-    }
+    showSystemMenu({
+      title: "Block User",
+      message: `Block ${authorName}? They won't be able to see your posts or find you.`,
+      options: [
+        { label: "Block", destructive: true, onPress: doBlock },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   const handleEditPost = () => {
@@ -246,8 +308,10 @@ export default function PostDetailScreen() {
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
         <FlatList
           data={comments}
-          keyExtractor={(item) => item.id.toString()}
+          keyExtractor={(item) => item.clientId || item.id.toString()}
           contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, width: "100%", maxWidth: 720, alignSelf: "center" }}
+          onEndReached={loadMoreComments}
+          onEndReachedThreshold={0.3}
           ListHeaderComponent={
             <View style={{ marginBottom: Spacing.xl }}>
               {/* Post Header */}
@@ -271,19 +335,14 @@ export default function PostDetailScreen() {
                 ) : (
                   <Pressable
                     onPress={() => {
-                      if (Platform.OS === "web") {
-                        if (window.confirm("Report this post?")) {
-                          handleReportPost();
-                        } else if (window.confirm(`Block ${post.authorName}?`)) {
-                          handleBlockUser();
-                        }
-                        return;
-                      }
-                      Alert.alert("Post Options", undefined, [
-                        { text: "Report Post", onPress: handleReportPost },
-                        { text: "Block User", style: "destructive", onPress: handleBlockUser },
-                        { text: "Cancel", style: "cancel" },
-                      ]);
+                      showSystemMenu({
+                        title: "Post Options",
+                        options: [
+                          { label: "Report Post", onPress: handleReportPost },
+                          { label: "Block User", destructive: true, onPress: handleBlockUser },
+                          { label: "Cancel", cancel: true },
+                        ],
+                      });
                     }}
                     hitSlop={8}
                   >
