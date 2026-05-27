@@ -18,6 +18,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
 
 import RootStackNavigator from "@/navigation/RootStackNavigator";
+import { linking } from "@/navigation/linking";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -49,7 +50,15 @@ export default function App() {
             <SafeAreaProvider>
               <GestureHandlerRootView style={styles.root}>
                 <KeyboardProvider>
-                  <NavigationContainer>
+                  <NavigationContainer
+                    linking={linking}
+                    documentTitle={{
+                      formatter: (options, route) =>
+                        options?.title ?? route?.name
+                          ? `${options?.title ?? route?.name} · Merge`
+                          : "Merge",
+                    }}
+                  >
                     <RootStackNavigator />
                   </NavigationContainer>
                   <StatusBar style="auto" />

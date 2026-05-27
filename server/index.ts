@@ -194,6 +194,22 @@ async function startServer() {
     app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
     app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
+    // SPA fallback. React Navigation's web linking maps URLs like /community,
+    // /profile/settings, /posts/42 to in-app routes — but on a hard refresh
+    // (or shared link), the browser GETs that path directly. We serve the
+    // SPA shell so the client-side router can take over. Anything matching
+    // /api or /assets has already been handled above; static files were
+    // served by the express.static middleware. If neither matched and the
+    // request is for HTML, return index.html.
+    const indexHtmlPath = path.resolve(process.cwd(), "static-build", "index.html");
+    app.get(/^\/(?!api|assets|manifest).*/, (req: Request, res: Response, next: NextFunction) => {
+      // Only intercept browser navigations (Accept: text/html). Asset 404s
+      // for the native-client paths should still surface as 404s.
+      if (!req.accepts("html")) return next();
+      if (!fs.existsSync(indexHtmlPath)) return next();
+      res.sendFile(indexHtmlPath);
+    });
+
     log("Expo routing: Checking expo-platform header on / and /manifest");
   }
 

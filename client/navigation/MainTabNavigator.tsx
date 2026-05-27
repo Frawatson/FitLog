@@ -11,7 +11,9 @@ import RoutinesStackNavigator, { type RoutinesStackParamList } from "@/navigatio
 import RunStackNavigator, { type RunStackParamList } from "@/navigation/RunStackNavigator";
 import NutritionStackNavigator, { type NutritionStackParamList } from "@/navigation/NutritionStackNavigator";
 import ProfileStackNavigator, { type ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
+import { SidebarTabBar } from "@/navigation/SidebarTabBar";
 import { useTheme } from "@/hooks/useTheme";
+import { usePlatform } from "@/hooks/usePlatform";
 import { Colors } from "@/constants/theme";
 
 export type MainTabParamList = {
@@ -26,29 +28,37 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export default function MainTabNavigator() {
   const { theme, isDark } = useTheme();
+  const { isDesktopWeb } = usePlatform();
 
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
+      // On desktop web, hand the tab bar to our SidebarTabBar component and
+      // tell the navigator to lay it out as a left sidebar. On native and
+      // mobile/tablet web, fall back to the default bottom bar.
+      tabBar={isDesktopWeb ? (props) => <SidebarTabBar {...props} /> : undefined}
       screenOptions={{
         lazy: false,
+        tabBarPosition: isDesktopWeb ? "left" : "bottom",
         tabBarActiveTintColor: Colors.light.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,
-        tabBarStyle: {
-          position: "absolute",
-          backgroundColor: Platform.select({
-            ios: "transparent",
-            android: theme.backgroundRoot,
-            web: theme.backgroundRoot,
-            default: theme.backgroundRoot,
-          }),
-          borderTopWidth: 0,
-          elevation: 0,
-          height: 85,
-          paddingBottom: 25,
-        },
+        tabBarStyle: isDesktopWeb
+          ? undefined
+          : {
+              position: "absolute",
+              backgroundColor: Platform.select({
+                ios: "transparent",
+                android: theme.backgroundRoot,
+                web: theme.backgroundRoot,
+                default: theme.backgroundRoot,
+              }),
+              borderTopWidth: 0,
+              elevation: 0,
+              height: 85,
+              paddingBottom: 25,
+            },
         tabBarBackground: () =>
-          Platform.OS === "ios" ? (
+          Platform.OS === "ios" && !isDesktopWeb ? (
             <BlurView
               intensity={100}
               tint={isDark ? "dark" : "light"}
