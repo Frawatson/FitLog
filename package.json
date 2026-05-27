@@ -11,6 +11,7 @@
     "server:prod": "NODE_ENV=production node server_dist/index.js",
     "web:build": "npx expo export --platform web --output-dir dist --clear",
     "build": "npm run web:build && npm run server:build",
+    "icons:generate": "node scripts/generate-icons.js",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
     "check:types": "tsc --noEmit",
