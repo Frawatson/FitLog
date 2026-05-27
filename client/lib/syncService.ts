@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
+import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 
-const AUTH_TOKEN_KEY = "@merge_auth_token";
 const SYNC_QUEUE_KEY = "@merge_sync_queue";
 const MAX_QUEUE_SIZE = 100;
 const BASE_RETRY_DELAY_MS = 3000; // 3 seconds

@@ -192,22 +192,106 @@ async function startServer() {
     });
 
     app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
-    app.use(express.static(path.resolve(process.cwd(), "static-build")));
+    // index:false so a request for "/" doesn't get the raw index.html
+    // from static — we want it to fall through to the SPA fallback below
+    // so meta tags get injected. Asset files are still served normally.
+    app.use(express.static(path.resolve(process.cwd(), "static-build"), { index: false }));
 
-    // SPA fallback. React Navigation's web linking maps URLs like /community,
-    // /profile/settings, /posts/42 to in-app routes — but on a hard refresh
-    // (or shared link), the browser GETs that path directly. We serve the
-    // SPA shell so the client-side router can take over. Anything matching
-    // /api or /assets has already been handled above; static files were
-    // served by the express.static middleware. If neither matched and the
-    // request is for HTML, return index.html.
+    // SPA fallback with SEO meta injection. React Navigation's web linking
+    // maps URLs like /community, /profile/settings, /posts/42 to in-app
+    // routes — but on a hard refresh (or shared link), the browser GETs
+    // that path directly. We serve the SPA shell so the client-side router
+    // can take over, and inject route-specific <title> / og:* meta so
+    // social-share previews and search-crawler snapshots are sensible.
     const indexHtmlPath = path.resolve(process.cwd(), "static-build", "index.html");
+    let cachedIndexHtml: string | null = null;
+
+    function loadIndexHtml(): string | null {
+      if (cachedIndexHtml !== null) return cachedIndexHtml;
+      if (!fs.existsSync(indexHtmlPath)) return null;
+      cachedIndexHtml = fs.readFileSync(indexHtmlPath, "utf-8");
+      return cachedIndexHtml;
+    }
+
+    function escapeHtml(s: string): string {
+      return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    interface MetaTags {
+      title: string;
+      description: string;
+      ogImage: string;
+    }
+
+    const DEFAULT_META: MetaTags = {
+      title: "Merge — Fitness & AI Nutrition",
+      description:
+        "Track workouts, runs, and food with AI-powered macro estimation from a single photo.",
+      // Path-only — converted to an absolute URL per request so social-share
+      // crawlers (FB/Twitter/LinkedIn) can fetch it (relative paths fail
+      // silently in those scrapers). Swap to a dedicated 1200×630 og-image
+      // file when you have one; the app icon is just a working fallback.
+      ogImage: "/assets/images/icon.png",
+    };
+
+    function absoluteUrl(req: Request, pathOnly: string): string {
+      const envDomain = process.env.EXPO_PUBLIC_DOMAIN;
+      if (envDomain) {
+        const base = envDomain.startsWith("http") ? envDomain : `https://${envDomain}`;
+        return `${base.replace(/\/$/, "")}${pathOnly}`;
+      }
+      // Local dev fallback. Host is client-supplied but this is only used
+      // for SEO meta values, not for security decisions.
+      const proto = req.secure ? "https" : "http";
+      const host = req.get("host") ?? "localhost";
+      return `${proto}://${host}${pathOnly}`;
+    }
+
+    // Keep in sync with public routes in client/navigation/linking.ts.
+    // The root URL "/" inherits DEFAULT_META (Merge branding) — no entry
+    // needed. Private (auth-only) routes also inherit defaults; those URLs
+    // aren't crawled or shared, so per-page meta is wasted effort there.
+    const PUBLIC_PAGE_META: Record<string, Partial<MetaTags>> = {
+      "/login": { title: "Sign in · Merge" },
+      "/register": { title: "Create your Merge account" },
+      "/forgot-password": { title: "Reset your password · Merge" },
+      "/reset-password": { title: "Reset your password · Merge" },
+    };
+
+    function injectMeta(html: string, req: Request): string {
+      const urlPath = req.path;
+      const meta: MetaTags = { ...DEFAULT_META, ...(PUBLIC_PAGE_META[urlPath] ?? {}) };
+      const ogImageAbsolute = absoluteUrl(req, meta.ogImage);
+      const tags = [
+        `<title>${escapeHtml(meta.title)}</title>`,
+        `<meta name="description" content="${escapeHtml(meta.description)}" />`,
+        `<meta property="og:title" content="${escapeHtml(meta.title)}" />`,
+        `<meta property="og:description" content="${escapeHtml(meta.description)}" />`,
+        `<meta property="og:image" content="${escapeHtml(ogImageAbsolute)}" />`,
+        `<meta property="og:type" content="website" />`,
+        `<meta name="twitter:card" content="summary_large_image" />`,
+        `<meta name="twitter:title" content="${escapeHtml(meta.title)}" />`,
+        `<meta name="twitter:description" content="${escapeHtml(meta.description)}" />`,
+        `<meta name="twitter:image" content="${escapeHtml(ogImageAbsolute)}" />`,
+      ].join("\n    ");
+      // Strip any default <title> from the bundle, then inject our block
+      // just before </head>.
+      return html
+        .replace(/<title>[^<]*<\/title>/i, "")
+        .replace(/<\/head>/i, `    ${tags}\n  </head>`);
+    }
+
     app.get(/^\/(?!api|assets|manifest).*/, (req: Request, res: Response, next: NextFunction) => {
       // Only intercept browser navigations (Accept: text/html). Asset 404s
       // for the native-client paths should still surface as 404s.
       if (!req.accepts("html")) return next();
-      if (!fs.existsSync(indexHtmlPath)) return next();
-      res.sendFile(indexHtmlPath);
+      const html = loadIndexHtml();
+      if (!html) return next();
+      res.type("html").send(injectMeta(html, req));
     });
 
     log("Expo routing: Checking expo-platform header on / and /manifest");

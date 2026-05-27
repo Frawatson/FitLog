@@ -13,6 +13,7 @@ import type {
 } from "@/types";
 import { getApiUrl } from "@/lib/query-client";
 import { syncToServer, syncWithRetry, isAuthenticated, initSyncService } from "@/lib/syncService";
+import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import { getLocalDateString } from "@/lib/dateUtils";
 
 export { initSyncService };
@@ -326,8 +327,6 @@ export async function getLastWorkoutForExercise(
   }
   return null;
 }
-
-const AUTH_TOKEN_KEY = "@merge_auth_token";
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);

@@ -3,8 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
 import { initSyncService } from "@/lib/storage";
-
-const AUTH_TOKEN_KEY = "@merge_auth_token";
+import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 
 export interface User {
   id: number;
