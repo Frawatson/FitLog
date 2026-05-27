@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, TextInput, Switch } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -17,8 +17,9 @@ import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { UserProfile, BodyWeightEntry, MacroTargets } from "@/types";
+import type { UserProfile, BodyWeightEntry, MacroTargets, SocialProfile } from "@/types";
 import * as storage from "@/lib/storage";
+import { getSocialProfileApi, updateSocialProfileApi } from "@/lib/socialStorage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 import { formatWeight, parseWeightInput } from "@/lib/units";
@@ -43,17 +44,43 @@ export default function ProfileScreen() {
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
+  // Social-profile fields lifted into this screen so users see one unified
+  // profile (followers/following, bio, public/private) instead of having
+  // to navigate to a separate "Social Profile" page.
+  const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
+  const [editingBio, setEditingBio] = useState(false);
+  const [bioText, setBioText] = useState("");
+
   const loadData = async () => {
-    const [profileData, weightData, macroData] = await Promise.all([
+    const userId = user ? Number(user.id) : null;
+    const [profileData, weightData, macroData, socialData] = await Promise.all([
       storage.getUserProfile(),
       storage.getBodyWeights(),
       storage.getMacroTargets(),
+      userId ? getSocialProfileApi(userId).catch(() => null) : Promise.resolve(null),
     ]);
     setProfile(profileData);
     setBodyWeights(weightData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     setMacros(macroData);
+    setSocialProfile(socialData);
+    if (socialData?.bio) setBioText(socialData.bio);
     setIsLoading(false);
+  };
+
+  const handleSaveBio = async () => {
+    const trimmed = bioText.trim();
+    await updateSocialProfileApi({ bio: trimmed });
+    setSocialProfile((prev) => (prev ? { ...prev, bio: trimmed } : prev));
+    setEditingBio(false);
+  };
+
+  const handleTogglePublic = async (next: boolean) => {
+    // Optimistic — flip immediately, roll back if the API rejects.
+    const previous = socialProfile;
+    setSocialProfile((p) => (p ? { ...p, isPublic: next } : p));
+    const ok = await updateSocialProfileApi({ isPublic: next });
+    if (!ok) setSocialProfile(previous);
   };
   
   useFocusEffect(
@@ -170,14 +197,49 @@ export default function ProfileScreen() {
           <ThemedText type="small" style={{ opacity: 0.6 }}>
             {user?.email || profile?.email || ""}
           </ThemedText>
+          {/* Bio (social) — inline below email. Pencil toggles edit mode. */}
+          {!editingBio ? (
+            <Pressable onPress={() => setEditingBio(true)} style={{ marginTop: Spacing.sm }}>
+              <ThemedText
+                type="small"
+                style={{
+                  color: socialProfile?.bio ? theme.text : theme.textSecondary,
+                  fontStyle: socialProfile?.bio ? "normal" : "italic",
+                }}
+              >
+                {socialProfile?.bio || "Add a short bio…"}
+              </ThemedText>
+            </Pressable>
+          ) : (
+            <View style={{ marginTop: Spacing.sm }}>
+              <TextInput
+                style={[styles.bioInput, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+                value={bioText}
+                onChangeText={setBioText}
+                placeholder="Write a short bio…"
+                placeholderTextColor={theme.textSecondary}
+                maxLength={150}
+                multiline
+                autoFocus
+              />
+              <View style={{ flexDirection: "row", gap: Spacing.md, justifyContent: "flex-end", marginTop: Spacing.xs }}>
+                <Pressable onPress={() => { setBioText(socialProfile?.bio || ""); setEditingBio(false); }}>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>Cancel</ThemedText>
+                </Pressable>
+                <Pressable onPress={handleSaveBio}>
+                  <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: "700" }}>Save</ThemedText>
+                </Pressable>
+              </View>
+            </View>
+          )}
           {(profile?.goal || user?.goal) ? (
             <>
               <ThemedText type="small" style={[styles.profileLabel, { marginTop: Spacing.md }]}>
                 Goal: {getGoalLabel(profile?.goal || user?.goal || "")}
               </ThemedText>
               <ThemedText type="small" style={{ opacity: 0.6 }}>
-                {(profile?.activityLevel || user?.activityLevel) === "5-6" 
-                  ? "5-6 days/week" 
+                {(profile?.activityLevel || user?.activityLevel) === "5-6"
+                  ? "5-6 days/week"
                   : (profile?.activityLevel || user?.activityLevel) === "1-2"
                     ? "1-2 days/week"
                     : "3-4 days/week"}
@@ -189,6 +251,52 @@ export default function ProfileScreen() {
           <Feather name="edit-2" size={20} color={Colors.light.primary} />
         </Pressable>
       </Card>
+
+      {/* Community card — followers, following, and the public-profile toggle.
+          Renders only when we have social-profile data; the screen still
+          works for users who haven't reached the social API yet. */}
+      {socialProfile ? (
+        <Card style={styles.sectionCard}>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Community</ThemedText>
+          <View style={styles.statsRow}>
+            <Pressable
+              style={styles.statItem}
+              onPress={() => user && navigation.navigate("FollowList", { userId: Number(user.id), mode: "followers" })}
+            >
+              <ThemedText type="h3">{socialProfile.followersCount}</ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>Followers</ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.statItem}
+              onPress={() => user && navigation.navigate("FollowList", { userId: Number(user.id), mode: "following" })}
+            >
+              <ThemedText type="h3">{socialProfile.followingCount}</ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>Following</ThemedText>
+            </Pressable>
+            <View style={styles.statItem}>
+              <ThemedText type="h3">{socialProfile.totalWorkouts ?? 0}</ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>Workouts</ThemedText>
+            </View>
+          </View>
+
+          <View style={styles.publicToggleRow}>
+            <View style={{ flex: 1 }}>
+              <ThemedText type="body">Public profile</ThemedText>
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                {socialProfile.isPublic
+                  ? "Anyone can see your bio and posts."
+                  : "Only followers can see your bio and posts."}
+              </ThemedText>
+            </View>
+            <Switch
+              value={!!socialProfile.isPublic}
+              onValueChange={handleTogglePublic}
+              trackColor={{ false: theme.border, true: Colors.light.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </Card>
+      ) : null}
       
       <Card style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
@@ -443,6 +551,29 @@ const styles = StyleSheet.create({
   profileLabel: {
     opacity: 0.6,
     marginBottom: Spacing.xs,
+  },
+  bioInput: {
+    borderWidth: 1,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.md,
+    fontSize: 14,
+    minHeight: 60,
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: Spacing.xl,
+  },
+  statItem: {
+    alignItems: "center",
+  },
+  publicToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(127,127,127,0.15)",
   },
   sectionCard: {
     marginBottom: Spacing.lg,
