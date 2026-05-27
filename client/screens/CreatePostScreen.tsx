@@ -136,6 +136,13 @@ export default function CreatePostScreen() {
   };
 
   const handleAddPhoto = () => {
+    // On web there's no camera path — Alert.alert is a no-op anyway,
+    // which used to leave web users completely unable to attach photos.
+    // Go straight to the file picker.
+    if (Platform.OS === "web") {
+      pickImage();
+      return;
+    }
     Alert.alert("Add Photo", "Choose a source", [
       { text: "Camera", onPress: takePhoto },
       { text: "Photo Library", onPress: pickImage },

@@ -238,7 +238,11 @@ export default function PostDetailScreen() {
   const ref = post.referenceData;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? headerHeight : 0}
+    >
       <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
         <FlatList
           data={comments}
