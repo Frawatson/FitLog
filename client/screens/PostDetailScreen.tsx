@@ -247,7 +247,7 @@ export default function PostDetailScreen() {
         <FlatList
           data={comments}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl }}
+          contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl, width: "100%", maxWidth: 720, alignSelf: "center" }}
           ListHeaderComponent={
             <View style={{ marginBottom: Spacing.xl }}>
               {/* Post Header */}

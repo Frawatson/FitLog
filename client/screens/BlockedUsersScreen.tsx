@@ -71,6 +71,9 @@ export default function BlockedUsersScreen() {
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
         paddingHorizontal: Spacing.lg,
+        width: "100%",
+        maxWidth: 720,
+        alignSelf: "center",
       }}
       data={users}
       keyExtractor={(item) => item.userId.toString()}

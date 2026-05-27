@@ -109,7 +109,7 @@ export default function FollowListScreen() {
       <FlatList
         data={users}
         keyExtractor={(item) => item.userId.toString()}
-        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"] }}
+        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"], width: "100%", maxWidth: 720, alignSelf: "center" }}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         renderItem={({ item }) => (

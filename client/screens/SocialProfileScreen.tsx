@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, TextInput, Alert, Platform } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, Pressable, Alert, Platform } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -14,7 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { SocialProfile, Post } from "@/types";
-import { getSocialProfileApi, followUserApi, unfollowUserApi, getUserPostsFeed, updateSocialProfileApi, blockUserApi, unblockUserApi } from "@/lib/socialStorage";
+import { getSocialProfileApi, followUserApi, unfollowUserApi, getUserPostsFeed, blockUserApi, unblockUserApi } from "@/lib/socialStorage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -34,8 +34,6 @@ export default function SocialProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
-  const [editingBio, setEditingBio] = useState(false);
-  const [bioText, setBioText] = useState("");
   const hasLoadedRef = useRef(false);
 
   const loadData = async () => {
@@ -47,7 +45,6 @@ export default function SocialProfileScreen() {
       ]);
       setProfile(profileData);
       setPosts(postsData.posts);
-      if (profileData?.bio) setBioText(profileData.bio);
       setError(false);
     } catch (e) {
       console.log("Failed to load social profile:", e);
@@ -76,12 +73,6 @@ export default function SocialProfileScreen() {
       setProfile({ ...profile, isFollowedByMe: true, followersCount: profile.followersCount + 1 });
       await followUserApi(targetUserId);
     }
-  };
-
-  const handleSaveBio = async () => {
-    await updateSocialProfileApi({ bio: bioText.trim() });
-    setProfile(prev => prev ? { ...prev, bio: bioText.trim() } : prev);
-    setEditingBio(false);
   };
 
   const handleBlock = async () => {
@@ -145,33 +136,11 @@ export default function SocialProfileScreen() {
       <View style={styles.profileTop}>
         <Avatar uri={profile.avatarUrl} name={profile.name} size={80} />
         <ThemedText type="h1" style={{ marginTop: Spacing.md }}>{profile.name}</ThemedText>
-        {profile.bio && !editingBio ? (
+        {profile.bio ? (
           <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
             {profile.bio}
           </ThemedText>
         ) : null}
-
-        {isOwnProfile && editingBio && (
-          <View style={{ width: "100%", marginTop: Spacing.sm }}>
-            <TextInput
-              style={[styles.bioInput, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
-              value={bioText}
-              onChangeText={setBioText}
-              placeholder="Write a short bio..."
-              placeholderTextColor={theme.textSecondary}
-              maxLength={150}
-              multiline
-            />
-            <View style={{ flexDirection: "row", gap: Spacing.sm, justifyContent: "flex-end" }}>
-              <Pressable onPress={() => setEditingBio(false)}>
-                <ThemedText type="small" style={{ color: theme.textSecondary }}>Cancel</ThemedText>
-              </Pressable>
-              <Pressable onPress={handleSaveBio}>
-                <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: "700" }}>Save</ThemedText>
-              </Pressable>
-            </View>
-          </View>
-        )}
       </View>
 
       {/* Stats Row */}
@@ -194,23 +163,20 @@ export default function SocialProfileScreen() {
         </View>
       </View>
 
-      {/* Action Buttons */}
-      <View style={styles.actionRow}>
-        {isOwnProfile ? (
-          <Button onPress={() => setEditingBio(true)} variant="outline" style={{ flex: 1 }}>
-            Edit Bio
+      {/* Action Buttons — only for OTHER users' profiles. Bio + avatar
+          editing live on the Profile tab; if a user lands here viewing
+          themselves (e.g. tapped their own name in the feed) we skip
+          the follow/block controls. */}
+      {!isOwnProfile ? (
+        <View style={styles.actionRow}>
+          <Button onPress={handleFollow} variant={profile.isFollowedByMe ? "outline" : "filled"} style={{ flex: 1 }}>
+            {profile.isFollowedByMe ? "Following" : "Follow"}
           </Button>
-        ) : (
-          <>
-            <Button onPress={handleFollow} variant={profile.isFollowedByMe ? "outline" : "filled"} style={{ flex: 1 }}>
-              {profile.isFollowedByMe ? "Following" : "Follow"}
-            </Button>
-            <AnimatedPress onPress={handleBlock} style={[styles.blockBtn, { backgroundColor: theme.backgroundDefault }]}>
-              <Feather name={profile.isBlockedByMe ? "user-check" : "slash"} size={18} color={profile.isBlockedByMe ? theme.text : Colors.light.error} />
-            </AnimatedPress>
-          </>
-        )}
-      </View>
+          <AnimatedPress onPress={handleBlock} style={[styles.blockBtn, { backgroundColor: theme.backgroundDefault }]}>
+            <Feather name={profile.isBlockedByMe ? "user-check" : "slash"} size={18} color={profile.isBlockedByMe ? theme.text : Colors.light.error} />
+          </AnimatedPress>
+        </View>
+      ) : null}
 
       {/* Fitness Stats */}
       <View style={[styles.fitnessStats, { backgroundColor: theme.backgroundDefault }]}>
@@ -238,7 +204,7 @@ export default function SocialProfileScreen() {
         data={posts}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"] }}
+        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"], width: "100%", maxWidth: 720, alignSelf: "center" }}
         ListHeaderComponent={headerElement}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
         renderItem={({ item }) => (
@@ -275,7 +241,6 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: Spacing.md, marginBottom: Spacing.xl },
   fitnessStats: { padding: Spacing.lg, borderRadius: BorderRadius.md, gap: Spacing.md },
   fitnessStatItem: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
-  bioInput: { borderWidth: 1, borderRadius: BorderRadius.sm, padding: Spacing.md, fontSize: 15, minHeight: 60, marginBottom: Spacing.sm },
   postCard: { padding: Spacing.lg, borderRadius: BorderRadius.md, borderWidth: 1, marginBottom: Spacing.md },
   blockBtn: { width: 44, height: 44, borderRadius: BorderRadius.sm, alignItems: "center", justifyContent: "center" },
 });

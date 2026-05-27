@@ -310,6 +310,9 @@ export default function SocialFeedScreen() {
           paddingBottom: insets.bottom + Spacing["5xl"],
           paddingHorizontal: Spacing.lg,
           gap: Spacing.md,
+          width: "100%",
+          maxWidth: 720,
+          alignSelf: "center",
         }}
         renderItem={({ item }) => (
           <PostCard post={item} onLike={handleLike} onPress={handlePostPress} onMorePress={user && item.userId !== Number(user.id) ? handleMorePress : undefined} theme={theme} serverTime={serverTime} />

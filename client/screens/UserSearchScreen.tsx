@@ -64,7 +64,7 @@ export default function UserSearchScreen() {
       <FlatList
         data={results}
         keyExtractor={(item) => item.userId.toString()}
-        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"] }}
+        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"], width: "100%", maxWidth: 720, alignSelf: "center" }}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <View style={[styles.searchBar, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
