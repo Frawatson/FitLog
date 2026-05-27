@@ -347,6 +347,12 @@ async function startServer() {
       "https://unpkg.com", // Leaflet's CSS references marker icons here
     ],
     scriptSrc: ["'self'", "'unsafe-inline'"],
+    // Reanimated 4's web worklet runtime spawns a worker from a blob: URL
+    // generated client-side. Helmet defaults don't declare worker-src, so
+    // the browser falls back to script-src (which doesn't allow blob:) and
+    // blocks the worker. blob: is same-origin in practice (only our own JS
+    // can create one), so allowing it here is safe.
+    workerSrc: ["'self'", "blob:"],
     connectSrc: [
       "'self'",
       "https://world.openfoodfacts.org", // Barcode lookups
