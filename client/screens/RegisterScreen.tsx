@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, ActivityIndicator, Alert } from "react-native";
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -66,10 +67,10 @@ export default function RegisterScreen() {
 
     try {
       const result = await register(email.trim(), password, name.trim());
-      Alert.alert(
+      webSafeAlert(
         "Check your email",
         result.message,
-        [{ text: "OK", onPress: () => navigation.goBack() }],
+        () => navigation.goBack(),
       );
     } catch (err: any) {
       setError(err.message || "Registration failed");

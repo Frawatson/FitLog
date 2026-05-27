@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Pressable, ScrollView, Alert } from "react-native";
+import { View, StyleSheet, Pressable, ScrollView } from "react-native";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -110,10 +111,10 @@ export default function OnboardingScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         // The server sent a confirmation email; the user finishes onboarding
         // only after confirming and signing in. Send them to Login.
-        Alert.alert(
+        webSafeAlert(
           "Check your email",
           result.message,
-          [{ text: "OK", onPress: () => navigation.replace("Login") }],
+          () => navigation.replace("Login"),
         );
         return;
       } catch (err: any) {
