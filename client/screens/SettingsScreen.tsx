@@ -2,7 +2,8 @@ import React, { useState, useCallback } from "react";
 import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, Switch } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
@@ -15,13 +16,37 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import * as notifications from "@/lib/notifications";
 import type { NotificationSettings } from "@/lib/notifications";
+import { exportUserDataCsv } from "@/lib/dataExport";
+import { webSafeAlert } from "@/lib/webSafeAlert";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function SettingsScreen() {
   const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const navigation = useNavigation<NavigationProp>();
   const { theme, isDark, themePreference, setThemePreference } = useTheme();
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportData = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const outcome = await exportUserDataCsv();
+      if (!outcome.ok) {
+        if (outcome.reason === "sharing-unavailable") {
+          webSafeAlert("Not available", "Sharing isn't available on this device.");
+        } else {
+          webSafeAlert("Export failed", outcome.message || "Please try again.");
+        }
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
     workoutReminders: false,
@@ -243,6 +268,39 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <Feather name="external-link" size={18} color={theme.textSecondary} />
+              </AnimatedPress>
+            </Card>
+
+            <Card style={styles.sectionCard}>
+              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Privacy & Data</ThemedText>
+
+              <AnimatedPress
+                onPress={() => navigation.navigate("BlockedUsers")}
+                style={styles.settingRow}
+              >
+                <View style={styles.settingInfo}>
+                  <Feather name="slash" size={20} color={theme.text} />
+                  <View style={styles.settingText}>
+                    <ThemedText type="body">Blocked Users</ThemedText>
+                  </View>
+                </View>
+                <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+              </AnimatedPress>
+
+              <AnimatedPress
+                onPress={handleExportData}
+                style={[styles.settingRow, { marginTop: Spacing.lg, opacity: isExporting ? 0.5 : 1 }]}
+              >
+                <View style={styles.settingInfo}>
+                  <Feather name="download" size={20} color={theme.text} />
+                  <View style={styles.settingText}>
+                    <ThemedText type="body">{isExporting ? "Exporting…" : "Export Data"}</ThemedText>
+                    <ThemedText type="small" style={{ opacity: 0.6 }}>
+                      Download a CSV of your workouts, runs, body weight, and nutrition history.
+                    </ThemedText>
+                  </View>
+                </View>
+                <Feather name="chevron-right" size={18} color={theme.textSecondary} />
               </AnimatedPress>
             </Card>
           </>
