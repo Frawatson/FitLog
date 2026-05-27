@@ -204,17 +204,47 @@ async function startServer() {
     });
   }
 
-  // Security headers
+  // Security headers. CSP applies to the Expo web bundle served from
+  // static-build/; the native mobile clients ignore it. Each host below is
+  // pinned to something the client actually loads — no `https:` or `wss:`
+  // wildcards, no `unsafe-eval`.
+  const cspDirectives: Record<string, Iterable<string>> = {
+    defaultSrc: ["'self'"],
+    // React Native Web injects inline <style> tags via StyleSheet.create at
+    // runtime; the Expo web bootstrap loads its bundle with an inline script.
+    // unsafe-inline is required for both until we wire up nonces.
+    styleSrc: [
+      "'self'",
+      "'unsafe-inline'",
+      "https://fonts.googleapis.com",
+      "https://unpkg.com", // Leaflet CSS, loaded on the web run-tracker map
+    ],
+    fontSrc: ["'self'", "https://fonts.gstatic.com"],
+    imgSrc: [
+      "'self'",
+      "data:", // Base64 post/food/avatar images served inline
+      "blob:", // Image-picker previews
+      "https://*.basemaps.cartocdn.com", // Map tiles
+      "https://unpkg.com", // Leaflet's CSS references marker icons here
+    ],
+    scriptSrc: ["'self'", "'unsafe-inline'"],
+    connectSrc: [
+      "'self'",
+      "https://world.openfoodfacts.org", // Barcode lookups
+    ],
+    // Defense-in-depth (most are helmet defaults; setting explicitly so the
+    // policy is self-documenting and won't drift if helmet defaults change).
+    objectSrc: ["'none'"],
+    baseUri: ["'self'"],
+    frameAncestors: ["'none'"],
+    formAction: ["'self'"],
+    upgradeInsecureRequests: [],
+  };
+
   app.use(helmet({
     contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com"],
-        imgSrc: ["'self'", "data:", "blob:", "https:"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-        connectSrc: ["'self'", "https:", "wss:"],
-      },
+      useDefaults: true,
+      directives: cspDirectives,
     },
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
