@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import MainTabNavigator from "@/navigation/MainTabNavigator";
+import type { NavigatorScreenParams } from "@react-navigation/native";
+import MainTabNavigator, { type MainTabParamList } from "@/navigation/MainTabNavigator";
 import OnboardingScreen from "@/screens/OnboardingScreen";
 import EditRoutineScreen from "@/screens/EditRoutineScreen";
 import SelectRoutineScreen from "@/screens/SelectRoutineScreen";
@@ -43,7 +44,7 @@ export type RootStackParamList = {
   Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { email: string };
-  Main: { screen?: string } | undefined;
+  Main: NavigatorScreenParams<MainTabParamList> | undefined;
   Onboarding: undefined;
   EditRoutine: { routineId?: string; prefillExercise?: { id: string; name: string; muscleGroup: string } };
   SelectRoutine: undefined;

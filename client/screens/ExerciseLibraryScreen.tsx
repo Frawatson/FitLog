@@ -193,7 +193,7 @@ export default function ExerciseLibraryScreen() {
             >
               <Feather name="search" size={18} color={theme.textSecondary} />
               <TextInput
-                style={[styles.searchInput, { color: theme.textPrimary }]}
+                style={[styles.searchInput, { color: theme.text }]}
                 placeholder="Search exercises..."
                 placeholderTextColor={theme.textSecondary}
                 value={search}

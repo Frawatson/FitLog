@@ -151,7 +151,7 @@ export default function WorkoutHistoryScreen() {
 
       {!selectedDate && (
         <View style={[styles.emptyDay, { backgroundColor: theme.backgroundDefault, marginTop: Spacing.xl }]}>
-          <Feather name="hand-pointing" size={24} color={theme.textSecondary} />
+          <Feather name="calendar" size={24} color={theme.textSecondary} />
           <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
             Tap a day to see your activities
           </ThemedText>

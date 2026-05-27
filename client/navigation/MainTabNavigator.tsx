@@ -1,24 +1,25 @@
 import React from "react";
 import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import type { NavigatorScreenParams } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { Platform } from "react-native";
 
 import DashboardScreen from "@/screens/DashboardScreen";
-import RoutinesStackNavigator from "@/navigation/RoutinesStackNavigator";
-import RunStackNavigator from "@/navigation/RunStackNavigator";
-import NutritionStackNavigator from "@/navigation/NutritionStackNavigator";
-import ProfileStackNavigator from "@/navigation/ProfileStackNavigator";
+import RoutinesStackNavigator, { type RoutinesStackParamList } from "@/navigation/RoutinesStackNavigator";
+import RunStackNavigator, { type RunStackParamList } from "@/navigation/RunStackNavigator";
+import NutritionStackNavigator, { type NutritionStackParamList } from "@/navigation/NutritionStackNavigator";
+import ProfileStackNavigator, { type ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors } from "@/constants/theme";
 
 export type MainTabParamList = {
   HomeTab: undefined;
-  RoutinesTab: undefined;
-  RunTab: undefined;
-  NutritionTab: undefined;
-  ProfileTab: undefined;
+  RoutinesTab: NavigatorScreenParams<RoutinesStackParamList> | undefined;
+  RunTab: NavigatorScreenParams<RunStackParamList> | undefined;
+  NutritionTab: NavigatorScreenParams<NutritionStackParamList> | undefined;
+  ProfileTab: NavigatorScreenParams<ProfileStackParamList> | undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
