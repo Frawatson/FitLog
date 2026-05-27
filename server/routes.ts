@@ -671,46 +671,80 @@ Return JSON only:
     res.json(result.rows[0]);
   });
 
-  // Generate routine - creates a balanced workout from exercise_gif_cache
+  // Generate routine - creates a balanced workout from exercise_gif_cache.
+  // The training scheme (sets/reps/rest) is driven by `goal`; `difficulty`
+  // shifts the set count one notch for novice/advanced lifters.
   app.post("/api/generate-routine", requireAuth, async (req, res) => {
     try {
-      const { muscleGroups, difficulty, name, equipment } = req.body;
+      const { muscleGroups, difficulty, name, equipment, goal } = req.body;
 
       if (!muscleGroups || !Array.isArray(muscleGroups) || muscleGroups.length === 0) {
         return res.status(400).json({ error: "At least one muscle group is required" });
       }
 
       const difficultyLevel = difficulty === "beginner" ? "beginner" : difficulty === "advanced" || difficulty === "expert" ? "advanced" : "intermediate";
-      const exercisesPerMuscle = muscleGroups.length <= 2 ? 4 : 3;
-      const sets = difficultyLevel === "beginner" ? 3 : difficultyLevel === "intermediate" ? 4 : 5;
-      const restSeconds = difficultyLevel === "beginner" ? 90 : difficultyLevel === "intermediate" ? 60 : 45;
+
+      // Goal drives the training stimulus. Defaults to hypertrophy when
+      // the client sends an unknown value (or no value at all).
+      const goalScheme = (() => {
+        switch (goal) {
+          case "build_strength":  return { sets: 5, reps: "5",  restSeconds: 180 };
+          case "lose_fat":        return { sets: 3, reps: "15", restSeconds: 45 };
+          case "endurance":       return { sets: 3, reps: "20", restSeconds: 30 };
+          case "general_fitness": return { sets: 3, reps: "10", restSeconds: 60 };
+          case "build_muscle":
+          default:                return { sets: 4, reps: "10", restSeconds: 75 };
+        }
+      })();
+      const setOffset = difficultyLevel === "beginner" ? -1 : difficultyLevel === "advanced" ? 1 : 0;
+      const sets = Math.max(2, goalScheme.sets + setOffset);
+      const reps = goalScheme.reps;
+      const restSeconds = goalScheme.restSeconds;
+
+      // Routines API caps at 30 exercises; respect that here so a generated
+      // routine never fails save-time validation.
+      const MAX_EXERCISES = 30;
+      const exercisesPerMuscleBase = muscleGroups.length <= 2 ? 4 : 3;
+      const exercisesPerMuscle = Math.max(
+        1,
+        Math.min(
+          exercisesPerMuscleBase,
+          Math.floor(MAX_EXERCISES / muscleGroups.length),
+        ),
+      );
 
       const routineExercises: any[] = [];
       const usedExerciseNames = new Set<string>();
+      const partialMuscles: string[] = []; // muscles that produced 0 exercises after dedup + equipment filter
 
       // Build equipment filter if user selected specific equipment
-      const equipmentFilter = equipment && equipment.length > 0
-        ? equipment.map((e: string) => e.toLowerCase())
+      const equipmentFilter = equipment && Array.isArray(equipment) && equipment.length > 0
+        ? equipment.map((e: string) => String(e).toLowerCase())
         : null;
+
+      // Pull a deep pool per muscle (20 rows) so global dedup + equipment
+      // post-filter don't starve the pick. The previous LIMIT of 3*N could
+      // come back fully filtered-out for niche equipment selections.
+      const POOL_SIZE = 20;
 
       for (const muscle of muscleGroups) {
         const muscleLower = String(muscle).toLowerCase();
         const searchTerms = MUSCLE_SEARCH_TERMS[muscleLower] || [muscleLower.replace("_", " ")];
 
         // Build WHERE conditions for all search terms
-        const conditions = searchTerms.flatMap((term: string, i: number) => [
+        const conditions = searchTerms.flatMap((_term: string, i: number) => [
           `LOWER(target_muscle) = $${i + 1}`,
           `LOWER(body_part) = $${i + 1}`,
         ]).join(" OR ");
 
-        let query = `SELECT exercise_name, body_part, equipment, target_muscle, instructions
+        const query = `SELECT exercise_name, body_part, equipment, target_muscle, instructions
            FROM exercise_gif_cache
            WHERE exercisedb_id IS NOT NULL
              AND (${conditions})
            ORDER BY RANDOM()
            LIMIT $${searchTerms.length + 1}`;
 
-        const params: any[] = [...searchTerms, exercisesPerMuscle * 3];
+        const params: any[] = [...searchTerms, POOL_SIZE];
 
         const cacheResult = await pool.query(query, params);
 
@@ -735,20 +769,39 @@ Return JSON only:
             muscleGroup: muscle.charAt(0).toUpperCase() + muscle.slice(1).replace("_", " "),
             equipment: row.equipment || "body weight",
             sets,
-            reps: "10",
+            reps,
             restSeconds,
             instructions: row.instructions,
           });
           muscleExercisesCount++;
         }
+
+        if (muscleExercisesCount === 0) {
+          partialMuscles.push(muscle);
+        }
       }
+
+      if (routineExercises.length === 0) {
+        return res.status(422).json({
+          error: "No exercises matched your filters. Try removing equipment restrictions or choosing different muscle groups.",
+        });
+      }
+
+      // Cap the default name at the 100-char limit that /api/routines
+      // enforces on save — otherwise selecting many muscle groups produces
+      // a name that would fail sync silently.
+      const defaultName = `${muscleGroups
+        .map((m: string) => m.charAt(0).toUpperCase() + m.slice(1).replace("_", " "))
+        .join(" & ")} Workout`.slice(0, 100);
 
       res.json({
         id: `routine-${Date.now()}`,
-        name: name || `${muscleGroups.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1).replace("_", " ")).join(" & ")} Workout`,
+        name: name || defaultName,
         exercises: routineExercises,
         difficulty: difficultyLevel,
+        goal: goal || "build_muscle",
         muscleGroups,
+        partialMuscles,
         generatedBy: "database",
       });
     } catch (error) {

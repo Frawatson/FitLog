@@ -23,9 +23,19 @@ import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
+import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { Routine, RoutineExercise } from "@/types";
 import { v4 as uuidv4 } from "uuid";
+
+// Preview shape captured from server response and rendered before save.
+// We hold the server's default name + the partialMuscles warning so the
+// preview view can show both and the user can still rename / regenerate.
+type PreviewRoutine = {
+  defaultName: string;
+  exercises: RoutineExercise[];
+  partialMuscles: string[];
+};
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -170,6 +180,8 @@ export default function GenerateRoutineScreen() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewRoutine | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     muscles: true,
@@ -212,6 +224,44 @@ export default function GenerateRoutineScreen() {
     setSelectedGoal(goalId);
   };
 
+  const fetchGeneratedRoutine = async (): Promise<PreviewRoutine> => {
+    const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    const apiUrl = getApiUrl();
+    const response = await fetch(new URL("/api/generate-routine", apiUrl).toString(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        muscleGroups: selectedMuscles,
+        difficulty: selectedDifficulty,
+        name: routineName || undefined,
+        equipment: selectedEquipment.length > 0 ? selectedEquipment : undefined,
+        goal: selectedGoal,
+      }),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => null);
+      throw new Error(errData?.error || "Failed to generate routine");
+    }
+
+    const data = await response.json();
+    const rawExercises = Array.isArray(data.exercises) ? data.exercises : [];
+    const exercises: RoutineExercise[] = rawExercises.map((ex: any, index: number) => ({
+      exerciseId: uuidv4(),
+      exerciseName: ex.name,
+      order: index,
+    }));
+
+    return {
+      defaultName: typeof data.name === "string" && data.name ? data.name : "Generated Workout",
+      exercises,
+      partialMuscles: Array.isArray(data.partialMuscles) ? data.partialMuscles : [],
+    };
+  };
+
   const generateRoutine = async () => {
     if (selectedMuscles.length === 0) {
       setError("Please select at least one muscle group");
@@ -223,47 +273,9 @@ export default function GenerateRoutineScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      const token = await AsyncStorage.getItem("@merge_auth_token");
-      const apiUrl = getApiUrl();
-      const response = await fetch(new URL("/api/generate-routine", apiUrl).toString(), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          muscleGroups: selectedMuscles,
-          difficulty: selectedDifficulty,
-          name: routineName || undefined,
-          equipment: selectedEquipment.length > 0 ? selectedEquipment : undefined,
-          goal: selectedGoal,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => null);
-        throw new Error(errData?.error || "Failed to generate routine");
-      }
-
-      const data = await response.json();
-
-      const exercises: RoutineExercise[] = data.exercises.map((ex: any, index: number) => ({
-        exerciseId: ex.id || uuidv4(),
-        exerciseName: ex.name,
-        order: index,
-      }));
-
-      const newRoutine: Routine = {
-        id: uuidv4(),
-        name: routineName || data.name || "Generated Workout",
-        exercises,
-        createdAt: new Date().toISOString(),
-      };
-
-      await storage.saveRoutine(newRoutine);
-
+      const result = await fetchGeneratedRoutine();
+      setPreview(result);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.navigate("Main", { screen: "RoutinesTab" });
     } catch (err: any) {
       console.error("Error generating routine:", err);
       setError(err.message || "Failed to generate routine. Please try again.");
@@ -273,10 +285,182 @@ export default function GenerateRoutineScreen() {
     }
   };
 
+  const regenerateRoutine = async () => {
+    if (isGenerating || isSaving) return;
+    setError(null);
+    setIsGenerating(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      const result = await fetchGeneratedRoutine();
+      setPreview(result);
+    } catch (err: any) {
+      console.error("Error regenerating routine:", err);
+      setError(err.message || "Failed to regenerate. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const savePreviewedRoutine = async () => {
+    if (!preview || isSaving) return;
+    setIsSaving(true);
+    try {
+      const newRoutine: Routine = {
+        id: uuidv4(),
+        name: routineName.trim() || preview.defaultName,
+        exercises: preview.exercises,
+        createdAt: new Date().toISOString(),
+      };
+      await storage.saveRoutine(newRoutine);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.navigate("Main", { screen: "RoutinesTab" });
+    } catch (err: any) {
+      console.error("Error saving routine:", err);
+      setError(err.message || "Failed to save routine.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setIsSaving(false);
+    }
+  };
+
+  const backToForm = () => {
+    setPreview(null);
+    setError(null);
+  };
+
   const musclesBadge = selectedMuscles.length > 0 ? `${selectedMuscles.length}` : undefined;
   const equipBadge = selectedEquipment.length > 0 ? `${selectedEquipment.length}` : undefined;
   const goalLabel = GOAL_OPTIONS.find((g) => g.id === selectedGoal)?.label;
   const diffLabel = DIFFICULTY_LEVELS.find((d) => d.id === selectedDifficulty)?.label;
+
+  if (preview) {
+    return (
+      <ThemedView style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={{
+            paddingTop: headerHeight + Spacing.lg,
+            paddingBottom: insets.bottom + Spacing["3xl"],
+            paddingHorizontal: Spacing.lg,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ThemedText type="h2" style={{ marginBottom: Spacing.xs }}>Your workout</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+            Review the exercises below. Rename, regenerate, or save.
+          </ThemedText>
+
+          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}>
+            Routine name
+          </ThemedText>
+          <TextInput
+            style={[
+              styles.input,
+              {
+                backgroundColor: theme.backgroundDefault,
+                color: theme.text,
+                borderColor: theme.border,
+                marginBottom: Spacing.lg,
+              },
+            ]}
+            placeholder={preview.defaultName}
+            placeholderTextColor={theme.textSecondary}
+            value={routineName}
+            onChangeText={setRoutineName}
+            maxLength={100}
+          />
+
+          {preview.partialMuscles.length > 0 ? (
+            <View style={[styles.errorContainer, { backgroundColor: "#FFB30022", marginBottom: Spacing.lg }]}>
+              <Feather name="alert-triangle" size={18} color="#FFB300" />
+              <ThemedText type="small" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
+                No exercises matched for: {preview.partialMuscles.map((m) => m.replace("_", " ")).join(", ")}.
+                Try regenerating or relaxing equipment filters.
+              </ThemedText>
+            </View>
+          ) : null}
+
+          <View style={[styles.previewCard, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+            <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
+              {preview.exercises.length} exercise{preview.exercises.length === 1 ? "" : "s"}
+            </ThemedText>
+            {preview.exercises.map((ex, index) => (
+              <View key={ex.exerciseId} style={styles.previewRow}>
+                <View style={[styles.previewNumber, { backgroundColor: theme.primary }]}>
+                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                    {index + 1}
+                  </ThemedText>
+                </View>
+                <ThemedText type="body" style={{ flex: 1 }}>{ex.exerciseName}</ThemedText>
+              </View>
+            ))}
+          </View>
+
+          {error ? (
+            <View style={[styles.errorContainer, { backgroundColor: `${theme.error}15`, marginTop: Spacing.lg }]}>
+              <Feather name="alert-circle" size={18} color={theme.error} />
+              <ThemedText type="small" style={{ color: theme.error, marginLeft: Spacing.sm, flex: 1 }}>
+                {error}
+              </ThemedText>
+            </View>
+          ) : null}
+
+          <Button
+            onPress={savePreviewedRoutine}
+            disabled={isSaving || isGenerating || preview.exercises.length === 0}
+            style={styles.generateButton}
+          >
+            {isSaving ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>Saving...</ThemedText>
+              </View>
+            ) : (
+              <View style={styles.loadingContainer}>
+                <Feather name="check" size={20} color="#FFFFFF" />
+                <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm, fontWeight: "700" }}>
+                  Save Routine
+                </ThemedText>
+              </View>
+            )}
+          </Button>
+
+          <AnimatedPress
+            onPress={regenerateRoutine}
+            disabled={isGenerating || isSaving}
+            style={[
+              styles.secondaryButton,
+              { borderColor: theme.border, opacity: isGenerating || isSaving ? 0.5 : 1 },
+            ]}
+          >
+            {isGenerating ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color={theme.text} size="small" />
+                <ThemedText style={{ marginLeft: Spacing.sm }}>Regenerating...</ThemedText>
+              </View>
+            ) : (
+              <View style={styles.loadingContainer}>
+                <Feather name="refresh-cw" size={18} color={theme.text} />
+                <ThemedText style={{ marginLeft: Spacing.sm, fontWeight: "600" }}>
+                  Regenerate
+                </ThemedText>
+              </View>
+            )}
+          </AnimatedPress>
+
+          <AnimatedPress
+            onPress={backToForm}
+            disabled={isSaving || isGenerating}
+            style={[styles.textButton, { opacity: isSaving || isGenerating ? 0.5 : 1 }]}
+          >
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Back to settings
+            </ThemedText>
+          </AnimatedPress>
+        </ScrollView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -487,6 +671,7 @@ export default function GenerateRoutineScreen() {
             placeholderTextColor={theme.textSecondary}
             value={routineName}
             onChangeText={setRoutineName}
+            maxLength={100}
             testID="input-routine-name"
           />
         </CollapsibleSection>
@@ -579,5 +764,39 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  previewCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+  },
+  previewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  previewNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  textButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.md,
   },
 });
