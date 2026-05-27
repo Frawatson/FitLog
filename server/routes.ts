@@ -76,6 +76,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     max: 30,
     message: "Too many photo analyses. Please slow down.",
   });
+  const avatarUploadLimiter = userRateLimiter({
+    windowMs: 60 * 60 * 1000,
+    max: 30,
+    message: "Too many avatar updates. Please slow down.",
+  });
 
   app.get("/api/foods/search", requireAuth, aiSearchLimiter, async (req, res) => {
     try {
@@ -1731,6 +1736,40 @@ Return JSON only:
     } catch (error) {
       console.error("Error updating social profile:", error);
       res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // Avatar upload — accepts a base64 JPEG/PNG, resizes via sharp to a
+  // bounded 256x256 square, stores the result as a data URI in
+  // users.avatar_url. Separate from PUT /social/profile because that
+  // endpoint validates `avatarUrl` as an http(s) URL via requireImageUrl;
+  // avatars are stored inline as data URIs (consistent with the existing
+  // base64 image_data pattern on posts) and need a different validator.
+  app.post("/api/social/avatar", requireAuth, avatarUploadLimiter, async (req: any, res: Response) => {
+    try {
+      const check = requireBase64Image(
+        req.body?.imageBase64,
+        "imageBase64",
+        LIMITS.AVATAR_IMAGE_BASE64,
+      );
+      if (!check.ok) return res.status(400).json({ error: check.error });
+
+      const buffer = Buffer.from(check.value, "base64");
+      const resized = await sharp(buffer)
+        .resize(256, 256, { fit: "cover" })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+      const dataUri = `data:image/jpeg;base64,${resized.toString("base64")}`;
+
+      await pool.query("UPDATE users SET avatar_url = $1 WHERE id = $2", [
+        dataUri,
+        req.userId,
+      ]);
+
+      res.json({ success: true, avatarUrl: dataUri });
+    } catch (error) {
+      console.error("Avatar upload error:", error);
+      res.status(500).json({ error: "Failed to upload avatar" });
     }
   });
 

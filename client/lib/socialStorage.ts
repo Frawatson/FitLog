@@ -120,6 +120,22 @@ export async function updateSocialProfileApi(data: { bio?: string; avatarUrl?: s
   return result.success && !!result.data?.success;
 }
 
+// Avatar upload returns the new avatar URL (a data: URI) on success, null
+// on failure. Caller is responsible for compressing the image before
+// sending; the server resizes again as a safety net but smaller input
+// means faster upload + lower memory pressure.
+export async function uploadAvatarApi(imageBase64: string): Promise<string | null> {
+  const result = await syncToServer<{ success: boolean; avatarUrl: string }>(
+    "/api/social/avatar",
+    "POST",
+    { imageBase64 },
+  );
+  if (result.success && result.data?.success && result.data.avatarUrl) {
+    return result.data.avatarUrl;
+  }
+  return null;
+}
+
 // ========== Block & Report ==========
 
 export async function blockUserApi(userId: number): Promise<boolean> {

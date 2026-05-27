@@ -15,6 +15,11 @@ export const LIMITS = {
   // underlying JPEG is roughly (cap * 0.75).
   POST_IMAGE_BASE64: 700_000, // ~525 KB JPEG
   ANALYZE_PHOTO_BASE64: 3_000_000, // ~2.25 MB JPEG
+  // Avatar input cap before server-side sharp resize. Client compresses to
+  // a small size already, but accept up to ~1MB raw in case someone uploads
+  // an unprocessed photo. Server resizes down to 256x256 so the stored
+  // bytes are tiny regardless of input size.
+  AVATAR_IMAGE_BASE64: 1_500_000, // ~1.1 MB JPEG input
 } as const;
 
 export const POST_TYPES = new Set([

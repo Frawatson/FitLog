@@ -1,5 +1,7 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, TextInput, Switch } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, TextInput, Switch, Image, ActivityIndicator } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -19,7 +21,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { UserProfile, BodyWeightEntry, MacroTargets, SocialProfile } from "@/types";
 import * as storage from "@/lib/storage";
-import { getSocialProfileApi, updateSocialProfileApi } from "@/lib/socialStorage";
+import { getSocialProfileApi, updateSocialProfileApi, uploadAvatarApi } from "@/lib/socialStorage";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 import { formatWeight, parseWeightInput } from "@/lib/units";
@@ -51,6 +54,8 @@ export default function ProfileScreen() {
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
   const [editingBio, setEditingBio] = useState(false);
   const [bioText, setBioText] = useState("");
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
 
   const loadData = async () => {
     const userId = user ? Number(user.id) : null;
@@ -81,6 +86,63 @@ export default function ProfileScreen() {
     setSocialProfile((p) => (p ? { ...p, isPublic: next } : p));
     const ok = await updateSocialProfileApi({ isPublic: next });
     if (!ok) setSocialProfile(previous);
+  };
+
+  const handleChangeAvatar = async () => {
+    if (uploadingAvatar) return;
+
+    // Ensure photo library access (no-op on web).
+    if (Platform.OS !== "web") {
+      const perm = await requestMediaPermission();
+      if (!perm.granted) {
+        webSafeAlert(
+          "Permission needed",
+          "Allow photo library access to change your avatar.",
+        );
+        return;
+      }
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+      base64: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    setUploadingAvatar(true);
+    try {
+      // Compress client-side before upload to keep network + server work
+      // small. Server also resizes as a safety net.
+      const manipulated = await ImageManipulator.manipulateAsync(
+        result.assets[0].uri,
+        [{ resize: { width: 512 } }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      if (!manipulated.base64) {
+        webSafeAlert("Couldn't read image", "Please try a different photo.");
+        return;
+      }
+
+      const newUrl = await uploadAvatarApi(manipulated.base64);
+      if (!newUrl) {
+        webSafeAlert("Upload failed", "Please try again.");
+        return;
+      }
+      // If we already have a social profile in state, splice in the new URL.
+      // If we don't (initial fetch failed), refetch so the Community card
+      // appears alongside the now-uploaded avatar — otherwise the new
+      // avatar wouldn't render until the next focus.
+      const hadProfile = socialProfile !== null;
+      setSocialProfile((prev) => (prev ? { ...prev, avatarUrl: newUrl } : prev));
+      if (!hadProfile) {
+        await loadData();
+      }
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
   
   useFocusEffect(
@@ -187,11 +249,35 @@ export default function ProfileScreen() {
       ) : (
       <>
       <Card style={styles.profileCard}>
-        <View style={styles.avatarContainer}>
-          <View style={[styles.avatar, { backgroundColor: Colors.light.primary }]}>
-            <Feather name="user" size={32} color="#FFFFFF" />
+        <Pressable
+          style={styles.avatarContainer}
+          onPress={handleChangeAvatar}
+          disabled={uploadingAvatar}
+          accessibilityRole="button"
+          accessibilityLabel="Change profile picture"
+        >
+          {/* Outer frame leaves overflow visible so the edit badge can
+              poke outside the circle. Inner circle clips the image. */}
+          <View style={styles.avatarFrame}>
+            <View style={[styles.avatar, { backgroundColor: Colors.light.primary }]}>
+              {socialProfile?.avatarUrl ? (
+                <Image source={{ uri: socialProfile.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <Feather name="user" size={32} color="#FFFFFF" />
+              )}
+              {uploadingAvatar ? (
+                <View style={styles.avatarUploadingOverlay}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                </View>
+              ) : null}
+            </View>
+            {!uploadingAvatar ? (
+              <View style={styles.avatarEditBadge}>
+                <Feather name="camera" size={12} color="#FFFFFF" />
+              </View>
+            ) : null}
           </View>
-        </View>
+        </Pressable>
         <View style={styles.profileInfo}>
           <ThemedText type="h4">{user?.name || profile?.name || "User"}</ThemedText>
           <ThemedText type="small" style={{ opacity: 0.6 }}>
@@ -538,10 +624,39 @@ const styles = StyleSheet.create({
   avatarContainer: {
     marginRight: Spacing.lg,
   },
+  avatarFrame: {
+    width: 64,
+    height: 64,
+    position: "relative",
+  },
   avatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarEditBadge: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  avatarUploadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
     justifyContent: "center",
   },
