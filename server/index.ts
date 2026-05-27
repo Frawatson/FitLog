@@ -105,29 +105,43 @@ async function startServer() {
   function setupRequestLogging(app: express.Application) {
     app.use((req, res, next) => {
       const start = Date.now();
-      const path = req.path;
-      let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
+      const reqPath = req.path;
 
+      // Never log successful response bodies — they can contain JWTs,
+      // session-bearing user objects, emails, and other PII. On error
+      // responses, capture only the top-level error/message string for
+      // diagnostics (truncated, and only if it's a primitive string —
+      // never a nested object).
+      let capturedErrorMessage: string | undefined;
       const originalResJson = res.json;
       res.json = function (bodyJson, ...args) {
-        capturedJsonResponse = bodyJson;
+        if (
+          res.statusCode >= 400 &&
+          bodyJson !== null &&
+          typeof bodyJson === "object"
+        ) {
+          const body = bodyJson as Record<string, unknown>;
+          const candidate = body.error ?? body.message;
+          if (typeof candidate === "string") {
+            // Strip control chars (newlines, ANSI escapes, NUL) so a thrown
+            // error whose message echoes user input can't inject fake log
+            // lines or break terminal display.
+            const sanitized = candidate.replace(/[\x00-\x1F\x7F]/g, " ");
+            capturedErrorMessage = sanitized.length > 200
+              ? sanitized.slice(0, 199) + "…"
+              : sanitized;
+          }
+        }
         return originalResJson.apply(res, [bodyJson, ...args]);
       };
 
       res.on("finish", () => {
-        if (!path.startsWith("/api")) return;
-
+        if (!reqPath.startsWith("/api")) return;
         const duration = Date.now() - start;
-
-        let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-        if (capturedJsonResponse) {
-          logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+        let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
+        if (capturedErrorMessage) {
+          logLine += ` :: ${capturedErrorMessage}`;
         }
-
-        if (logLine.length > 80) {
-          logLine = logLine.slice(0, 79) + "…";
-        }
-
         log(logLine);
       });
 
