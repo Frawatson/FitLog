@@ -24,7 +24,7 @@ type CreatePostRoute = RouteProp<RootStackParamList, "CreatePost">;
 
 const POST_TYPES: { type: PostType; icon: keyof typeof Feather.glyphMap; label: string; color: string }[] = [
   { type: "text", icon: "edit-3", label: "Text", color: "#9BA1A6" },
-  { type: "workout", icon: "activity", label: "Workout", color: "#FF4500" },
+  { type: "workout", icon: "activity", label: "Workout", color: "#1B3A27" },
   { type: "run", icon: "map-pin", label: "Run", color: "#00D084" },
   { type: "meal", icon: "pie-chart", label: "Meal", color: "#818cf8" },
   { type: "achievement", icon: "award", label: "Achievement", color: "#facc15" },

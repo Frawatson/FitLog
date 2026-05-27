@@ -9,8 +9,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const ACCENT_COLOR = "#FF4500";
-const CONFETTI_COLORS = ["#FF4500", "#FFD700", "#00CED1", "#FF69B4", "#7CFC00", "#FF6347"];
+const ACCENT_COLOR = "#D4AF37"; // Brand.gold — celebratory accent for run-complete moment
+const CONFETTI_COLORS = ["#1B3A27", "#D4AF37", "#2D4D38", "#FFD700", "#7CFC00", "#00D084"];
 
 interface RunCompleteAnimationProps {
   visible: boolean;

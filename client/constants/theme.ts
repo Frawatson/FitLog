@@ -1,10 +1,24 @@
 import { Platform } from "react-native";
 
 // Gbolo Design System - Bold Athletic Theme
-const primaryOrange = "#FF4500";
-const nearBlack = "#1A1A1A";
-const successGreen = "#00D084";
-const errorRed = "#D32F2F";
+// Brand palette: dark forest green + gold accent
+// No `as const` here — that would narrow each value to its literal-string
+// type, which makes the light/dark Colors objects type-incompatible (because
+// e.g. light.link === "#1B3A27" but dark.link === "#D4AF37" become different
+// types). Plain string lets the existing ThemeContext typeof-Colors.light
+// pattern work unchanged.
+export const Brand = {
+  green: "#1B3A27" as string,        // Primary brand color (CTAs, links, active tabs)
+  greenDeep: "#0A1612" as string,    // Darkest tone — dark-mode root background
+  greenSurface: "#11241A" as string, // Dark-mode default surface
+  greenCard: "#162B1F" as string,    // Dark-mode card background
+  greenElevated: "#1E382A" as string,// Dark-mode raised surface
+  greenBorder: "#2D4D38" as string,  // Dark-mode divider
+  gold: "#D4AF37" as string,         // Accent — used for dark-mode links/highlights
+};
+
+const successGreen = "#00D084"; // Semantic — kept distinct from brand green
+const errorRed = "#D32F2F";     // Semantic
 
 export const Colors = {
   light: {
@@ -12,9 +26,9 @@ export const Colors = {
     textSecondary: "#666666",
     buttonText: "#FFFFFF",
     tabIconDefault: "#687076",
-    tabIconSelected: primaryOrange,
-    link: primaryOrange,
-    primary: primaryOrange,
+    tabIconSelected: Brand.green,
+    link: Brand.green,
+    primary: Brand.green,
     success: successGreen,
     error: errorRed,
     border: "#E0E0E0",
@@ -31,19 +45,19 @@ export const Colors = {
     textSecondary: "#9BA1A6",
     buttonText: "#FFFFFF",
     tabIconDefault: "#9BA1A6",
-    tabIconSelected: primaryOrange,
-    link: primaryOrange,
-    primary: primaryOrange,
+    tabIconSelected: Brand.gold,
+    link: Brand.gold,
+    primary: Brand.green,
     success: successGreen,
     error: errorRed,
-    border: "#353739",
-    backgroundRoot: "#1A1A1A",
-    backgroundDefault: "#252525",
-    backgroundSecondary: "#2F2F2F",
-    backgroundTertiary: "#3A3A3A",
-    backgroundCard: "#252525",
-    backgroundElevated: "#2F2F2F",
-    cardBorder: "#353739",
+    border: Brand.greenBorder,
+    backgroundRoot: Brand.greenDeep,
+    backgroundDefault: Brand.greenSurface,
+    backgroundSecondary: Brand.greenCard,
+    backgroundTertiary: Brand.greenElevated,
+    backgroundCard: Brand.greenCard,
+    backgroundElevated: Brand.greenElevated,
+    cardBorder: Brand.greenBorder,
   },
 };
 

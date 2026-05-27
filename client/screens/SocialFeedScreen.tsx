@@ -21,7 +21,7 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const POST_TYPE_CONFIG: Record<PostType, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
-  workout: { icon: "activity", color: "#FF4500", label: "Workout" },
+  workout: { icon: "activity", color: "#1B3A27", label: "Workout" },
   run: { icon: "map-pin", color: "#00D084", label: "Run" },
   meal: { icon: "pie-chart", color: "#818cf8", label: "Meal" },
   achievement: { icon: "award", color: "#facc15", label: "Achievement" },

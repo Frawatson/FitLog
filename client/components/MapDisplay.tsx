@@ -4,7 +4,7 @@ import { Feather } from "@expo/vector-icons";
 import { ThemedText } from "@/components/ThemedText";
 import { Spacing } from "@/constants/theme";
 
-const ACCENT_COLOR = "#FF4500";
+const ACCENT_COLOR = "#1B3A27"; // Brand.green
 
 interface MapDisplayProps {
   currentLocation: { latitude: number; longitude: number } | null;

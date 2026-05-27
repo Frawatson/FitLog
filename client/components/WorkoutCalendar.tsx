@@ -7,7 +7,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Workout, RunEntry } from "@/types";
 
-const ACCENT_COLOR = "#FF4500";
+const ACCENT_COLOR = "#1B3A27"; // Brand.green
 const RUN_COLOR = "#00CED1";
 
 interface WorkoutCalendarProps {

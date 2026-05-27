@@ -259,7 +259,7 @@ async function sendRegisterConfirmEmail(email: string, name: string, token: stri
           <h2 style="color: #1A1A1A; font-size: 20px;">Confirm your account</h2>
           <p style="color: #333; line-height: 1.6;">Hi ${escapeHtml(name)}, tap the button below to finish creating your Gbolo Fitness and Nutrition account. The link expires in 24 hours.</p>
           <div style="text-align: center; margin: 32px 0;">
-            <a href="${url}" style="background: #FF4500; color: #FFFFFF; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; display: inline-block;">Confirm Account</a>
+            <a href="${url}" style="background: #1B3A27; color: #FFFFFF; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; display: inline-block;">Confirm Account</a>
           </div>
           <p style="color: #666; font-size: 14px;">If you didn't try to create a Gbolo account, you can ignore this email — no account will be created.</p>
         </div>
@@ -318,7 +318,7 @@ function renderConfirmationPage(opts: { title: string; body: string }): string {
       .card { max-width: 480px; margin: 64px auto; padding: 32px; background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); text-align: center; }
       h1 { font-size: 22px; margin: 0 0 16px; }
       p { line-height: 1.6; color: #333; margin: 0 0 16px; }
-      a.button { display: inline-block; margin-top: 16px; background: #FF4500; color: #FFFFFF; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; }
+      a.button { display: inline-block; margin-top: 16px; background: #1B3A27; color: #FFFFFF; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; }
     </style>
   </head>
   <body>
@@ -641,7 +641,7 @@ router.post("/forgot-password", resetLimiter, async (req: Request, res: Response
               <h2 style="color: #1A1A1A; font-size: 20px;">Password Reset</h2>
               <p style="color: #333; line-height: 1.6;">You requested a password reset. Enter this code in the app:</p>
               <div style="background: #F5F5F5; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
-                <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #FF4500;">${code}</span>
+                <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #D4AF37;">${code}</span>
               </div>
               <p style="color: #666; font-size: 14px;">This code expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>
             </div>
