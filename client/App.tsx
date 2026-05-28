@@ -21,6 +21,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { linking } from "@/navigation/linking";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { SystemMenuRoot } from "@/components/SystemMenu";
+import { WebInstallPrompt } from "@/components/WebInstallPrompt";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 
@@ -63,6 +64,7 @@ export default function App() {
                     <RootStackNavigator />
                   </NavigationContainer>
                   <SystemMenuRoot />
+                  <WebInstallPrompt />
                   <StatusBar style="auto" />
                 </KeyboardProvider>
               </GestureHandlerRootView>

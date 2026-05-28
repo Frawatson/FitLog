@@ -192,6 +192,50 @@ async function startServer() {
     });
 
     app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+
+    // PWA manifest — declared in code so the brand color stays in sync
+    // and the icon URL points at the already-served /assets path (no
+    // build-time copy step). Lets browsers offer "install" / "Add to
+    // Home Screen" with a real app icon instead of a screenshot stub.
+    app.get("/manifest.webmanifest", (_req: Request, res: Response) => {
+      res.setHeader("content-type", "application/manifest+json");
+      res.json({
+        name: "Gbolo Fitness and Nutrition",
+        short_name: "Gbolo",
+        description:
+          "Track workouts, runs, and food with AI-powered macro estimation.",
+        start_url: "/",
+        scope: "/",
+        display: "standalone",
+        background_color: "#1B3A27",
+        theme_color: "#1B3A27",
+        icons: [
+          {
+            src: "/assets/images/icon.png",
+            sizes: "192x192 512x512 1024x1024",
+            type: "image/png",
+            // Just "any" — the source icon wasn't designed with a maskable
+            // safe zone, so declaring it maskable would let Android crop
+            // the logo. Browsers downscale the 1024×1024 source for each
+            // declared size at install time.
+            purpose: "any",
+          },
+        ],
+      });
+    });
+
+    // Minimal no-op service worker. Chrome's installability heuristic
+    // requires one to be present + activated even if it doesn't cache
+    // anything. A future iteration can add an offline shell.
+    app.get("/sw.js", (_req: Request, res: Response) => {
+      res.setHeader("content-type", "application/javascript");
+      res.setHeader("cache-control", "no-cache");
+      res.send(
+        "self.addEventListener('install',()=>self.skipWaiting());" +
+          "self.addEventListener('activate',(e)=>e.waitUntil(self.clients.claim()));" +
+          "self.addEventListener('fetch',()=>{});",
+      );
+    });
     // static-build/ holds native OTA bundles (manifests served above);
     // dist/ holds the Expo web export (built by `npm run web:build`).
     // index:false on both so "/" falls through to the SPA fallback for
@@ -282,6 +326,20 @@ async function startServer() {
         `<meta name="twitter:title" content="${escapeHtml(meta.title)}" />`,
         `<meta name="twitter:description" content="${escapeHtml(meta.description)}" />`,
         `<meta name="twitter:image" content="${escapeHtml(ogImageAbsolute)}" />`,
+        // PWA install + iOS "Add to Home Screen" support. Without
+        // apple-touch-icon, iOS uses an ugly screenshot of the page as
+        // the home-screen icon; with it, the proper brand icon is used.
+        // apple-mobile-web-app-capable opens the saved app in full-screen
+        // (no Safari chrome) once added.
+        `<link rel="manifest" href="/manifest.webmanifest" />`,
+        `<meta name="theme-color" content="#1B3A27" />`,
+        `<link rel="apple-touch-icon" href="/assets/images/icon.png" />`,
+        `<meta name="apple-mobile-web-app-capable" content="yes" />`,
+        `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />`,
+        `<meta name="apple-mobile-web-app-title" content="Gbolo" />`,
+        // Register the no-op SW so Chrome's install-banner heuristic
+        // activates. Errors are swallowed — install is a nice-to-have.
+        `<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}</script>`,
       ].join("\n    ");
       // Strip any default <title> from the bundle, then inject our block
       // just before </head>.
