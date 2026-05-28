@@ -46,6 +46,13 @@ export default function ProfileScreen() {
   const [showWeightInput, setShowWeightInput] = useState(false);
   const [showWeightHistory, setShowWeightHistory] = useState(false);
   const [newWeight, setNewWeight] = useState("");
+  const [weightLogError, setWeightLogError] = useState<string | null>(null);
+
+  // Mirrors the server's body_weights CHECK (weight_kg BETWEEN 20 AND 500).
+  // Without these the server's 400 would silently disagree with the local
+  // cache, which had already persisted the bad row.
+  const WEIGHT_MIN_KG = 20;
+  const WEIGHT_MAX_KG = 500;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -78,17 +85,34 @@ export default function ProfileScreen() {
 
   const handleSaveBio = async () => {
     const trimmed = bioText.trim();
-    await updateSocialProfileApi({ bio: trimmed });
+    // Optimistic update + rollback on failure. Previously the local bio
+    // was set unconditionally, so an API rejection silently diverged
+    // local from server.
+    const previous = socialProfile;
     setSocialProfile((prev) => (prev ? { ...prev, bio: trimmed } : prev));
     setEditingBio(false);
+    const ok = await updateSocialProfileApi({ bio: trimmed });
+    if (!ok) {
+      setSocialProfile(previous);
+      setEditingBio(true);
+      webSafeAlert("Couldn't save bio", "Please try again.");
+    }
   };
 
   const handleTogglePublic = async (next: boolean) => {
-    // Optimistic — flip immediately, roll back if the API rejects.
+    // Optimistic — flip immediately, roll back + surface error if the
+    // API rejects. Was previously a silent rollback that looked like
+    // a UI bug to the user.
     const previous = socialProfile;
     setSocialProfile((p) => (p ? { ...p, isPublic: next } : p));
     const ok = await updateSocialProfileApi({ isPublic: next });
-    if (!ok) setSocialProfile(previous);
+    if (!ok) {
+      setSocialProfile(previous);
+      webSafeAlert(
+        "Couldn't update visibility",
+        "Please check your connection and try again.",
+      );
+    }
   };
 
   const handleChangeAvatar = async () => {
@@ -155,12 +179,24 @@ export default function ProfileScreen() {
   );
   
   const handleLogWeight = async () => {
-    const weight = parseFloat(newWeight);
-    if (isNaN(weight) || weight <= 0) return;
-    
+    const weight = parseFloat(newWeight.trim());
+    if (!Number.isFinite(weight) || weight <= 0) {
+      setWeightLogError("Please enter a valid weight.");
+      return;
+    }
+
     const unitSystem = profile?.unitSystem || "imperial";
     const weightInKg = parseWeightInput(weight, unitSystem);
-    
+
+    if (weightInKg < WEIGHT_MIN_KG || weightInKg > WEIGHT_MAX_KG) {
+      const range = unitSystem === "imperial"
+        ? `${Math.round(WEIGHT_MIN_KG * 2.20462)} and ${Math.round(WEIGHT_MAX_KG * 2.20462)} lbs`
+        : `${WEIGHT_MIN_KG} and ${WEIGHT_MAX_KG} kg`;
+      setWeightLogError(`Weight must be between ${range}.`);
+      return;
+    }
+
+    setWeightLogError(null);
     await storage.addBodyWeight(weightInKg);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setNewWeight("");
@@ -392,24 +428,45 @@ export default function ProfileScreen() {
       <Card style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <ThemedText type="h4">Body Weight</ThemedText>
-          <Pressable onPress={() => setShowWeightInput(!showWeightInput)}>
+          <Pressable
+            onPress={() => {
+              const next = !showWeightInput;
+              setShowWeightInput(next);
+              // Clear stale input + error when collapsing so the next
+              // open starts fresh instead of restoring last-typed value.
+              if (!next) {
+                setNewWeight("");
+                setWeightLogError(null);
+              }
+            }}
+          >
             <Feather name={showWeightInput ? "x" : "plus"} size={20} color={Colors.light.primary} />
           </Pressable>
         </View>
         
         {showWeightInput ? (
-          <View style={styles.weightInputRow}>
-            <Input
-              placeholder={`Weight in ${(profile?.unitSystem || "imperial") === "imperial" ? "lbs" : "kg"}`}
-              keyboardType="decimal-pad"
-              value={newWeight}
-              onChangeText={setNewWeight}
-              style={{ flex: 1, marginBottom: 0 }}
-            />
-            <Button onPress={handleLogWeight} style={styles.logButton}>
-              Log
-            </Button>
-          </View>
+          <>
+            <View style={styles.weightInputRow}>
+              <Input
+                placeholder={`Weight in ${(profile?.unitSystem || "imperial") === "imperial" ? "lbs" : "kg"}`}
+                keyboardType="decimal-pad"
+                value={newWeight}
+                onChangeText={(t) => {
+                  setNewWeight(t);
+                  if (weightLogError) setWeightLogError(null);
+                }}
+                style={{ flex: 1, marginBottom: 0 }}
+              />
+              <Button onPress={handleLogWeight} style={styles.logButton}>
+                Log
+              </Button>
+            </View>
+            {weightLogError ? (
+              <ThemedText type="small" style={{ color: Colors.light.error, marginTop: Spacing.xs, marginBottom: Spacing.sm }}>
+                {weightLogError}
+              </ThemedText>
+            ) : null}
+          </>
         ) : null}
         
         {latestWeight ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, StyleSheet, ScrollView, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -50,6 +50,7 @@ export default function EditProfileScreen() {
   const { user, updateProfile } = useAuth();
 
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+  const [unitLoaded, setUnitLoaded] = useState(false);
   const [name, setName] = useState(user?.name || "");
   const [age, setAge] = useState(user?.age?.toString() || "");
   const [sex, setSex] = useState(user?.sex || "");
@@ -64,58 +65,94 @@ export default function EditProfileScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Track the original kg values so we can detect "user didn't edit"
+  // and skip the lbs→kg round-trip — otherwise kgToLbs(80) → 176.4
+  // → lbsToKg(176.4) → 80.01 drifts ~10g per save.
+  const originalRef = useRef<{ weightKg?: number; weightGoalKg?: number; heightCm?: number }>({});
+
   useEffect(() => {
     const loadProfile = async () => {
       const profile = await storage.getUserProfile();
       if (profile?.unitSystem) {
         setUnitSystem(profile.unitSystem);
       }
+      // Even if the profile has no unitSystem, mark loaded so the form
+      // populates with the default rather than staying blank forever.
+      setUnitLoaded(true);
     };
     loadProfile();
   }, []);
 
   useEffect(() => {
-    if (user) {
-      setName(user.name || "");
-      setAge(user.age?.toString() || "");
-      setSex(user.sex || "");
+    // Wait for unitSystem to resolve before populating unit-aware fields,
+    // otherwise a metric user briefly sees imperial values flash in the
+    // weight / height inputs before the correct unit loads.
+    if (!unitLoaded || !user) return;
 
-      if (user.heightCm) {
-        if (unitSystem === "imperial") {
-          const { feet, inches } = cmToFeetInches(user.heightCm);
-          setHeightFeet(feet.toString());
-          setHeightInches(inches.toString());
-        } else {
-          setHeightCm(user.heightCm.toString());
-        }
+    setName(user.name || "");
+    setAge(user.age?.toString() || "");
+    setSex(user.sex || "");
+    originalRef.current = {
+      weightKg: user.weightKg,
+      weightGoalKg: user.weightGoalKg,
+      heightCm: user.heightCm,
+    };
+
+    if (user.heightCm) {
+      if (unitSystem === "imperial") {
+        const { feet, inches } = cmToFeetInches(user.heightCm);
+        setHeightFeet(feet.toString());
+        setHeightInches(inches.toString());
+      } else {
+        setHeightCm(user.heightCm.toString());
       }
-
-      if (user.weightKg) {
-        if (unitSystem === "imperial") {
-          setWeight(kgToLbs(user.weightKg).toString());
-        } else {
-          setWeight(user.weightKg.toString());
-        }
-      }
-
-      if (user.weightGoalKg) {
-        if (unitSystem === "imperial") {
-          setWeightGoal(kgToLbs(user.weightGoalKg).toString());
-        } else {
-          setWeightGoal(user.weightGoalKg.toString());
-        }
-      }
-
-      setExperience(user.experience || "");
-      setGoal(user.goal || "");
-      setActivityLevel(user.activityLevel || "");
     }
-  }, [user, unitSystem]);
+
+    if (user.weightKg) {
+      setWeight(
+        unitSystem === "imperial"
+          ? kgToLbs(user.weightKg).toString()
+          : user.weightKg.toString()
+      );
+    }
+
+    if (user.weightGoalKg) {
+      setWeightGoal(
+        unitSystem === "imperial"
+          ? kgToLbs(user.weightGoalKg).toString()
+          : user.weightGoalKg.toString()
+      );
+    }
+
+    setExperience(user.experience || "");
+    setGoal(user.goal || "");
+    setActivityLevel(user.activityLevel || "");
+  }, [user, unitSystem, unitLoaded]);
+
+  // Detect "user didn't actually edit this lbs field" so we send the
+  // original kg unchanged and avoid the kg→lbs→kg precision drift.
+  const lbsUnchanged = (lbsInput: string, originalKg?: number) => {
+    if (originalKg == null) return false;
+    const parsed = parseFloat(lbsInput);
+    if (!Number.isFinite(parsed)) return false;
+    return parsed === kgToLbs(originalKg);
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
       setError("Name is required");
       return;
+    }
+
+    // Weight goal must be a positive number if provided. Without this
+    // the field accepts 0 or garbage and propagates a nonsense goal to
+    // every weight-progress widget in the app.
+    if (weightGoal.trim()) {
+      const wg = parseFloat(weightGoal.trim());
+      if (!Number.isFinite(wg) || wg <= 0) {
+        setError("Goal weight must be greater than 0.");
+        return;
+      }
     }
 
     setLoading(true);
@@ -130,14 +167,18 @@ export default function EditProfileScreen() {
         if (heightFeet || heightInches) {
           finalHeightCm = feetInchesToCm(
             parseFloat(heightFeet) || 0,
-            parseFloat(heightInches) || 0
+            parseFloat(heightInches) || 0,
           );
         }
         if (weight) {
-          finalWeightKg = lbsToKg(parseFloat(weight));
+          finalWeightKg = lbsUnchanged(weight, originalRef.current.weightKg)
+            ? originalRef.current.weightKg
+            : lbsToKg(parseFloat(weight));
         }
         if (weightGoal) {
-          finalWeightGoalKg = lbsToKg(parseFloat(weightGoal));
+          finalWeightGoalKg = lbsUnchanged(weightGoal, originalRef.current.weightGoalKg)
+            ? originalRef.current.weightGoalKg
+            : lbsToKg(parseFloat(weightGoal));
         }
       } else {
         if (heightCm) {
