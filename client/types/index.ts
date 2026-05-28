@@ -228,4 +228,10 @@ export interface RunEntry {
   maxHeartRate?: number;
   heartRateZone?: HeartRateZone;
   elevationGainM?: number;
+  // Elapsed seconds at each milestone crossed during the run, in the
+  // unit recorded at run time. Local-only for now — the server schema
+  // doesn't carry these. getRunHistory preserves them by merging with
+  // the local copy on sync.
+  splits?: number[];
+  splitsUnit?: "mi" | "km";
 }

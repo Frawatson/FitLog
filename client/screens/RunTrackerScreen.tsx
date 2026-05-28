@@ -98,8 +98,10 @@ export default function RunTrackerScreen() {
   
   useEffect(() => {
     checkPermission();
-    loadRunHistory();
-    loadUserAge();
+    loadUnitPreference();
+    // loadRunHistory is intentionally NOT called here — useFocusEffect
+    // below runs on initial mount too, so calling it from both fires
+    // two GET /api/runs requests back-to-back on first open.
     return () => {
       if (locationSubscription.current) {
         try {
@@ -113,8 +115,9 @@ export default function RunTrackerScreen() {
       }
     };
   }, []);
-  
-  const loadUserAge = async () => {
+
+  // Loads the user's unit preference (not their age — name was misleading).
+  const loadUnitPreference = async () => {
     const profile = await storage.getUserProfile();
     if (profile?.unitSystem) {
       setUnitSystem(profile.unitSystem);
@@ -407,6 +410,8 @@ export default function RunTrackerScreen() {
         startedAt: startTimeRef.current,
         completedAt: new Date().toISOString(),
         route,
+        splits: splits.length > 0 ? [...splits] : undefined,
+        splitsUnit: splits.length > 0 ? (unitSystemRef.current === "imperial" ? "mi" : "km") : undefined,
       };
       
       await storage.saveRunEntry(runEntry);

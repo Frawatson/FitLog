@@ -172,6 +172,26 @@ export default function RunDetailScreen() {
         </View>
       </Card>
 
+      {/* Splits */}
+      {run.splits && run.splits.length > 0 ? (
+        <Card style={styles.hrCard}>
+          <View style={styles.hrHeader}>
+            <Feather name="flag" size={20} color={Colors.light.primary} />
+            <ThemedText type="h4" style={{ marginLeft: Spacing.sm }}>Splits</ThemedText>
+          </View>
+          {run.splits.map((time, i) => (
+            <View key={i} style={styles.splitRow}>
+              <ThemedText type="body" style={{ color: theme.textSecondary }}>
+                {i + 1} {run.splitsUnit || "mi"}
+              </ThemedText>
+              <ThemedText type="body" style={{ fontWeight: "600" }}>
+                {formatDuration(time)}
+              </ThemedText>
+            </View>
+          ))}
+        </Card>
+      ) : null}
+
       {/* Heart Rate */}
       {run.avgHeartRate ? (
         <Card style={styles.hrCard}>
@@ -323,6 +343,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+  },
+  splitRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: Spacing.xs,
   },
   deleteButton: {
     flexDirection: "row",

@@ -15,6 +15,7 @@ import { getApiUrl } from "@/lib/query-client";
 import { syncToServer, syncWithRetry, isAuthenticated, initSyncService } from "@/lib/syncService";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import { getLocalDateString } from "@/lib/dateUtils";
+import { getZoneForHeartRate } from "@/lib/heartRateZones";
 
 export { initSyncService };
 
@@ -651,19 +652,37 @@ export async function getRunHistory(): Promise<RunEntry[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/runs", "GET");
       if (result.success && result.data) {
-        const runs: RunEntry[] = result.data.map(r => ({
-          id: r.clientId,
-          distanceKm: r.distanceKm,
-          durationSeconds: r.durationSeconds,
-          paceMinPerKm: r.paceMinPerKm,
-          calories: r.calories,
-          startedAt: r.startedAt,
-          completedAt: r.completedAt,
-          route: r.route,
-          avgHeartRate: r.avgHeartRate,
-          maxHeartRate: r.maxHeartRate,
-          elevationGainM: r.elevationGainM,
-        }));
+        // Splits aren't carried in the server schema yet — merge them
+        // back from the local copy keyed by clientId so cross-device
+        // load doesn't wipe them out. heartRateZone is derived from
+        // avgHeartRate + user age (server doesn't store the zone).
+        const localBefore = await getRunHistoryLocal();
+        const localById = new Map(localBefore.map((r) => [r.id, r]));
+        const profile = await getUserProfile();
+        const age = profile?.age ?? 30;
+
+        const runs: RunEntry[] = result.data.map(r => {
+          const local = localById.get(r.clientId);
+          const zoneInfo = r.avgHeartRate
+            ? getZoneForHeartRate(r.avgHeartRate, age)
+            : null;
+          return {
+            id: r.clientId,
+            distanceKm: r.distanceKm,
+            durationSeconds: r.durationSeconds,
+            paceMinPerKm: r.paceMinPerKm,
+            calories: r.calories,
+            startedAt: r.startedAt,
+            completedAt: r.completedAt,
+            route: r.route,
+            avgHeartRate: r.avgHeartRate,
+            maxHeartRate: r.maxHeartRate,
+            heartRateZone: zoneInfo?.zone,
+            elevationGainM: r.elevationGainM,
+            splits: local?.splits,
+            splitsUnit: local?.splitsUnit,
+          };
+        });
         await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
         return runs;
       }
