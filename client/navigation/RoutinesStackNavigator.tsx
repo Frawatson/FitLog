@@ -28,7 +28,7 @@ export default function RoutinesStackNavigator() {
         name="Routines"
         component={RoutinesScreen}
         options={{
-          headerTitle: "Routines",
+          headerTitle: "Workouts",
           headerRight: () => (
             <HeaderButton
               onPress={() => navigation.navigate("EditRoutine", {})}

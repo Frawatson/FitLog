@@ -326,7 +326,7 @@ export default function ExerciseLibraryScreen() {
             {routines.length > 0 && (
               <>
                 <ThemedText type="small" style={{ opacity: 0.5, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
-                  Existing Routines
+                  Existing Workouts
                 </ThemedText>
                 <ScrollView style={{ maxHeight: 240 }}>
                   {routines.map((routine) => (

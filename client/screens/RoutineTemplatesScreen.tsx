@@ -175,7 +175,7 @@ export default function RoutineTemplatesScreen() {
               onPress={() => handleAddTemplate(item)}
               style={styles.addButton}
             >
-              Add to My Routines
+              Add to My Workouts
             </Button>
           </View>
         ) : null}

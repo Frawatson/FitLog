@@ -189,7 +189,7 @@ export default function RoutinesScreen() {
       >
         <EmptyState
           image={require("../../assets/images/empty-routines.png")}
-          title="No routines yet"
+          title="No workouts yet"
           message="Create your first workout routine or browse templates"
           actionLabel="Browse Templates"
           onAction={() => navigation.navigate("RoutineTemplates")}

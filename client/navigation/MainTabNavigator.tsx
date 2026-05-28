@@ -88,7 +88,7 @@ export default function MainTabNavigator() {
         name="RoutinesTab"
         component={RoutinesStackNavigator}
         options={{
-          title: "Routines",
+          title: "Workouts",
           tabBarIcon: ({ color, size }) => (
             <Feather name="layers" size={size} color={color} />
           ),
