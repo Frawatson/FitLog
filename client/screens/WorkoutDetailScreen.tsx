@@ -7,6 +7,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Workout, UnitSystem } from "@/types";
@@ -65,10 +66,21 @@ export default function WorkoutDetailScreen() {
   
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
-        <ThemedText type="body" style={{ textAlign: "center", marginTop: Spacing.xl }}>
-          Loading workout...
-        </ThemedText>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight + Spacing.lg,
+            paddingHorizontal: Spacing.lg,
+          },
+        ]}
+      >
+        <SkeletonLoader variant="card" />
+        <View style={{ height: Spacing.lg }} />
+        <SkeletonLoader variant="card" />
+        <View style={{ height: Spacing.lg }} />
+        <SkeletonLoader variant="card" />
       </View>
     );
   }

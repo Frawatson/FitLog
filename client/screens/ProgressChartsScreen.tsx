@@ -121,10 +121,12 @@ export default function ProgressChartsScreen() {
     }
   };
 
+  // Brand primary is #1B3A27 (RGB 27,58,39). Was hardcoded
+  // rgba(255,69,0) — an orange-red unrelated to the palette.
   const chartConfig = {
     backgroundGradientFrom: isDark ? "#252525" : "#FFFFFF",
     backgroundGradientTo: isDark ? "#252525" : "#FFFFFF",
-    color: (opacity = 1) => `rgba(255, 69, 0, ${opacity})`,
+    color: (opacity = 1) => `rgba(27, 58, 39, ${opacity})`,
     labelColor: () => theme.textSecondary,
     strokeWidth: 2,
     propsForDots: {
@@ -135,14 +137,37 @@ export default function ProgressChartsScreen() {
     decimalPlaces: 1,
   };
 
-  // Body weight chart data
-  const weightChartData = bodyWeights.length >= 2
+  // Local-tz parser for YYYY-MM-DD body-weight dates so the chart
+  // labels don't shift one day in negative-UTC zones. Mirrors the
+  // ProfileScreen fix from PR S.
+  const parseLocalDateLabel = (ymd: string) => {
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Body-weight chart window should respect the selected period.
+  // Previously hardcoded .slice(-7) ignored 30d/90d/all selections,
+  // so "see body weight over 90 days" actually rendered only 7 points.
+  const weightWindow = (() => {
+    switch (period) {
+      case "7d": return 7;
+      case "30d": return 30;
+      case "90d": return 90;
+      case "all": return bodyWeights.length;
+    }
+  })();
+
+  // Body weight chart data — sliced to the period's window so the
+  // selector actually drives what's plotted.
+  const weightSlice = bodyWeights.slice(-weightWindow);
+  const weightChartData = weightSlice.length >= 2
     ? {
-        labels: bodyWeights.slice(-7).map((w) =>
-          new Date(w.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        ),
+        labels: weightSlice.map((w) => parseLocalDateLabel(w.date)),
         datasets: [{
-          data: bodyWeights.slice(-7).map((w) =>
+          data: weightSlice.map((w) =>
             unitSystem === "imperial" ? Math.round(w.weightKg * 2.20462 * 10) / 10 : w.weightKg
           ),
         }],
@@ -159,7 +184,7 @@ export default function ProgressChartsScreen() {
     : null;
 
   // Muscle group frequency
-  const muscleFrequency = getMuscleGroupFrequency(workouts);
+  const exerciseFrequency = getExerciseFrequency(workouts);
 
   return (
     <ScrollView
@@ -299,16 +324,19 @@ export default function ProgressChartsScreen() {
             )}
           </Card>
 
-          {/* Muscle Group Frequency */}
+          {/* Exercise Frequency — was labeled "Muscle Group Frequency"
+              but the underlying data is per-exercise-name counts, not
+              per-muscle-group. Renaming is faithful to what's shown
+              without re-doing the data shape. */}
           <Card style={styles.chartCard}>
             <View style={styles.chartHeader}>
               <Feather name="activity" size={20} color="#9B59B6" />
-              <ThemedText type="h4">Muscle Group Frequency</ThemedText>
+              <ThemedText type="h4">Exercise Frequency</ThemedText>
             </View>
-            {muscleFrequency.length > 0 ? (
+            {exerciseFrequency.length > 0 ? (
               <View style={styles.muscleList}>
-                {muscleFrequency.map((mg, i) => {
-                  const maxCount = muscleFrequency[0].count;
+                {exerciseFrequency.map((mg, i) => {
+                  const maxCount = exerciseFrequency[0].count;
                   const barWidth = maxCount > 0 ? (mg.count / maxCount) * 100 : 0;
                   const weeksInPeriod = getDaysInPeriod(period) / 7;
                   const isUnderTrained = mg.count < weeksInPeriod;
@@ -345,7 +373,7 @@ export default function ProgressChartsScreen() {
               <View style={styles.emptyChart}>
                 <Feather name="bar-chart-2" size={32} color={theme.textSecondary} />
                 <ThemedText type="small" style={{ opacity: 0.6, marginTop: Spacing.sm }}>
-                  Complete workouts to see muscle group data
+                  Complete workouts to see exercise data
                 </ThemedText>
               </View>
             )}
@@ -371,13 +399,20 @@ function getWeeklyVolumes(workouts: Workout[]): { label: string; volume: number 
   }
   return Object.entries(weeks)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, volume]) => ({
-      label: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      volume: Math.round(volume),
-    }));
+    .map(([date, volume]) => {
+      // Parse local YYYY-MM-DD (not UTC) so week-start labels don't
+      // shift one day in negative-UTC zones — same TZ fix applied to
+      // body-weight labels.
+      const [y, m, d] = date.split("-").map(Number);
+      const local = new Date(y, (m || 1) - 1, d || 1);
+      return {
+        label: local.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        volume: Math.round(volume),
+      };
+    });
 }
 
-function getMuscleGroupFrequency(workouts: Workout[]): { name: string; count: number }[] {
+function getExerciseFrequency(workouts: Workout[]): { name: string; count: number }[] {
   const freq: Record<string, number> = {};
   for (const w of workouts) {
     if (!w.completedAt) continue;

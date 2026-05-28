@@ -7,6 +7,7 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { Button } from "@/components/Button";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -20,31 +21,38 @@ export default function AchievementsScreen() {
 
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const hasLoadedRef = useRef(false);
 
   const loadData = async () => {
     if (!hasLoadedRef.current) setIsLoading(true);
+    try {
+      const [workouts, runs, bodyWeights, allFoodLog] = await Promise.all([
+        storage.getWorkouts(),
+        storage.getRunHistory(),
+        storage.getBodyWeights(),
+        storage.getFoodLog(),
+      ]);
 
-    const [workouts, runs, bodyWeights, allFoodLog] = await Promise.all([
-      storage.getWorkouts(),
-      storage.getRunHistory(),
-      storage.getBodyWeights(),
-      storage.getFoodLog(),
-    ]);
+      const foodDays = new Set(allFoodLog.map((f) => f.date)).size;
 
-    const foodDays = new Set(allFoodLog.map((f) => f.date)).size;
+      const results = checkAchievements({
+        workouts,
+        runs,
+        bodyWeights,
+        foodLogDays: foodDays,
+      });
 
-    const results = checkAchievements({
-      workouts,
-      runs,
-      bodyWeights,
-      foodLogDays: foodDays,
-    });
-
-    setAchievements(results);
-    if (!hasLoadedRef.current) {
-      hasLoadedRef.current = true;
-      setIsLoading(false);
+      setAchievements(results);
+      setError(false);
+    } catch (e) {
+      console.log("Failed to load achievements:", e);
+      setError(true);
+    } finally {
+      if (!hasLoadedRef.current) {
+        hasLoadedRef.current = true;
+        setIsLoading(false);
+      }
     }
   };
 
@@ -56,6 +64,31 @@ export default function AchievementsScreen() {
 
   const unlocked = achievements.filter((a) => a.unlocked);
   const locked = achievements.filter((a) => !a.unlocked);
+
+  if (error) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight,
+            alignItems: "center",
+            justifyContent: "center",
+            paddingHorizontal: Spacing.lg,
+          },
+        ]}
+      >
+        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
+        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg, textAlign: "center" }}>
+          Could not load achievements.
+        </ThemedText>
+        <Button onPress={() => { setError(false); setIsLoading(true); loadData(); }} variant="outline">
+          Retry
+        </Button>
+      </View>
+    );
+  }
 
   return (
     <ScrollView

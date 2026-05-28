@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, Switch } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -53,6 +53,37 @@ export default function SettingsScreen() {
     streakAlerts: false,
     reminderTime: { hour: 18, minute: 0 },
   });
+  // Debounce ref for the time-picker chevrons. Rapid taps (e.g.
+  // holding ↑) previously fired a saveNotificationSettings AND a
+  // scheduleNotificationAsync per tap — heavy at ~10 taps/sec. The
+  // UI updates instantly; only the persist + reschedule side effects
+  // are debounced. pendingRef holds the latest debounced value so we
+  // can flush on Done / unmount and never lose the last change.
+  const timePersistRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTimeRef = useRef<NotificationSettings | null>(null);
+
+  const flushTimeChange = useCallback(async () => {
+    if (timePersistRef.current) {
+      clearTimeout(timePersistRef.current);
+      timePersistRef.current = null;
+    }
+    const pending = pendingTimeRef.current;
+    if (!pending) return;
+    pendingTimeRef.current = null;
+    await notifications.saveNotificationSettings(pending);
+    if (pending.workoutReminders) {
+      await notifications.scheduleWorkoutReminder(pending.reminderTime.hour, pending.reminderTime.minute);
+    }
+    if (pending.streakAlerts) {
+      await notifications.scheduleStreakReminder(pending.reminderTime.hour, pending.reminderTime.minute);
+    }
+  }, []);
+
+  // Flush any pending change on unmount so a quick close-modal-then-
+  // navigate-away doesn't drop the last tap.
+  useEffect(() => () => {
+    flushTimeChange();
+  }, [flushTimeChange]);
 
   useFocusEffect(
     useCallback(() => {
@@ -112,18 +143,15 @@ export default function SettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleReminderTimeChange = async (hour: number, minute: number) => {
+  const handleReminderTimeChange = (hour: number, minute: number) => {
     const updated = { ...notifSettings, reminderTime: { hour, minute } };
     setNotifSettings(updated);
-    await notifications.saveNotificationSettings(updated);
-    // Re-schedule whichever toggles are on so the new time takes effect.
-    if (notifSettings.workoutReminders) {
-      await notifications.scheduleWorkoutReminder(hour, minute);
-    }
-    if (notifSettings.streakAlerts) {
-      await notifications.scheduleStreakReminder(hour, minute);
-    }
+    pendingTimeRef.current = updated;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (timePersistRef.current) clearTimeout(timePersistRef.current);
+    timePersistRef.current = setTimeout(() => {
+      flushTimeChange();
+    }, 300);
   };
 
   const formatTime = (hour: number, minute: number) => {
@@ -301,6 +329,7 @@ export default function SettingsScreen() {
 
               <AnimatedPress
                 onPress={handleExportData}
+                disabled={isExporting}
                 style={[styles.settingRow, { marginTop: Spacing.lg, opacity: isExporting ? 0.5 : 1 }]}
               >
                 <View style={styles.settingInfo}>
@@ -323,7 +352,7 @@ export default function SettingsScreen() {
         visible={showTimePicker}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => setShowTimePicker(false)}
+        onRequestClose={() => { flushTimeChange(); setShowTimePicker(false); }}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
@@ -399,7 +428,7 @@ export default function SettingsScreen() {
             </View>
 
             <Pressable
-              onPress={() => setShowTimePicker(false)}
+              onPress={() => { flushTimeChange(); setShowTimePicker(false); }}
               style={({ pressed }) => ({
                 backgroundColor: Colors.light.primary,
                 marginTop: Spacing.lg,
