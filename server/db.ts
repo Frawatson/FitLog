@@ -229,6 +229,24 @@ export async function initializeDatabase(): Promise<void> {
       CREATE INDEX IF NOT EXISTS IDX_runs_distance ON runs (user_id, distance_km DESC);
       CREATE INDEX IF NOT EXISTS IDX_food_logs_daily ON food_logs (user_id, date, created_at DESC);
 
+      -- One body-weight entry per (user, calendar date). Without this the
+      -- client's "log today's weight again" flow could only dedupe its
+      -- local cache; the server kept INSERTing duplicate rows that the
+      -- next GET would surface back into the cache as twin entries.
+      -- First-run dedupe keeps the newest row per (user_id, date::date),
+      -- then the unique index makes future duplicates impossible.
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'ux_body_weights_user_date') THEN
+          DELETE FROM body_weights a USING body_weights b
+          WHERE a.user_id = b.user_id
+            AND (a.date)::date = (b.date)::date
+            AND (a.created_at < b.created_at OR (a.created_at = b.created_at AND a.id < b.id));
+          CREATE UNIQUE INDEX ux_body_weights_user_date
+            ON body_weights(user_id, ((date)::date));
+        END IF;
+      END $$;
+
       -- CHECK constraints (use DO block to avoid errors on re-run)
       DO $$
       BEGIN
@@ -596,9 +614,15 @@ export async function getBodyWeights(userId: number): Promise<BodyWeightEntry[]>
 }
 
 export async function addBodyWeight(userId: number, weightKg: number, date: Date): Promise<BodyWeightEntry> {
+  // Upsert on (user_id, date::date) — same conflict target as the
+  // ux_body_weights_user_date unique index created in schema init. A
+  // same-day re-log overwrites the existing row instead of creating
+  // a duplicate (which the previous plain INSERT did).
   const result = await pool.query(
-    `INSERT INTO body_weights (user_id, weight_kg, date) 
-     VALUES ($1, $2, $3) 
+    `INSERT INTO body_weights (user_id, weight_kg, date)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, ((date)::date))
+     DO UPDATE SET weight_kg = EXCLUDED.weight_kg, date = EXCLUDED.date
      RETURNING id, user_id, weight_kg, date, created_at`,
     [userId, weightKg, date]
   );

@@ -413,9 +413,13 @@ export async function addBodyWeight(weightKg: number): Promise<BodyWeightEntry> 
       const response = await fetch(new URL("/api/body-weights", getApiUrl()).toString(), {
         method: "POST",
         headers: await getAuthHeaders(),
-        body: JSON.stringify({ weightKg, date: new Date().toISOString() }),
+        // Local YYYY-MM-DD, not UTC instant — without this a user in
+        // UTC-7 logging at 9pm would shift to the next day on the
+        // server, "disappearing" today's entry and creating a phantom
+        // tomorrow entry on the next fetch.
+        body: JSON.stringify({ weightKg, date: today }),
       });
-      
+
       if (response.ok) {
         const serverEntry = await response.json();
         entry = {

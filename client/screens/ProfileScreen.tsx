@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, TextInput, Switch, Image, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Pressable, Modal, Platform, TextInput, Switch, Image, ActivityIndicator } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -183,11 +183,10 @@ export default function ProfileScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error: any) {
       console.error("Delete account error:", error?.message || error);
-      if (Platform.OS === "web") {
-        window.alert("Failed to delete account. Please try again.");
-      } else {
-        Alert.alert("Error", "Failed to delete account. Please try again.");
-      }
+      // webSafeAlert (not the legacy Platform.OS branch) — handles web
+      // and native uniformly. Was the last Platform-branched alert
+      // outside the SystemMenu pattern in this screen.
+      webSafeAlert("Error", "Failed to delete account. Please try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsDeleting(false);
