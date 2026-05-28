@@ -705,7 +705,9 @@ router.delete("/account", requireAuth, async (req: Request, res: Response) => {
       return res.status(404).json({ error: "User not found" });
     }
     
-    req.session.destroy(() => {});
+    req.session.destroy((err) => {
+      if (err) console.error("Session destroy failed during account delete:", err);
+    });
     res.clearCookie("connect.sid");
     
     res.json({ success: true, message: "Account deleted successfully" });

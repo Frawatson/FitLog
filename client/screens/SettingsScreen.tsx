@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, Switch } from "react-native";
+import { View, StyleSheet, ScrollView, Pressable, Modal, Platform, Switch } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -114,11 +114,12 @@ export default function SettingsScreen() {
       if (value) {
         const granted = await notifications.requestNotificationPermissions();
         if (!granted) {
-          if (Platform.OS === "web") {
-            window.alert("Notifications are not available on web. Please use the mobile app.");
-          } else {
-            Alert.alert("Permission Required", "Please enable notifications in your device settings.");
-          }
+          webSafeAlert(
+            Platform.OS === "web" ? "Not available" : "Permission Required",
+            Platform.OS === "web"
+              ? "Notifications are not available on web. Please use the mobile app."
+              : "Please enable notifications in your device settings.",
+          );
           return;
         }
         // scheduleX swallows internal errors and returns null. Without
@@ -152,11 +153,12 @@ export default function SettingsScreen() {
       if (value) {
         const granted = await notifications.requestNotificationPermissions();
         if (!granted) {
-          if (Platform.OS === "web") {
-            window.alert("Notifications are not available on web. Please use the mobile app.");
-          } else {
-            Alert.alert("Permission Required", "Please enable notifications in your device settings.");
-          }
+          webSafeAlert(
+            Platform.OS === "web" ? "Not available" : "Permission Required",
+            Platform.OS === "web"
+              ? "Notifications are not available on web. Please use the mobile app."
+              : "Please enable notifications in your device settings.",
+          );
           return;
         }
         // Previously this toggle ONLY persisted to AsyncStorage —
@@ -393,8 +395,16 @@ export default function SettingsScreen() {
         animationType="fade"
         onRequestClose={() => { flushTimeChange(); setShowTimePicker(false); }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
+        {/* Outer Pressable dismisses on overlay tap; inner Pressable
+            absorbs touches so chevron / Done presses don't bubble up. */}
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => { flushTimeChange(); setShowTimePicker(false); }}
+        >
+          <Pressable
+            style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}
+            onPress={() => {}}
+          >
             <ThemedText type="h3" style={styles.modalTitle}>Set Reminder Time</ThemedText>
 
             <View style={styles.timePickerContainer}>
@@ -462,7 +472,7 @@ export default function SettingsScreen() {
                 }}>
                   <Feather name="chevron-down" size={28} color={theme.text} />
                 </Pressable>
-                <ThemedText type="small" style={{ opacity: 0 }}>Hour</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>AM/PM</ThemedText>
               </View>
             </View>
 
@@ -483,8 +493,8 @@ export default function SettingsScreen() {
             >
               <ThemedText type="body" style={{ color: "#FFFFFF" }}>Done</ThemedText>
             </Pressable>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </>
   );

@@ -726,7 +726,9 @@ export default function ProfileScreen() {
       visible={showDeleteModal}
       transparent={true}
       animationType="fade"
-      onRequestClose={handleDeleteModalCancel}
+      // Gate Android-back so the user can't bypass the in-flight delete
+      // and end up yanked to Login mid-action with no warning.
+      onRequestClose={() => { if (!isDeleting) handleDeleteModalCancel(); }}
     >
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
@@ -746,7 +748,8 @@ export default function ProfileScreen() {
           <View style={styles.modalButtons}>
             <Pressable
               onPress={handleDeleteModalCancel}
-              style={[styles.modalButton, styles.modalButtonCancel, { borderColor: theme.border }]}
+              disabled={isDeleting}
+              style={[styles.modalButton, styles.modalButtonCancel, { borderColor: theme.border, opacity: isDeleting ? 0.5 : 1 }]}
             >
               <ThemedText type="body">Cancel</ThemedText>
             </Pressable>
