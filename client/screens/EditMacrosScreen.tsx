@@ -36,6 +36,13 @@ export default function EditMacrosScreen() {
   const [protein, setProtein] = useState("");
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  // Sane outer limits — the server already rejects calories <= 0 / negative
+  // macros with a 400 that syncWithRetry swallows, so without these the
+  // local AsyncStorage would silently disagree with the server.
+  const MAX_CAL = 10000;
+  const MAX_MACRO = 1000;
 
   const macroState: Record<string, { value: string; setter: (v: string) => void }> = {
     calories: { value: calories, setter: setCalories },
@@ -73,13 +80,26 @@ export default function EditMacrosScreen() {
   };
 
   const handleSave = async () => {
-    const macros: MacroTargets = {
-      calories: parseInt(calories) || 0,
-      protein: parseInt(protein) || 0,
-      carbs: parseInt(carbs) || 0,
-      fat: parseInt(fat) || 0,
-    };
+    const cal = parseInt(calories.trim(), 10);
+    const p = protein.trim() === "" ? 0 : parseInt(protein.trim(), 10);
+    const cb = carbs.trim() === "" ? 0 : parseInt(carbs.trim(), 10);
+    const f = fat.trim() === "" ? 0 : parseInt(fat.trim(), 10);
 
+    if (!Number.isFinite(cal) || cal <= 0 || cal > MAX_CAL) {
+      setError(`Calories must be between 1 and ${MAX_CAL}.`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+    for (const [val, label] of [[p, "Protein"], [cb, "Carbs"], [f, "Fat"]] as const) {
+      if (!Number.isFinite(val) || val < 0 || val > MAX_MACRO) {
+        setError(`${label} must be between 0 and ${MAX_MACRO}g.`);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        return;
+      }
+    }
+    setError(null);
+
+    const macros: MacroTargets = { calories: cal, protein: p, carbs: cb, fat: f };
     await storage.saveMacroTargets(macros);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();
@@ -137,10 +157,11 @@ export default function EditMacrosScreen() {
               <TextInput
                 style={[styles.macroInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
                 value={value}
-                onChangeText={setter}
+                onChangeText={(t) => { setter(t); if (error) setError(null); }}
                 keyboardType="number-pad"
                 placeholder={macro.placeholder}
                 placeholderTextColor={theme.textSecondary}
+                maxLength={5}
               />
             </View>
           );
@@ -155,6 +176,15 @@ export default function EditMacrosScreen() {
             />
             <ThemedText type="small" style={{ color: isBalanced ? Colors.light.success : "#FFA500" }}>
               Macro total: {macroTotal} cal {isBalanced ? "(balanced)" : `(target: ${cal})`}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        {error ? (
+          <View style={[styles.balanceRow, { backgroundColor: Colors.light.error + "15" }]}>
+            <Feather name="alert-circle" size={16} color={Colors.light.error} />
+            <ThemedText type="small" style={{ color: Colors.light.error, flex: 1 }}>
+              {error}
             </ThemedText>
           </View>
         ) : null}

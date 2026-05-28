@@ -64,8 +64,14 @@ export default function AddFoodScreen() {
   const [foodImage, setFoodImage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [nameSuggestions, setNameSuggestions] = useState<FoodDatabaseItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Per-entry outer bounds — generous enough for huge meals (e.g. a
+  // 5000-cal cheat day combo) but rejects typos like "99999".
+  const MAX_CAL_PER_ENTRY = 10000;
+  const MAX_MACRO_G = 1000;
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
@@ -346,6 +352,7 @@ export default function AddFoodScreen() {
   
   const handleNameChange = (text: string) => {
     setName(text);
+    if (submitError) setSubmitError(null);
     if (text.trim().length >= 2) {
       const matches = searchFoods(text);
       setNameSuggestions(matches);
@@ -421,17 +428,33 @@ export default function AddFoodScreen() {
   };
 
   const handleSubmit = async () => {
-    if (!name.trim() || !calories) {
+    if (!name.trim()) {
+      setSubmitError("Please enter a food name.");
       return;
     }
-    
+    const cal = parseInt(calories.trim(), 10);
+    if (!Number.isFinite(cal) || cal <= 0 || cal > MAX_CAL_PER_ENTRY) {
+      setSubmitError(`Calories must be between 1 and ${MAX_CAL_PER_ENTRY}.`);
+      return;
+    }
+    const p = protein.trim() === "" ? 0 : parseInt(protein.trim(), 10);
+    const cb = carbs.trim() === "" ? 0 : parseInt(carbs.trim(), 10);
+    const f = fat.trim() === "" ? 0 : parseInt(fat.trim(), 10);
+    for (const [val, label] of [[p, "Protein"], [cb, "Carbs"], [f, "Fat"]] as const) {
+      if (!Number.isFinite(val) || val < 0 || val > MAX_MACRO_G) {
+        setSubmitError(`${label} must be between 0 and ${MAX_MACRO_G}g.`);
+        return;
+      }
+    }
+    setSubmitError(null);
+
     const food: Food = {
       id: uuidv4(),
       name: name.trim(),
-      calories: parseInt(calories) || 0,
-      protein: parseInt(protein) || 0,
-      carbs: parseInt(carbs) || 0,
-      fat: parseInt(fat) || 0,
+      calories: cal,
+      protein: p,
+      carbs: cb,
+      fat: f,
       isSaved: saveAsFavorite,
     };
     
@@ -519,9 +542,9 @@ export default function AddFoodScreen() {
           placeholder="0"
           keyboardType="number-pad"
           value={calories}
-          onChangeText={setCalories}
+          onChangeText={(t) => { setCalories(t); if (submitError) setSubmitError(null); }}
         />
-        
+
         <View style={styles.macroRow}>
           <View style={styles.macroInput}>
             <Input
@@ -529,7 +552,7 @@ export default function AddFoodScreen() {
               placeholder="0"
               keyboardType="number-pad"
               value={protein}
-              onChangeText={setProtein}
+              onChangeText={(t) => { setProtein(t); if (submitError) setSubmitError(null); }}
             />
           </View>
           <View style={styles.macroInput}>
@@ -538,7 +561,7 @@ export default function AddFoodScreen() {
               placeholder="0"
               keyboardType="number-pad"
               value={carbs}
-              onChangeText={setCarbs}
+              onChangeText={(t) => { setCarbs(t); if (submitError) setSubmitError(null); }}
             />
           </View>
           <View style={styles.macroInput}>
@@ -547,7 +570,7 @@ export default function AddFoodScreen() {
               placeholder="0"
               keyboardType="number-pad"
               value={fat}
-              onChangeText={setFat}
+              onChangeText={(t) => { setFat(t); if (submitError) setSubmitError(null); }}
             />
           </View>
         </View>
@@ -575,6 +598,15 @@ export default function AddFoodScreen() {
           <ThemedText type="body">Save to favorites</ThemedText>
         </AnimatedPress>
         
+        {submitError ? (
+          <View style={styles.submitErrorContainer}>
+            <Feather name="alert-circle" size={16} color={Colors.light.error} />
+            <ThemedText type="small" style={{ color: Colors.light.error, flex: 1 }}>
+              {submitError}
+            </ThemedText>
+          </View>
+        ) : null}
+
         <Button onPress={handleSubmit} style={styles.submitButton}>
           Add to Log
         </Button>
@@ -880,6 +912,15 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     marginTop: Spacing.lg,
+  },
+  submitErrorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    backgroundColor: Colors.light.error + "15",
+    borderRadius: BorderRadius.sm,
+    marginTop: Spacing.md,
   },
   recentMealThumb: {
     width: 44,

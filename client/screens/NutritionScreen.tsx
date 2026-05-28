@@ -99,16 +99,36 @@ export default function NutritionScreen() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedRef = useRef(false);
+  // Monotonic request id — every loadData bumps it; in-flight responses
+  // ignore their results if a newer call has started. Without this, rapid
+  // date / period toggling can let an earlier slower response overwrite
+  // a later faster one.
+  const loadRequestIdRef = useRef(0);
 
   const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
 
   const loadData = async () => {
+    const requestId = ++loadRequestIdRef.current;
+
     if (periodMode === "day") {
-      const [targets, totals, log] = await Promise.all([
+      // Single /api/food-logs?date=X call — totals are summed locally
+      // from the same response (previously getDailyTotals(date) plus
+      // getFoodLog(date) made two round-trips per render).
+      const [targets, log] = await Promise.all([
         storage.getMacroTargets(),
-        storage.getDailyTotals(selectedDate),
         storage.getFoodLog(selectedDate),
       ]);
+      if (requestId !== loadRequestIdRef.current) return;
+
+      const totals = log.reduce(
+        (acc, entry) => ({
+          calories: acc.calories + entry.food.calories,
+          protein: acc.protein + entry.food.protein,
+          carbs: acc.carbs + entry.food.carbs,
+          fat: acc.fat + entry.food.fat,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
       setMacroTargets(targets);
       setTodayTotals(totals);
       setFoodLog(log);
@@ -118,7 +138,8 @@ export default function NutritionScreen() {
         storage.getMacroTargets(),
         storage.getFoodLog(),
       ]);
-      setMacroTargets(targets);
+      if (requestId !== loadRequestIdRef.current) return;
+
       const periodEntries = allEntries.filter(
         (e) => e.date >= range.start && e.date <= range.end
       );
@@ -144,6 +165,7 @@ export default function NutritionScreen() {
         totals.fat += day.fat;
       }
 
+      setMacroTargets(targets);
       setPeriodAverages({
         calories: Math.round(totals.calories / divisor),
         protein: Math.round(totals.protein / divisor),
