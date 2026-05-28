@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { View, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -34,23 +34,29 @@ export default function WorkoutHistoryScreen() {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  // Race guard: rapid tab focus can fire concurrent loadData calls;
+  // ignore any whose responses arrive after a newer call started.
+  const loadRequestIdRef = useRef(0);
 
   const loadData = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     try {
       const [workoutData, runData, profile] = await Promise.all([
         storage.getWorkouts(),
         storage.getRunHistory(),
         storage.getUserProfile(),
       ]);
+      if (requestId !== loadRequestIdRef.current) return;
       if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
       setWorkouts(workoutData.filter((w) => w.completedAt));
       setRuns(runData);
       setError(false);
     } catch (e) {
+      if (requestId !== loadRequestIdRef.current) return;
       console.log("Failed to load workout history:", e);
       setError(true);
     } finally {
-      setIsLoading(false);
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   }, []);
 

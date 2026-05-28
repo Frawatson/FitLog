@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import { View, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -27,9 +27,11 @@ export default function WorkoutDetailScreen() {
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+  // Avoid skeleton flash on re-focus (e.g. returning from a sub-screen).
+  const hasLoadedRef = useRef(false);
 
   const loadWorkout = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     const [workouts, profile] = await Promise.all([
       storage.getWorkouts(),
       storage.getUserProfile(),
@@ -37,7 +39,10 @@ export default function WorkoutDetailScreen() {
     if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
     const found = workouts.find((w) => w.id === route.params.workoutId);
     setWorkout(found || null);
-    setLoading(false);
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      setLoading(false);
+    }
   }, [route.params.workoutId]);
 
   useFocusEffect(

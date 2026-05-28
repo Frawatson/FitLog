@@ -20,6 +20,14 @@ import type { UnitSystem } from "@/types";
 const screenWidth = Dimensions.get("window").width;
 type Period = "7d" | "30d" | "90d" | "all";
 
+// Parse YYYY-MM-DD as a local-tz Date (not UTC midnight). Used for
+// chart labels, sorting, and cutoff filtering of BodyWeightEntry.date
+// values produced by getLocalDateString().
+const parseLocalDate = (ymd: string): Date => {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
 export default function ProgressChartsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
@@ -57,8 +65,11 @@ export default function ProgressChartsScreen() {
     const cutoff = getCutoffDate(period);
     setBodyWeights(
       weights
-        .filter((w) => new Date(w.date) >= cutoff)
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        // BodyWeightEntry.date is YYYY-MM-DD from getLocalDateString;
+        // new Date(ymd) would parse as UTC midnight and exclude entries
+        // near the cutoff in negative-UTC zones. Compare in local tz.
+        .filter((w) => parseLocalDate(w.date) >= cutoff)
+        .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime())
     );
     setWorkouts(
       allWorkouts.filter((w) => w.completedAt && new Date(w.completedAt) >= cutoff)
@@ -137,16 +148,14 @@ export default function ProgressChartsScreen() {
     decimalPlaces: 1,
   };
 
-  // Local-tz parser for YYYY-MM-DD body-weight dates so the chart
-  // labels don't shift one day in negative-UTC zones. Mirrors the
+  // Local-tz parser for YYYY-MM-DD dates so chart labels and date
+  // comparisons don't shift one day in negative-UTC zones. Mirrors the
   // ProfileScreen fix from PR S.
-  const parseLocalDateLabel = (ymd: string) => {
-    const [y, m, d] = ymd.split("-").map(Number);
-    return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString("en-US", {
+  const parseLocalDateLabel = (ymd: string) =>
+    parseLocalDate(ymd).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
     });
-  };
 
   // Body-weight chart window should respect the selected period.
   // Previously hardcoded .slice(-7) ignored 30d/90d/all selections,
@@ -296,7 +305,9 @@ export default function ProgressChartsScreen() {
               <LineChart
                 data={{
                   labels: dailyCalories.slice(-7).map((d) =>
-                    new Date(d.date).toLocaleDateString("en-US", { day: "numeric" })
+                    // d.date is YYYY-MM-DD from getLocalDateString;
+                    // parseLocalDate avoids the UTC-midnight shift.
+                    parseLocalDate(d.date).toLocaleDateString("en-US", { day: "numeric" })
                   ),
                   datasets: [
                     { data: dailyCalories.slice(-7).map((d) => d.calories), color: () => "#FFA500" },
@@ -338,8 +349,12 @@ export default function ProgressChartsScreen() {
                 {exerciseFrequency.map((mg, i) => {
                   const maxCount = exerciseFrequency[0].count;
                   const barWidth = maxCount > 0 ? (mg.count / maxCount) * 100 : 0;
-                  const weeksInPeriod = getDaysInPeriod(period) / 7;
-                  const isUnderTrained = mg.count < weeksInPeriod;
+                  // Under-trained is "less than once per week within the
+                  // selected window". For "all" the window is the entire
+                  // lifetime of the account — a 52-week target makes
+                  // nearly everything look under-trained, so skip the flag.
+                  const weeksInPeriod = period === "all" ? null : getDaysInPeriod(period) / 7;
+                  const isUnderTrained = weeksInPeriod !== null && mg.count < weeksInPeriod;
                   return (
                     <View key={i} style={styles.muscleRow}>
                       <ThemedText

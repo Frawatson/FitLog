@@ -23,8 +23,13 @@ export default function AchievementsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const hasLoadedRef = useRef(false);
+  // Race guard: every loadData bumps the id; in-flight responses ignore
+  // their results if a newer call has started. Same pattern as
+  // ProgressChartsScreen / NutritionScreen.
+  const loadRequestIdRef = useRef(0);
 
   const loadData = async () => {
+    const requestId = ++loadRequestIdRef.current;
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
       const [workouts, runs, bodyWeights, allFoodLog] = await Promise.all([
@@ -33,6 +38,7 @@ export default function AchievementsScreen() {
         storage.getBodyWeights(),
         storage.getFoodLog(),
       ]);
+      if (requestId !== loadRequestIdRef.current) return;
 
       const foodDays = new Set(allFoodLog.map((f) => f.date)).size;
 
@@ -49,10 +55,13 @@ export default function AchievementsScreen() {
       // permanently disable the skeleton on retry.
       hasLoadedRef.current = true;
     } catch (e) {
+      if (requestId !== loadRequestIdRef.current) return;
       console.log("Failed to load achievements:", e);
       setError(true);
     } finally {
-      setIsLoading(false);
+      // Gate on still-current request: a stale call's setIsLoading(false)
+      // would otherwise clear the skeleton while a newer call is loading.
+      if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
   };
 
