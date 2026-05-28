@@ -55,6 +55,11 @@ export default function AddFoodScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<APIFoodResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  // Tracks whether the most recent search fell back to local results
+  // because the AI endpoint was unavailable (503 / network), as opposed
+  // to "AI ran but returned no matches". Lets the empty / sparse-results
+  // UI show the right copy instead of the generic "No foods found".
+  const [searchUsedLocalFallback, setSearchUsedLocalFallback] = useState(false);
   const [name, setName] = useState(prefill?.name || "");
   const [calories, setCalories] = useState(prefill?.calories || "");
   const [protein, setProtein] = useState(prefill?.protein || "");
@@ -140,65 +145,50 @@ export default function AddFoodScreen() {
     if (searchQuery.trim().length < 2) {
       setSearchResults([]);
       setIsSearching(false);
+      setSearchUsedLocalFallback(false);
       return;
     }
     
     setIsSearching(true);
+    const localFallback = (): APIFoodResult[] => searchFoods(searchQuery).map(f => ({
+      id: f.id,
+      name: f.name,
+      brand: null,
+      type: "local",
+      servingSize: f.servingSize,
+      calories: f.calories,
+      fat: f.fat,
+      carbs: f.carbs,
+      protein: f.protein,
+    }));
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const url = new URL("/api/foods/search", getApiUrl());
         url.searchParams.set("query", searchQuery.trim());
-        
+
         const response = await fetch(url.toString(), { credentials: "include" });
         if (response.ok) {
           const data = await response.json();
           if (data.foods && data.foods.length > 0) {
             setSearchResults(data.foods);
+            setSearchUsedLocalFallback(false);
           } else {
-            // Fall back to local database if API returns no results
-            const localResults = searchFoods(searchQuery).map(f => ({
-              id: f.id,
-              name: f.name,
-              brand: null,
-              type: "local",
-              servingSize: f.servingSize,
-              calories: f.calories,
-              fat: f.fat,
-              carbs: f.carbs,
-              protein: f.protein,
-            }));
-            setSearchResults(localResults);
+            // AI ran successfully but found no matches — still try local
+            // for partial matches, but mark that AI was up.
+            setSearchResults(localFallback());
+            setSearchUsedLocalFallback(false);
           }
         } else {
-          // API error - fall back to local database
-          const localResults = searchFoods(searchQuery).map(f => ({
-            id: f.id,
-            name: f.name,
-            brand: null,
-            type: "local",
-            servingSize: f.servingSize,
-            calories: f.calories,
-            fat: f.fat,
-            carbs: f.carbs,
-            protein: f.protein,
-          }));
-          setSearchResults(localResults);
+          // 503 / other error — AI is down. Fall back to local DB and
+          // tell the user so an empty result isn't read as "no food".
+          setSearchResults(localFallback());
+          setSearchUsedLocalFallback(true);
         }
       } catch (error) {
         console.error("Food search error:", error);
-        // Network error - fall back to local database
-        const localResults = searchFoods(searchQuery).map(f => ({
-          id: f.id,
-          name: f.name,
-          brand: null,
-          type: "local",
-          servingSize: f.servingSize,
-          calories: f.calories,
-          fat: f.fat,
-          carbs: f.carbs,
-          protein: f.protein,
-        }));
-        setSearchResults(localResults);
+        // Network error — same treatment as 503.
+        setSearchResults(localFallback());
+        setSearchUsedLocalFallback(true);
       } finally {
         setIsSearching(false);
       }
@@ -535,6 +525,10 @@ export default function AddFoodScreen() {
             placeholder="e.g., Chicken Breast"
             value={name}
             onChangeText={handleNameChange}
+            // Close suggestions on blur, with a small delay so a tap on
+            // a suggestion (which also blurs the input) can land before
+            // the dropdown unmounts.
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
             testID="input-food-name"
           />
           {showSuggestions ? (
@@ -675,6 +669,11 @@ export default function AddFoodScreen() {
               <ThemedText type="h4" style={styles.sectionTitle}>
                 Search Results
               </ThemedText>
+              {searchUsedLocalFallback ? (
+                <ThemedText type="small" style={{ opacity: 0.6, marginBottom: Spacing.sm }}>
+                  AI search is offline — showing local results only.
+                </ThemedText>
+              ) : null}
               {searchResults.map((item) => (
                 <Card
                   key={item.id}
@@ -711,7 +710,9 @@ export default function AddFoodScreen() {
           ) : searchQuery.length >= 2 ? (
             <View style={styles.noResultsContainer}>
               <ThemedText type="small" style={{ textAlign: "center", opacity: 0.6 }}>
-                No foods found for "{searchQuery}"
+                {searchUsedLocalFallback
+                  ? `AI search is offline and no local matches for "${searchQuery}". Try Custom Food.`
+                  : `No foods found for "${searchQuery}"`}
               </ThemedText>
             </View>
           ) : null}

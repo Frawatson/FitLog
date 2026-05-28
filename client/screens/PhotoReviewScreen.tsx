@@ -22,18 +22,26 @@ import { getLocalDateString } from "@/lib/dateUtils";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type ScreenRouteProp = RouteProp<RootStackParamList, "PhotoReview">;
 
+// Numeric fields are kept as strings so the user can clear an input
+// without it snapping back to "0" mid-typing. Parsing happens once at
+// totals / save time via parseN().
 interface ReviewItem {
   name: string;
   category: string;
-  grams: number;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
+  grams: string;
+  calories: string;
+  protein: string;
+  carbs: string;
+  fat: string;
   confidence: string;
   notes: string;
   servingSize: string;
 }
+
+const parseN = (s: string): number => {
+  const n = parseInt((s || "").trim(), 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+};
 
 export default function PhotoReviewScreen() {
   const insets = useSafeAreaInsets();
@@ -48,11 +56,11 @@ export default function PhotoReviewScreen() {
     foods.map((f: any) => ({
       name: f.name || "",
       category: f.category || "",
-      grams: f.estimatedWeightGrams || 0,
-      calories: f.calories || 0,
-      protein: f.protein || 0,
-      carbs: f.carbs || 0,
-      fat: f.fat || 0,
+      grams: String(f.estimatedWeightGrams || 0),
+      calories: String(f.calories || 0),
+      protein: String(f.protein || 0),
+      carbs: String(f.carbs || 0),
+      fat: String(f.fat || 0),
       confidence: f.confidence || "medium",
       notes: f.notes || "",
       servingSize: f.servingSize || "",
@@ -65,25 +73,16 @@ export default function PhotoReviewScreen() {
 
   const totals = items.reduce(
     (acc, item) => ({
-      calories: acc.calories + item.calories,
-      protein: acc.protein + item.protein,
-      carbs: acc.carbs + item.carbs,
-      fat: acc.fat + item.fat,
+      calories: acc.calories + parseN(item.calories),
+      protein: acc.protein + parseN(item.protein),
+      carbs: acc.carbs + parseN(item.carbs),
+      fat: acc.fat + parseN(item.fat),
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   );
 
   const updateItem = (index: number, field: keyof ReviewItem, value: string) => {
-    setItems((prev) => {
-      const updated = [...prev];
-      const numFields = ["grams", "calories", "protein", "carbs", "fat"];
-      if (numFields.includes(field)) {
-        (updated[index] as any)[field] = parseInt(value) || 0;
-      } else {
-        (updated[index] as any)[field] = value;
-      }
-      return updated;
-    });
+    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
   };
 
   const removeItem = (index: number) => {
@@ -112,7 +111,9 @@ export default function PhotoReviewScreen() {
     // Drop any item that's been zeroed out — the screen lets the user
     // delete a row, but they can also just clear all fields. Either way
     // we don't want a 0-cal placeholder entry in the log.
-    const valid = items.filter((i) => i.calories > 0 || i.protein > 0 || i.carbs > 0 || i.fat > 0);
+    const valid = items.filter(
+      (i) => parseN(i.calories) > 0 || parseN(i.protein) > 0 || parseN(i.carbs) > 0 || parseN(i.fat) > 0,
+    );
     if (valid.length === 0) return;
 
     setIsLogging(true);
@@ -132,10 +133,10 @@ export default function PhotoReviewScreen() {
         const food: Food = {
           id: uuidv4(),
           name: item.name,
-          calories: item.calories,
-          protein: item.protein,
-          carbs: item.carbs,
-          fat: item.fat,
+          calories: parseN(item.calories),
+          protein: parseN(item.protein),
+          carbs: parseN(item.carbs),
+          fat: parseN(item.fat),
           isSaved: false,
           ...(item.servingSize ? { serving: item.servingSize } : {}),
         };
@@ -228,7 +229,7 @@ export default function PhotoReviewScreen() {
                     {item.name}
                   </ThemedText>
                   <ThemedText type="small" style={{ opacity: 0.6 }}>
-                    ~{item.grams}g | {item.calories} cal
+                    ~{parseN(item.grams)}g | {parseN(item.calories)} cal
                   </ThemedText>
                 </View>
               </View>
@@ -261,7 +262,7 @@ export default function PhotoReviewScreen() {
                     <ThemedText type="small" style={styles.editLabel}>Grams</ThemedText>
                     <TextInput
                       style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
-                      value={item.grams.toString()}
+                      value={item.grams}
                       onChangeText={(v) => updateItem(index, "grams", v)}
                       keyboardType="number-pad"
                       testID={`edit-grams-${index}`}
@@ -271,7 +272,7 @@ export default function PhotoReviewScreen() {
                     <ThemedText type="small" style={styles.editLabel}>Calories</ThemedText>
                     <TextInput
                       style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
-                      value={item.calories.toString()}
+                      value={item.calories}
                       onChangeText={(v) => updateItem(index, "calories", v)}
                       keyboardType="number-pad"
                       testID={`edit-calories-${index}`}
@@ -283,7 +284,7 @@ export default function PhotoReviewScreen() {
                     <ThemedText type="small" style={[styles.editLabel, { color: Colors.light.success }]}>P (g)</ThemedText>
                     <TextInput
                       style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
-                      value={item.protein.toString()}
+                      value={item.protein}
                       onChangeText={(v) => updateItem(index, "protein", v)}
                       keyboardType="number-pad"
                     />
@@ -292,7 +293,7 @@ export default function PhotoReviewScreen() {
                     <ThemedText type="small" style={[styles.editLabel, { color: "#FFA500" }]}>C (g)</ThemedText>
                     <TextInput
                       style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
-                      value={item.carbs.toString()}
+                      value={item.carbs}
                       onChangeText={(v) => updateItem(index, "carbs", v)}
                       keyboardType="number-pad"
                     />
@@ -301,7 +302,7 @@ export default function PhotoReviewScreen() {
                     <ThemedText type="small" style={[styles.editLabel, { color: "#9B59B6" }]}>F (g)</ThemedText>
                     <TextInput
                       style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
-                      value={item.fat.toString()}
+                      value={item.fat}
                       onChangeText={(v) => updateItem(index, "fat", v)}
                       keyboardType="number-pad"
                     />

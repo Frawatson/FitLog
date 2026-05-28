@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Pressable, ViewStyle } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, StyleProp } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -18,7 +18,10 @@ interface CardProps {
   description?: string;
   children?: React.ReactNode;
   onPress?: () => void;
-  style?: ViewStyle;
+  // Accept the full StyleProp shape so callers can pass an array
+  // (e.g. [styles.card, { marginBottom: Spacing.sm }]) without a TS
+  // error. Was producing 4 of the 11 baseline errors.
+  style?: StyleProp<ViewStyle>;
 }
 
 const springConfig: WithSpringConfig = {

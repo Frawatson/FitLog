@@ -10,6 +10,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -37,6 +38,8 @@ export default function EditMacrosScreen() {
   const [carbs, setCarbs] = useState("");
   const [fat, setFat] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [autoCalcMessage, setAutoCalcMessage] = useState<string | null>(null);
 
   // Sane outer limits — the server already rejects calories <= 0 / negative
   // macros with a 400 that syncWithRetry swallows, so without these the
@@ -56,12 +59,16 @@ export default function EditMacrosScreen() {
   }, []);
 
   const loadMacros = async () => {
-    const macros = await storage.getMacroTargets();
-    if (macros) {
-      setCalories(macros.calories.toString());
-      setProtein(macros.protein.toString());
-      setCarbs(macros.carbs.toString());
-      setFat(macros.fat.toString());
+    try {
+      const macros = await storage.getMacroTargets();
+      if (macros) {
+        setCalories(macros.calories.toString());
+        setProtein(macros.protein.toString());
+        setCarbs(macros.carbs.toString());
+        setFat(macros.fat.toString());
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -80,6 +87,9 @@ export default function EditMacrosScreen() {
     setProtein(macros.protein.toString());
     setCarbs(macros.carbs.toString());
     setFat(macros.fat.toString());
+    // Visible confirmation — beyond the haptic, which web users don't get
+    // at all. Auto-clears so it doesn't linger past the user's next edit.
+    setAutoCalcMessage(`Filled in from your profile (${macros.calories} cal/day).`);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
@@ -117,6 +127,19 @@ export default function EditMacrosScreen() {
   const macroTotal = p * 4 + c * 4 + f * 9;
   const hasMacroValues = p > 0 || c > 0 || f > 0;
   const isBalanced = cal > 0 && hasMacroValues && Math.abs(macroTotal - cal) / cal <= 0.05;
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight + Spacing.xl, paddingHorizontal: Spacing.lg }]}>
+        <SkeletonLoader variant="line" width="60%" height={32} style={{ marginBottom: Spacing.sm }} />
+        <SkeletonLoader variant="line" width="80%" height={18} style={{ marginBottom: Spacing.xl }} />
+        <SkeletonLoader variant="card" height={88} style={{ marginBottom: Spacing.md }} />
+        <SkeletonLoader variant="card" height={88} style={{ marginBottom: Spacing.md }} />
+        <SkeletonLoader variant="card" height={88} style={{ marginBottom: Spacing.md }} />
+        <SkeletonLoader variant="card" height={88} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
@@ -161,7 +184,11 @@ export default function EditMacrosScreen() {
               <TextInput
                 style={[styles.macroInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
                 value={value}
-                onChangeText={(t) => { setter(t); if (error) setError(null); }}
+                onChangeText={(t) => {
+                  setter(t);
+                  if (error) setError(null);
+                  if (autoCalcMessage) setAutoCalcMessage(null);
+                }}
                 keyboardType="number-pad"
                 placeholder={macro.placeholder}
                 placeholderTextColor={theme.textSecondary}
@@ -180,6 +207,15 @@ export default function EditMacrosScreen() {
             />
             <ThemedText type="small" style={{ color: isBalanced ? Colors.light.success : "#FFA500" }}>
               Macro total: {macroTotal} cal {isBalanced ? "(balanced)" : `(target: ${cal})`}
+            </ThemedText>
+          </View>
+        ) : null}
+
+        {autoCalcMessage ? (
+          <View style={[styles.balanceRow, { backgroundColor: Colors.light.success + "15" }]}>
+            <Feather name="check-circle" size={16} color={Colors.light.success} />
+            <ThemedText type="small" style={{ color: Colors.light.success, flex: 1 }}>
+              {autoCalcMessage}
             </ThemedText>
           </View>
         ) : null}

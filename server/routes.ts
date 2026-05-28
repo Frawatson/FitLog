@@ -1074,8 +1074,23 @@ Return JSON only:
     try {
       const userId = (req as any).userId;
       const { foodData } = req.body;
-      if (!foodData) {
+      if (!foodData || typeof foodData !== "object") {
         return res.status(400).json({ error: "foodData is required" });
+      }
+      // Match POST's contract: calories must be a positive number,
+      // macros non-negative. Otherwise an edit could silently downgrade
+      // an entry to 0 cal / garbage values.
+      const { calories, protein, carbs, fat, name } = foodData;
+      if (typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({ error: "Food name is required" });
+      }
+      if (typeof calories !== "number" || !Number.isFinite(calories) || calories <= 0) {
+        return res.status(400).json({ error: "calories must be a positive number" });
+      }
+      for (const [val, label] of [[protein, "protein"], [carbs, "carbs"], [fat, "fat"]] as const) {
+        if (typeof val !== "number" || !Number.isFinite(val) || val < 0) {
+          return res.status(400).json({ error: `${label} must be a non-negative number` });
+        }
       }
       const updated = await updateFoodLog(userId, req.params.clientId, foodData);
       if (!updated) {
