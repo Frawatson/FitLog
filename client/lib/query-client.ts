@@ -1,10 +1,22 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { Platform } from "react-native";
 
 /**
  * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
+  // On web, always call back to the origin the page was served from.
+  // The Express server serves both the static bundle and /api, so they
+  // are always co-located. Using window.location.origin means a custom
+  // domain CNAME (e.g. gbolo.fit → Railway) "just works" — same-origin
+  // satisfies CSP `connect-src 'self'`, no CORS preflight, cookies
+  // attach automatically. The baked-in EXPO_PUBLIC_DOMAIN can't keep
+  // up with new aliases without a fresh web export.
+  if (Platform.OS === "web" && typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin + "/";
+  }
+
   const host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {
