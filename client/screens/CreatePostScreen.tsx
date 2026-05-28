@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Pressable, Image, Platform, Linking } from "react-native";
+import { View, StyleSheet, ScrollView, TextInput, Pressable, Image, Platform, Linking, ActivityIndicator } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -59,8 +59,30 @@ export default function CreatePostScreen() {
   useEffect(() => {
     if (!hasPrefill) {
       loadRecent();
+      // Restore an in-progress draft from a previous session. Skipped
+      // for prefill flows so "Share my workout" doesn't overwrite the
+      // saved draft text the user might still want.
+      storage.getPostDraft().then((draft) => {
+        if (!draft) return;
+        if (draft.content) setContent(draft.content);
+        if (draft.postType) setPostType(draft.postType);
+        if (draft.visibility) setVisibility(draft.visibility);
+      });
     }
   }, []);
+
+  // Debounced auto-save. Only fires while the user is composing a fresh
+  // post — prefill mode owns its own content + type and shouldn't
+  // overwrite their saved draft.
+  useEffect(() => {
+    if (hasPrefill) return;
+    const timeoutId = setTimeout(() => {
+      if (content || postType !== "text" || visibility !== "followers") {
+        storage.savePostDraft({ content, postType, visibility });
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [content, postType, visibility, hasPrefill]);
 
   const loadRecent = async () => {
     try {
@@ -176,6 +198,10 @@ export default function CreatePostScreen() {
     setReferenceData({
       distanceKm: r.distanceKm,
       durationMinutes: durMin,
+      // Numeric so viewers can format in their own unit system. The
+      // legacy `pace` string is kept for backward compat with posts
+      // created before this change.
+      paceMinPerKm: r.paceMinPerKm,
       pace: `${Math.floor(r.paceMinPerKm)}:${String(Math.round((r.paceMinPerKm % 1) * 60)).padStart(2, "0")} /km`,
       calories: r.calories,
       route: r.route ? simplifyRoute(r.route) : undefined,
@@ -201,6 +227,8 @@ export default function CreatePostScreen() {
         visibility,
       });
       if (result.success) {
+        // Don't leave the draft behind once the post is live.
+        await storage.clearPostDraft();
         navigation.goBack();
       } else {
         webSafeAlert("Error", "Failed to create post. Try again.");
@@ -257,6 +285,15 @@ export default function CreatePostScreen() {
         maxLength={500}
         textAlignVertical="top"
       />
+      <ThemedText
+        type="caption"
+        style={[
+          styles.charCount,
+          { color: content.length > 450 ? Colors.light.error : theme.textSecondary },
+        ]}
+      >
+        {content.length} / 500
+      </ThemedText>
 
       {/* Photo Attachment */}
       {imageUri ? (
@@ -343,7 +380,16 @@ export default function CreatePostScreen() {
       </View>
 
       <Button onPress={handlePost} disabled={posting}>
-        {posting ? "Posting..." : "Post"}
+        {posting ? (
+          <View style={styles.postBtnRow}>
+            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ThemedText type="body" style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>
+              Posting...
+            </ThemedText>
+          </View>
+        ) : (
+          "Post"
+        )}
       </Button>
     </ScrollView>
   );
@@ -372,7 +418,16 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     fontSize: 16,
     minHeight: 100,
+    marginBottom: Spacing.xs,
+  },
+  charCount: {
+    textAlign: "right",
     marginBottom: Spacing.xl,
+  },
+  postBtnRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   addPhotoBtn: {
     flexDirection: "row",

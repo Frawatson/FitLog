@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import { View, StyleSheet, FlatList, TextInput, Pressable, KeyboardAvoidingView, Platform, Image } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,9 @@ import { emitPostDeleted } from "@/lib/postEvents";
 import { showSystemMenu } from "@/components/SystemMenu";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { timeAgo } from "@/lib/timeAgo";
+import { formatDistance, formatPace, formatPaceUnit } from "@/lib/units";
+import * as storage from "@/lib/storage";
+import type { UnitSystem } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -41,6 +44,17 @@ export default function PostDetailScreen() {
   const [serverTime, setServerTime] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+
+  // Load viewer's unit preference so a run post shows distance / pace
+  // in their unit system, not whatever the author posted in. New posts
+  // include paceMinPerKm numerically; older ones fall back to the
+  // string captured at post time.
+  useEffect(() => {
+    storage.getUserProfile().then((p) => {
+      if (p?.unitSystem) setUnitSystem(p.unitSystem);
+    });
+  }, []);
   const [sending, setSending] = useState(false);
   const [editingPost, setEditingPost] = useState(false);
   const [editPostText, setEditPostText] = useState("");
@@ -433,9 +447,11 @@ export default function PostDetailScreen() {
                   )}
                   <ThemedText type="small" style={{ color: theme.textSecondary }}>
                     {[
-                      ref.distanceKm != null && `${ref.distanceKm.toFixed(2)} km`,
+                      ref.distanceKm != null && formatDistance(ref.distanceKm, unitSystem),
                       ref.durationMinutes && `${ref.durationMinutes}m`,
-                      ref.pace && `${ref.pace}`,
+                      ref.paceMinPerKm != null
+                        ? `${formatPace(ref.paceMinPerKm, unitSystem)} ${formatPaceUnit(unitSystem)}`
+                        : ref.pace || null,
                       ref.calories && `${ref.calories} cal`,
                     ].filter(Boolean).join(" \u00B7 ")}
                   </ThemedText>

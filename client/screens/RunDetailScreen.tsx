@@ -79,6 +79,7 @@ export default function RunDetailScreen() {
           referenceData: {
             distanceKm: run.distanceKm,
             durationMinutes: Math.round(run.durationSeconds / 60),
+            paceMinPerKm: run.paceMinPerKm,
             pace: formatPace(run.paceMinPerKm, unitSystem),
             calories: run.calories,
             route: run.route ? simplifyRoute(run.route) : undefined,

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
 import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -20,9 +20,14 @@ import { showSystemMenu } from "@/components/SystemMenu";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { useAuth } from "@/contexts/AuthContext";
 import { timeAgo } from "@/lib/timeAgo";
+import { formatDistance, formatPace, formatPaceUnit } from "@/lib/units";
+import * as storage from "@/lib/storage";
+import type { UnitSystem } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+const SEARCH_BAR_HEIGHT = 56;
 
 const POST_TYPE_CONFIG: Record<PostType, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
   workout: { icon: "activity", color: "#1B3A27", label: "Workout" },
@@ -32,13 +37,14 @@ const POST_TYPE_CONFIG: Record<PostType, { icon: keyof typeof Feather.glyphMap; 
   text: { icon: "edit-3", color: "#9BA1A6", label: "Post" },
 };
 
-function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime }: {
+function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitSystem }: {
   post: Post;
   onLike: (post: Post) => void;
   onPress: (post: Post) => void;
   onMorePress?: (post: Post) => void;
   theme: any;
   serverTime?: string;
+  unitSystem: UnitSystem;
 }) {
   const config = POST_TYPE_CONFIG[post.postType] || POST_TYPE_CONFIG.text;
   const ref = post.referenceData;
@@ -95,9 +101,17 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime }: {
       {post.postType === "run" && ref && (
         <View style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}>
           <View style={styles.statsRow}>
-            {ref.distanceKm != null && <StatChip icon="navigation" value={`${ref.distanceKm.toFixed(2)} km`} theme={theme} />}
+            {ref.distanceKm != null && <StatChip icon="navigation" value={formatDistance(ref.distanceKm, unitSystem)} theme={theme} />}
             {ref.durationMinutes ? <StatChip icon="clock" value={`${ref.durationMinutes}m`} theme={theme} /> : null}
-            {ref.pace ? <StatChip icon="trending-up" value={ref.pace} theme={theme} /> : null}
+            {ref.paceMinPerKm != null ? (
+              <StatChip
+                icon="trending-up"
+                value={`${formatPace(ref.paceMinPerKm, unitSystem)} ${formatPaceUnit(unitSystem)}`}
+                theme={theme}
+              />
+            ) : ref.pace ? (
+              <StatChip icon="trending-up" value={ref.pace} theme={theme} />
+            ) : null}
           </View>
         </View>
       )}
@@ -159,7 +173,40 @@ export default function SocialFeedScreen() {
   const [serverTime, setServerTime] = useState<string | undefined>();
   const [loadingMore, setLoadingMore] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const hasLoadedRef = useRef(false);
+
+  // Viewer's unit preference for formatting run-post stats.
+  useEffect(() => {
+    storage.getUserProfile().then((p) => {
+      if (p?.unitSystem) setUnitSystem(p.unitSystem);
+    });
+  }, []);
+
+  // Bell with unread badge lives in the native nav header so it stays
+  // reachable when the feed is scrolled (was previously inside
+  // ListHeaderComponent and scrolled away with the content).
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => navigation.navigate("Notifications")}
+          hitSlop={8}
+          style={{ marginRight: Spacing.lg }}
+          accessibilityLabel="Notifications"
+        >
+          <Feather name="bell" size={22} color={theme.text} />
+          {unreadCount > 0 && (
+            <View style={styles.headerBadge}>
+              <ThemedText type="caption" style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </ThemedText>
+            </View>
+          )}
+        </Pressable>
+      ),
+    });
+  }, [navigation, unreadCount, theme.text]);
 
   const loadFeed = async (cursor?: string) => {
     const result = await getFeed(cursor);
@@ -212,7 +259,14 @@ export default function SocialFeedScreen() {
     setLoadingMore(true);
     try {
       const result = await loadFeed(nextCursor);
-      setPosts(prev => [...prev, ...result.posts]);
+      setPosts(prev => {
+        // Dedupe by id — if the feed cursor re-emits a post the user
+        // already has (e.g. follow / unfollow churn while paginating),
+        // a blind append would render the same row twice.
+        const seen = new Set(prev.map((p) => p.id));
+        const fresh = result.posts.filter((p) => !seen.has(p.id));
+        return [...prev, ...fresh];
+      });
       setNextCursor(result.nextCursor);
     } finally {
       setLoadingMore(false);
@@ -312,11 +366,31 @@ export default function SocialFeedScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
+      {/* Sticky search bar under the nav header — was inside the
+          FlatList's ListHeaderComponent and scrolled out of view. */}
+      <View
+        style={[
+          styles.searchSticky,
+          {
+            top: headerHeight,
+            backgroundColor: theme.backgroundRoot,
+            borderBottomColor: theme.border,
+          },
+        ]}
+      >
+        <AnimatedPress
+          onPress={() => navigation.navigate("UserSearch")}
+          style={[styles.searchBtn, { backgroundColor: theme.backgroundDefault, borderColor: theme.border, flex: 1 }]}
+        >
+          <Feather name="search" size={16} color={theme.textSecondary} />
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>Find people...</ThemedText>
+        </AnimatedPress>
+      </View>
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={{
-          paddingTop: headerHeight + Spacing.lg,
+          paddingTop: headerHeight + SEARCH_BAR_HEIGHT + Spacing.lg,
           paddingBottom: insets.bottom + Spacing["5xl"],
           paddingHorizontal: Spacing.lg,
           gap: Spacing.md,
@@ -325,7 +399,15 @@ export default function SocialFeedScreen() {
           alignSelf: "center",
         }}
         renderItem={({ item }) => (
-          <PostCard post={item} onLike={handleLike} onPress={handlePostPress} onMorePress={user && item.userId !== Number(user.id) ? handleMorePress : undefined} theme={theme} serverTime={serverTime} />
+          <PostCard
+            post={item}
+            onLike={handleLike}
+            onPress={handlePostPress}
+            onMorePress={user && item.userId !== Number(user.id) ? handleMorePress : undefined}
+            theme={theme}
+            serverTime={serverTime}
+            unitSystem={unitSystem}
+          />
         )}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
         onEndReached={onEndReached}
@@ -337,24 +419,6 @@ export default function SocialFeedScreen() {
             <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
               Follow other users or create your first post to get started.
             </ThemedText>
-          </View>
-        }
-        ListHeaderComponent={
-          <View style={styles.headerRow}>
-            <AnimatedPress onPress={() => navigation.navigate("UserSearch")} style={[styles.searchBtn, { backgroundColor: theme.backgroundDefault, borderColor: theme.border, flex: 1 }]}>
-              <Feather name="search" size={16} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.textSecondary }}>Find people...</ThemedText>
-            </AnimatedPress>
-            <AnimatedPress onPress={() => navigation.navigate("Notifications")} style={[styles.bellBtn, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
-              <Feather name="bell" size={20} color={theme.text} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <ThemedText type="caption" style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </ThemedText>
-                </View>
-              )}
-            </AnimatedPress>
           </View>
         }
       />
@@ -371,7 +435,16 @@ export default function SocialFeedScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerRow: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.sm },
+  searchSticky: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: SEARCH_BAR_HEIGHT,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    zIndex: 50,
+  },
   searchBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -381,18 +454,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
   },
-  bellBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  badge: {
+  headerBadge: {
     position: "absolute",
     top: -4,
-    right: -4,
+    right: -6,
     backgroundColor: Colors.light.error,
     borderRadius: 10,
     minWidth: 18,

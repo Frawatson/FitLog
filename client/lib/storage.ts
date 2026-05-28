@@ -29,7 +29,35 @@ const STORAGE_KEYS = {
   SAVED_FOODS: "@merge_saved_foods",
   FOOD_LOG: "@merge_food_log",
   RUN_HISTORY: "@merge_run_history",
+  POST_DRAFT: "@merge_post_draft",
 };
+
+// Local-only draft so a user who navigates away mid-compose doesn't lose
+// what they typed. Cleared on successful post. Photos + reference links
+// aren't persisted — base64 images would bloat AsyncStorage and references
+// can re-pick on return.
+export interface PostDraft {
+  content: string;
+  postType: import("@/types").PostType;
+  visibility: import("@/types").PostVisibility;
+}
+
+export async function getPostDraft(): Promise<PostDraft | null> {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.POST_DRAFT);
+    return data ? JSON.parse(data) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function savePostDraft(draft: PostDraft): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.POST_DRAFT, JSON.stringify(draft));
+}
+
+export async function clearPostDraft(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEYS.POST_DRAFT);
+}
 
 // Default exercises — names match ExerciseDB for guaranteed GIF lookup
 const DEFAULT_EXERCISES: Exercise[] = [
