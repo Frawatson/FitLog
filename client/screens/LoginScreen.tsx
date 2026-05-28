@@ -68,7 +68,7 @@ export default function LoginScreen() {
             </View>
             <ThemedText type="h1" style={styles.title}>Gbolo</ThemedText>
             <ThemedText type="body" style={styles.subtitle}>
-              The only fitness and nutrition app you'll need.
+              The only fitness app you'll need.
             </ThemedText>
           </View>
 
