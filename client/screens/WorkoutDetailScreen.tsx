@@ -9,8 +9,9 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Workout } from "@/types";
+import type { Workout, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
+import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type WorkoutDetailRouteProp = RouteProp<RootStackParamList, "WorkoutDetail">;
@@ -24,10 +25,15 @@ export default function WorkoutDetailScreen() {
 
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
 
   const loadWorkout = useCallback(async () => {
     setLoading(true);
-    const workouts = await storage.getWorkouts();
+    const [workouts, profile] = await Promise.all([
+      storage.getWorkouts(),
+      storage.getUserProfile(),
+    ]);
+    if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
     const found = workouts.find((w) => w.id === route.params.workoutId);
     setWorkout(found || null);
     setLoading(false);
@@ -135,7 +141,12 @@ export default function WorkoutDetailScreen() {
           <View style={styles.statItem}>
             <Feather name="trending-up" size={20} color={Colors.light.primary} />
             <ThemedText type="h3" style={styles.statValue}>{Math.round(totalVolume)}</ThemedText>
-            <ThemedText type="small" style={styles.statLabel}>lbs volume</ThemedText>
+            {/* Label only — set.weight is stored as the raw number the
+                user typed (no kg/lbs conversion), so we just label with
+                the current preference. A metric user who logged kg sees
+                "kg volume"; switching units later won't re-convert
+                historical entries (data-model concern, not a regression). */}
+            <ThemedText type="small" style={styles.statLabel}>{weightLabel(unitSystem)} volume</ThemedText>
           </View>
         </View>
       </Card>
@@ -165,7 +176,7 @@ export default function WorkoutDetailScreen() {
                 {setIndex + 1}
               </ThemedText>
               <ThemedText type="body" style={[styles.setValue, { flex: 2, textAlign: "center" }]}>
-                {set.weight} lbs
+                {set.weight} {weightLabel(unitSystem)}
               </ThemedText>
               <ThemedText type="body" style={[styles.setValue, { flex: 2, textAlign: "center" }]}>
                 {set.reps}

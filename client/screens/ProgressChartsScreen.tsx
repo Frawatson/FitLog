@@ -33,8 +33,14 @@ export default function ProgressChartsScreen() {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedRef = useRef(false);
+  // Monotonic request id — every loadData bumps it; in-flight responses
+  // ignore their results if a newer call has started. Without this,
+  // rapid period taps could let an earlier slow response overwrite a
+  // newer fast one. Same pattern as NutritionScreen (PR J).
+  const loadRequestIdRef = useRef(0);
 
   const loadData = async () => {
+    const requestId = ++loadRequestIdRef.current;
     if (!hasLoadedRef.current) setIsLoading(true);
 
     const [weights, allWorkouts, targets, profile] = await Promise.all([
@@ -43,6 +49,7 @@ export default function ProgressChartsScreen() {
       storage.getMacroTargets(),
       storage.getUserProfile(),
     ]);
+    if (requestId !== loadRequestIdRef.current) return;
 
     if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
     setMacroTargets(targets);
@@ -79,6 +86,9 @@ export default function ProgressChartsScreen() {
     const allTotals = await Promise.all(
       dateStrs.map((dateStr) => storage.getDailyTotals(dateStr))
     );
+    // Same race guard as the first await — a newer load may have
+    // started while these N calorie fetches were in flight.
+    if (requestId !== loadRequestIdRef.current) return;
     const cals = dateStrs
       .map((dateStr, i) => ({ date: dateStr, calories: allTotals[i].calories }))
       .filter((c) => c.calories > 0);

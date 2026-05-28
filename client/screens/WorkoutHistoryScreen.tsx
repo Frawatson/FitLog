@@ -8,12 +8,15 @@ import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
+import { Button } from "@/components/Button";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { WorkoutCalendar } from "@/components/WorkoutCalendar";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Workout, RunEntry } from "@/types";
+import type { Workout, RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
+import { formatDistance } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getLocalDateString } from "@/lib/dateUtils";
 
@@ -28,14 +31,27 @@ export default function WorkoutHistoryScreen() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [runs, setRuns] = useState<RunEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [workoutData, runData] = await Promise.all([
-      storage.getWorkouts(),
-      storage.getRunHistory(),
-    ]);
-    setWorkouts(workoutData.filter((w) => w.completedAt));
-    setRuns(runData);
+    try {
+      const [workoutData, runData, profile] = await Promise.all([
+        storage.getWorkouts(),
+        storage.getRunHistory(),
+        storage.getUserProfile(),
+      ]);
+      if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
+      setWorkouts(workoutData.filter((w) => w.completedAt));
+      setRuns(runData);
+      setError(false);
+    } catch (e) {
+      console.log("Failed to load workout history:", e);
+      setError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useFocusEffect(
@@ -66,6 +82,49 @@ export default function WorkoutHistoryScreen() {
         return getLocalDateString(new Date(d)) === selectedDate;
       })
     : [];
+
+  if (isLoading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight + Spacing.lg,
+            paddingHorizontal: Spacing.lg,
+          },
+        ]}
+      >
+        <SkeletonLoader variant="card" />
+        <View style={{ height: Spacing.lg }} />
+        <SkeletonLoader variant="card" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
+        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+          Could not load history.
+        </ThemedText>
+        <Button onPress={() => { setError(false); setIsLoading(true); loadData(); }} variant="outline">
+          Retry
+        </Button>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -134,7 +193,7 @@ export default function WorkoutHistoryScreen() {
                   </View>
                   <View style={styles.activityInfo}>
                     <ThemedText type="body" style={{ fontWeight: "600" }}>
-                      {r.distanceKm.toFixed(1)} km Run
+                      {formatDistance(r.distanceKm, unitSystem)} Run
                     </ThemedText>
                     <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                       {r.durationSeconds ? `${Math.round(r.durationSeconds / 60)} min` : ""}
