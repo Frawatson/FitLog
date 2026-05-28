@@ -224,7 +224,9 @@ export default function DashboardScreen() {
   return (
     <>
       <RetractableHeader
-        logoSource={require("../../assets/images/icon.png")}
+        // Dedicated transparent logo so the header adapts to dark/light mode
+        // — icon.png has to stay opaque-green for the App Store.
+        logoSource={require("../../assets/images/header-logo.png")}
         logoHeight={32}
         animatedStyle={headerAnimStyle}
       />
