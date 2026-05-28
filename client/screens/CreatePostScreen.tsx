@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Pressable, Alert, Image, Platform, Linking } from "react-native";
+import { View, StyleSheet, ScrollView, TextInput, Pressable, Image, Platform, Linking } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -11,12 +11,14 @@ import * as ImageManipulator from "expo-image-manipulator";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { PostType, PostVisibility, Workout, RunEntry } from "@/types";
 import { createSocialPost } from "@/lib/socialStorage";
 import * as storage from "@/lib/storage";
 import { simplifyRoute } from "@/lib/units";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -136,18 +138,19 @@ export default function CreatePostScreen() {
   };
 
   const handleAddPhoto = () => {
-    // On web there's no camera path — Alert.alert is a no-op anyway,
-    // which used to leave web users completely unable to attach photos.
-    // Go straight to the file picker.
-    if (Platform.OS === "web") {
-      pickImage();
-      return;
-    }
-    Alert.alert("Add Photo", "Choose a source", [
-      { text: "Camera", onPress: takePhoto },
-      { text: "Photo Library", onPress: pickImage },
-      { text: "Cancel", style: "cancel" },
-    ]);
+    // showSystemMenu delegates to Alert.alert on native and renders a
+    // modal sheet on web. Previously web users couldn't reach the camera
+    // path because Alert.alert is a no-op there and the code shortcut
+    // straight to pickImage().
+    showSystemMenu({
+      title: "Add Photo",
+      message: "Choose a source",
+      options: [
+        { label: "Camera", onPress: takePhoto },
+        { label: "Photo Library", onPress: pickImage },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   const selectWorkout = (w: Workout, idx: number) => {
@@ -181,24 +184,35 @@ export default function CreatePostScreen() {
 
   const handlePost = async () => {
     if (!content.trim() && !referenceData && !imageBase64) {
-      Alert.alert("Add content", "Write something, select an activity, or add a photo.");
+      // webSafeAlert (not Alert.alert) — the latter is a no-op on web,
+      // which left web users without any "must add content" feedback.
+      webSafeAlert("Add content", "Write something, select an activity, or add a photo.");
       return;
     }
     setPosting(true);
-    const result = await createSocialPost({
-      clientId: uuid(),
-      postType,
-      content: content.trim() || undefined,
-      referenceId,
-      referenceData,
-      imageData: imageBase64 || undefined,
-      visibility,
-    });
-    setPosting(false);
-    if (result.success) {
-      navigation.goBack();
-    } else {
-      Alert.alert("Error", "Failed to create post. Try again.");
+    try {
+      const result = await createSocialPost({
+        clientId: uuid(),
+        postType,
+        content: content.trim() || undefined,
+        referenceId,
+        referenceData,
+        imageData: imageBase64 || undefined,
+        visibility,
+      });
+      if (result.success) {
+        navigation.goBack();
+      } else {
+        webSafeAlert("Error", "Failed to create post. Try again.");
+      }
+    } catch (err) {
+      // Without this try/catch the previous code would throw past
+      // setPosting(false), stranding the Post button in "Posting..."
+      // disabled state for the rest of the screen's lifetime.
+      console.error("Create post failed:", err);
+      webSafeAlert("Error", "Network error. Please try again.");
+    } finally {
+      setPosting(false);
     }
   };
 
