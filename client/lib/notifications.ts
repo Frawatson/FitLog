@@ -4,6 +4,51 @@ import { Platform } from "react-native";
 import { syncToServer, syncWithRetry, isAuthenticated } from "@/lib/syncService";
 
 const NOTIFICATION_SETTINGS_KEY = "@merge_notification_settings";
+// Tracks the scheduled-notification ids per type so we can cancel each
+// independently. Previously scheduleWorkoutReminder ran
+// cancelAllScheduledNotificationsAsync which clobbered any other
+// scheduled notification — so adding a streak reminder via the same
+// pattern would have each toggle nuke the other.
+const NOTIFICATION_IDS_KEY = "@merge_notification_ids";
+
+type ScheduledKey = "workout" | "streak";
+
+async function getScheduledIds(): Promise<Partial<Record<ScheduledKey, string>>> {
+  try {
+    const data = await AsyncStorage.getItem(NOTIFICATION_IDS_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function rememberId(key: ScheduledKey, id: string | null): Promise<void> {
+  try {
+    const ids = await getScheduledIds();
+    if (id) {
+      ids[key] = id;
+    } else {
+      delete ids[key];
+    }
+    await AsyncStorage.setItem(NOTIFICATION_IDS_KEY, JSON.stringify(ids));
+  } catch {
+    // ignore — id tracking is best-effort
+  }
+}
+
+async function cancelOne(key: ScheduledKey): Promise<void> {
+  if (Platform.OS === "web") return;
+  const ids = await getScheduledIds();
+  const id = ids[key];
+  if (id) {
+    try {
+      await Notifications.cancelScheduledNotificationAsync(id);
+    } catch {
+      // notification may have already fired or been cancelled — fine
+    }
+    await rememberId(key, null);
+  }
+}
 
 export interface NotificationSettings {
   workoutReminders: boolean;
@@ -93,7 +138,10 @@ export async function scheduleWorkoutReminder(hour: number, minute: number): Pro
   }
 
   try {
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    // Cancel only our previous workout-reminder id, not all
+    // notifications — otherwise the streak reminder would be wiped
+    // every time the workout reminder is (re)scheduled.
+    await cancelOne("workout");
 
     const id = await Notifications.scheduleNotificationAsync({
       content: {
@@ -107,12 +155,49 @@ export async function scheduleWorkoutReminder(hour: number, minute: number): Pro
         minute,
       },
     });
-
+    await rememberId("workout", id);
     return id;
   } catch (error) {
     console.log("Error scheduling workout reminder:", error);
     return null;
   }
+}
+
+export async function cancelWorkoutReminder(): Promise<void> {
+  await cancelOne("workout");
+}
+
+// Daily "are you keeping your streak?" reminder. Scheduled at the same
+// hour/minute as the workout reminder for v1 — the Settings UI exposes
+// a single time. A future iteration could check whether the user
+// actually logged something today before firing (needs a background
+// task), but the daily ping at least respects the toggle.
+export async function scheduleStreakReminder(hour: number, minute: number): Promise<string | null> {
+  if (Platform.OS === "web") return null;
+  try {
+    await cancelOne("streak");
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Don't lose your streak!",
+        body: "Log a workout, run, or meal today to keep your streak going.",
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+      },
+    });
+    await rememberId("streak", id);
+    return id;
+  } catch (error) {
+    console.log("Error scheduling streak reminder:", error);
+    return null;
+  }
+}
+
+export async function cancelStreakReminder(): Promise<void> {
+  await cancelOne("streak");
 }
 
 export async function sendStreakReminderNotification(currentStreak: number): Promise<void> {

@@ -62,9 +62,14 @@ export default function ProgressChartsScreen() {
       setIsLoading(false);
     }
 
-    // Load daily calories in parallel (no skeleton needed)
+    // Load daily calories in parallel. The chart slices to the most
+    // recent 7 entries with data (see dailyCalories.slice(-7) below),
+    // so fetching more than that was 23 wasted server round-trips per
+    // render. Period selection currently doesn't affect the calorie
+    // chart window — addressed separately.
+    const CAL_WINDOW = 7;
     const days = getDaysInPeriod(period);
-    const count = Math.min(days, 30);
+    const count = Math.min(days, CAL_WINDOW);
     const today = new Date();
     const dateStrs = Array.from({ length: count }, (_, i) => {
       const d = new Date(today);

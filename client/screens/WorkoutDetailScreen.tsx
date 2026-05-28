@@ -108,10 +108,15 @@ export default function WorkoutDetailScreen() {
       <Card style={styles.summaryCard}>
         <ThemedText type="h2" style={styles.routineName}>{workout.routineName}</ThemedText>
         <ThemedText type="small" style={styles.dateText}>
-          {formatDate(workout.completedAt!)}
+          {/* Workouts in progress have no completedAt — fall back to
+              startedAt so we never call new Date(undefined) and render
+              "Invalid Date" / crash. */}
+          {formatDate(workout.completedAt ?? workout.startedAt)}
         </ThemedText>
         <ThemedText type="small" style={styles.timeText}>
-          {formatTime(workout.startedAt)} - {formatTime(workout.completedAt!)}
+          {workout.completedAt
+            ? `${formatTime(workout.startedAt)} - ${formatTime(workout.completedAt)}`
+            : `Started ${formatTime(workout.startedAt)} · in progress`}
         </ThemedText>
         
         <View style={styles.statsRow}>

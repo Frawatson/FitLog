@@ -78,7 +78,9 @@ export default function SettingsScreen() {
       }
       await notifications.scheduleWorkoutReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
     } else {
-      await notifications.cancelAllNotifications();
+      // Cancel only the workout reminder — was previously
+      // cancelAllNotifications which would also wipe the streak reminder.
+      await notifications.cancelWorkoutReminder();
     }
     const updated = { ...notifSettings, workoutReminders: value };
     setNotifSettings(updated);
@@ -97,6 +99,12 @@ export default function SettingsScreen() {
         }
         return;
       }
+      // Previously this toggle ONLY persisted to AsyncStorage —
+      // no scheduling, no reminder ever fired. Now schedules a daily
+      // notification at the same hour:minute as the workout reminder.
+      await notifications.scheduleStreakReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
+    } else {
+      await notifications.cancelStreakReminder();
     }
     const updated = { ...notifSettings, streakAlerts: value };
     setNotifSettings(updated);
@@ -108,8 +116,12 @@ export default function SettingsScreen() {
     const updated = { ...notifSettings, reminderTime: { hour, minute } };
     setNotifSettings(updated);
     await notifications.saveNotificationSettings(updated);
+    // Re-schedule whichever toggles are on so the new time takes effect.
     if (notifSettings.workoutReminders) {
       await notifications.scheduleWorkoutReminder(hour, minute);
+    }
+    if (notifSettings.streakAlerts) {
+      await notifications.scheduleStreakReminder(hour, minute);
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
