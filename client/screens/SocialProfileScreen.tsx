@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, Alert, Platform } from "react-native";
+import { View, StyleSheet, FlatList, RefreshControl, Pressable } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -10,6 +10,7 @@ import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
+import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -78,7 +79,7 @@ export default function SocialProfileScreen() {
     }
   };
 
-  const handleBlock = async () => {
+  const handleBlock = () => {
     if (!profile) return;
     const action = profile.isBlockedByMe ? "Unblock" : "Block";
     const message = profile.isBlockedByMe
@@ -94,21 +95,18 @@ export default function SocialProfileScreen() {
         setProfile(prev => prev ? { ...prev, isBlockedByMe: true, isFollowedByMe: false } : prev);
       }
     };
-
-    if (Platform.OS === "web") {
-      if (window.confirm(`${action} ${profile.name}? ${message}`)) {
-        await doAction();
-      }
-      return;
-    }
-    Alert.alert(
-      `${action} ${profile.name}?`,
+    // Cross-platform confirm — was previously Platform.OS branching
+    // between Alert.alert and window.confirm. showSystemMenu handles
+    // both correctly and matches the pattern already in use across the
+    // rest of the social Report/Block/Delete flows.
+    showSystemMenu({
+      title: `${action} ${profile.name}?`,
       message,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: action, style: profile.isBlockedByMe ? "default" : "destructive", onPress: doAction },
-      ]
-    );
+      options: [
+        { label: action, destructive: !profile.isBlockedByMe, onPress: doAction },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   if (isLoading) {

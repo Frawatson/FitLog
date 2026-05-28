@@ -48,10 +48,18 @@ export default function CreatePostScreen() {
   const [referenceId, setReferenceId] = useState<string | undefined>(prefill?.referenceId);
   const [recentWorkouts, setRecentWorkouts] = useState<Workout[]>([]);
   const [recentRuns, setRecentRuns] = useState<RunEntry[]>([]);
-  const [selectedRefIndex, setSelectedRefIndex] = useState<number | null>(prefill ? 0 : null);
+  // selectedRefIndex was previously `prefill ? 0 : null`, but the
+  // reference picker is only rendered when !hasPrefill, so the 0 was
+  // dead state that highlighted a row no user could see. Always init
+  // to null and let the user click to select.
+  const [selectedRefIndex, setSelectedRefIndex] = useState<number | null>(null);
   const [posting, setPosting] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  // Surfaces "Couldn't load recent activities" so the reference picker
+  // doesn't silently show as empty when storage.getWorkouts/getRunHistory
+  // throw — previously the catch only logged to the console.
+  const [recentLoadError, setRecentLoadError] = useState(false);
 
   const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
@@ -92,8 +100,10 @@ export default function CreatePostScreen() {
       ]);
       setRecentWorkouts(workouts.slice(0, 5));
       setRecentRuns(runs.slice(0, 5));
+      setRecentLoadError(false);
     } catch (e) {
       console.log("Failed to load recent activities:", e);
+      setRecentLoadError(true);
     }
   };
 
@@ -331,6 +341,17 @@ export default function CreatePostScreen() {
         </View>
       )}
 
+      {/* Reference Picker error — only shown if the recent loader
+          threw and the user has selected a type that needs a picker. */}
+      {!hasPrefill && recentLoadError && (postType === "workout" || postType === "run") && (
+        <View style={[styles.refLoadError, { backgroundColor: Colors.light.error + "15" }]}>
+          <Feather name="alert-circle" size={16} color={Colors.light.error} />
+          <ThemedText type="small" style={{ color: Colors.light.error, flex: 1 }}>
+            Couldn't load recent {postType === "workout" ? "workouts" : "runs"}. You can still write a caption.
+          </ThemedText>
+        </View>
+      )}
+
       {/* Reference Picker (only when not prefilled) */}
       {!hasPrefill && postType === "workout" && recentWorkouts.length > 0 && (
         <View style={{ marginBottom: Spacing.xl }}>
@@ -428,6 +449,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+  },
+  refLoadError: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.sm,
+    marginBottom: Spacing.lg,
   },
   addPhotoBtn: {
     flexDirection: "row",
