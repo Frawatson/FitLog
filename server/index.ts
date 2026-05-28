@@ -200,7 +200,10 @@ async function startServer() {
     app.get("/manifest.webmanifest", (_req: Request, res: Response) => {
       res.setHeader("content-type", "application/manifest+json");
       res.json({
-        name: "Gbolo Fitness and Nutrition",
+        // `name` is what Chrome / Android show in the install dialog and
+        // in the long-form app label. `short_name` is what Android shows
+        // under the icon on the home screen (truncated otherwise).
+        name: "Gbolo Fitness & Nutrition",
         short_name: "Gbolo",
         description:
           "Track workouts, runs, and food with AI-powered macro estimation.",
@@ -336,7 +339,10 @@ async function startServer() {
         `<link rel="apple-touch-icon" href="/assets/images/icon.png" />`,
         `<meta name="apple-mobile-web-app-capable" content="yes" />`,
         `<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />`,
-        `<meta name="apple-mobile-web-app-title" content="Gbolo" />`,
+        // iOS uses this as the default name in the Add-to-Home-Screen
+        // dialog and as the label under the icon (truncated to fit).
+        // Ampersand escaped for valid HTML; iOS renders it as "&".
+        `<meta name="apple-mobile-web-app-title" content="Gbolo Fitness &amp; Nutrition" />`,
         // Register the no-op SW so Chrome's install-banner heuristic
         // activates. Errors are swallowed — install is a nice-to-have.
         `<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}</script>`,
