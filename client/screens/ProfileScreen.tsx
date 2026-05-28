@@ -16,6 +16,7 @@ import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { showSystemMenu } from "@/components/SystemMenu";
 import { RetractableHeader } from "@/components/RetractableHeader";
 import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
@@ -64,8 +65,11 @@ export default function ProfileScreen() {
   const [socialProfile, setSocialProfile] = useState<SocialProfile | null>(null);
   const [editingBio, setEditingBio] = useState(false);
   const [bioText, setBioText] = useState("");
+  const [savingBio, setSavingBio] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
+
+  const BIO_MAX = 150;
 
   const loadData = async () => {
     const userId = user ? Number(user.id) : null;
@@ -84,18 +88,26 @@ export default function ProfileScreen() {
   };
 
   const handleSaveBio = async () => {
+    if (savingBio) return;
     const trimmed = bioText.trim();
-    // Optimistic update + rollback on failure. Previously the local bio
-    // was set unconditionally, so an API rejection silently diverged
-    // local from server.
     const previous = socialProfile;
+    setSavingBio(true);
+    // Optimistic local bio update but keep the editor mounted so the
+    // Save spinner is actually visible during the in-flight save.
+    // Editor closes only on confirmed success; on failure we restore
+    // the previous bio and let the user retry without losing their
+    // text.
     setSocialProfile((prev) => (prev ? { ...prev, bio: trimmed } : prev));
-    setEditingBio(false);
-    const ok = await updateSocialProfileApi({ bio: trimmed });
-    if (!ok) {
-      setSocialProfile(previous);
-      setEditingBio(true);
-      webSafeAlert("Couldn't save bio", "Please try again.");
+    try {
+      const ok = await updateSocialProfileApi({ bio: trimmed });
+      if (ok) {
+        setEditingBio(false);
+      } else {
+        setSocialProfile(previous);
+        webSafeAlert("Couldn't save bio", "Please try again.");
+      }
+    } finally {
+      setSavingBio(false);
     }
   };
 
@@ -197,13 +209,53 @@ export default function ProfileScreen() {
     }
 
     setWeightLogError(null);
-    await storage.addBodyWeight(weightInKg);
+    const newEntry = await storage.addBodyWeight(weightInKg);
+    // Splice into local state directly instead of re-running loadData
+    // (which would re-fetch profile + macros + social profile too).
+    // Same-day re-log replaces the existing entry to match the server's
+    // upsert; otherwise the new entry leads the list.
+    setBodyWeights((prev) => {
+      const others = prev.filter((e) => e.date !== newEntry.date);
+      return [newEntry, ...others];
+    });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setNewWeight("");
     setShowWeightInput(false);
-    loadData();
   };
-  
+
+  const handleDeleteWeight = (entry: BodyWeightEntry) => {
+    const displayValue = formatWeight(entry.weightKg, profile?.unitSystem || "imperial");
+    // Parse YYYY-MM-DD as a *local* date (not UTC) — the entry.date
+    // stored by addBodyWeight is local-tz YYYY-MM-DD, so new Date(...)
+    // would interpret it as UTC midnight and display one day off in
+    // any negative-UTC timezone.
+    const [y, m, d] = entry.date.split("-").map(Number);
+    const dateStr = new Date(y, (m || 1) - 1, d || 1).toLocaleDateString();
+    showSystemMenu({
+      title: "Delete weight entry?",
+      message: `Remove ${displayValue} from ${dateStr}.`,
+      options: [
+        {
+          label: "Delete",
+          destructive: true,
+          onPress: async () => {
+            // Optimistic — drop locally first, restore if the API rejects.
+            const previous = bodyWeights;
+            setBodyWeights((prev) => prev.filter((e) => e.id !== entry.id));
+            try {
+              await storage.deleteBodyWeight(entry.id);
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } catch {
+              setBodyWeights(previous);
+              webSafeAlert("Couldn't delete entry", "Please try again.");
+            }
+          },
+        },
+        { label: "Cancel", cancel: true },
+      ],
+    });
+  };
+
   const handleLogout = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await logout();
@@ -345,17 +397,32 @@ export default function ProfileScreen() {
                 onChangeText={setBioText}
                 placeholder="Write a short bio…"
                 placeholderTextColor={theme.textSecondary}
-                maxLength={150}
+                maxLength={BIO_MAX}
                 multiline
                 autoFocus
               />
-              <View style={{ flexDirection: "row", gap: Spacing.md, justifyContent: "flex-end", marginTop: Spacing.xs }}>
-                <Pressable onPress={() => { setBioText(socialProfile?.bio || ""); setEditingBio(false); }}>
-                  <ThemedText type="small" style={{ color: theme.textSecondary }}>Cancel</ThemedText>
-                </Pressable>
-                <Pressable onPress={handleSaveBio}>
-                  <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: "700" }}>Save</ThemedText>
-                </Pressable>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: Spacing.xs }}>
+                <ThemedText
+                  type="caption"
+                  style={{ color: bioText.length > BIO_MAX - 20 ? Colors.light.error : theme.textSecondary }}
+                >
+                  {bioText.length} / {BIO_MAX}
+                </ThemedText>
+                <View style={{ flexDirection: "row", gap: Spacing.md }}>
+                  <Pressable
+                    onPress={() => { setBioText(socialProfile?.bio || ""); setEditingBio(false); }}
+                    disabled={savingBio}
+                  >
+                    <ThemedText type="small" style={{ color: theme.textSecondary }}>Cancel</ThemedText>
+                  </Pressable>
+                  <Pressable onPress={handleSaveBio} disabled={savingBio}>
+                    {savingBio ? (
+                      <ActivityIndicator size="small" color={Colors.light.primary} />
+                    ) : (
+                      <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: "700" }}>Save</ThemedText>
+                    )}
+                  </Pressable>
+                </View>
               </View>
             </View>
           )}
@@ -508,9 +575,18 @@ export default function ProfileScreen() {
                 {bodyWeights.slice(0, 3).map((entry) => (
                   <View key={entry.id} style={styles.weightEntry}>
                     <ThemedText type="body">{formatWeight(entry.weightKg, profile?.unitSystem || "imperial")}</ThemedText>
-                    <ThemedText type="small" style={{ opacity: 0.6 }}>
-                      {new Date(entry.date).toLocaleDateString()}
-                    </ThemedText>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.md }}>
+                      <ThemedText type="small" style={{ opacity: 0.6 }}>
+                        {new Date(entry.date).toLocaleDateString()}
+                      </ThemedText>
+                      <Pressable
+                        onPress={() => handleDeleteWeight(entry)}
+                        hitSlop={8}
+                        accessibilityLabel="Delete weight entry"
+                      >
+                        <Feather name="x" size={16} color={theme.textSecondary} />
+                      </Pressable>
+                    </View>
                   </View>
                 ))}
                 <Pressable onPress={() => navigation.navigate("ProgressCharts")}>

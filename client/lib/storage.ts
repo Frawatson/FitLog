@@ -452,6 +452,24 @@ async function getBodyWeightsLocal(): Promise<BodyWeightEntry[]> {
   }
 }
 
+export async function deleteBodyWeight(id: string): Promise<void> {
+  const entries = await getBodyWeightsLocal();
+  const filtered = entries.filter((e) => e.id !== id);
+  await AsyncStorage.setItem(STORAGE_KEYS.BODY_WEIGHTS, JSON.stringify(filtered));
+
+  const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  if (token) {
+    try {
+      await fetch(new URL(`/api/body-weights/${id}`, getApiUrl()).toString(), {
+        method: "DELETE",
+        headers: await getAuthHeaders(),
+      });
+    } catch (e) {
+      console.log("Failed to delete body weight on server");
+    }
+  }
+}
+
 // Saved Foods
 export async function getSavedFoods(): Promise<Food[]> {
   try {
