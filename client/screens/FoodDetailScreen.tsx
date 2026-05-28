@@ -16,6 +16,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
 import * as storage from "@/lib/storage";
 import { showSystemMenu } from "@/components/SystemMenu";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -74,14 +75,35 @@ export default function FoodDetailScreen() {
     setIsEditing(true);
   };
 
+  // Mirrors AddFoodScreen's bounds (per-entry, not daily totals) — the
+  // edit path used to do `parseInt(x) || 0` which silently coerced
+  // "abc" to 0, accepted negatives, and allowed 6-digit garbage that
+  // would blow up the daily totals on the next render.
+  const MAX_CAL_PER_ENTRY = 10000;
+  const MAX_MACRO_G = 1000;
+
   const handleSaveEdit = async () => {
+    const cal = parseInt(editCalories.trim(), 10);
+    if (!Number.isFinite(cal) || cal <= 0 || cal > MAX_CAL_PER_ENTRY) {
+      webSafeAlert("Invalid value", `Calories must be between 1 and ${MAX_CAL_PER_ENTRY}.`);
+      return;
+    }
+    const p = editProtein.trim() === "" ? 0 : parseInt(editProtein.trim(), 10);
+    const cb = editCarbs.trim() === "" ? 0 : parseInt(editCarbs.trim(), 10);
+    const f = editFat.trim() === "" ? 0 : parseInt(editFat.trim(), 10);
+    for (const [val, label] of [[p, "Protein"], [cb, "Carbs"], [f, "Fat"]] as const) {
+      if (!Number.isFinite(val) || val < 0 || val > MAX_MACRO_G) {
+        webSafeAlert("Invalid value", `${label} must be between 0 and ${MAX_MACRO_G}g.`);
+        return;
+      }
+    }
     const updatedFood: Food = {
       ...entry.food,
       name: editName.trim() || entry.food.name,
-      calories: parseInt(editCalories) || 0,
-      protein: parseInt(editProtein) || 0,
-      carbs: parseInt(editCarbs) || 0,
-      fat: parseInt(editFat) || 0,
+      calories: cal,
+      protein: p,
+      carbs: cb,
+      fat: f,
     };
     await storage.updateFoodLogEntry(entry.id, updatedFood);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

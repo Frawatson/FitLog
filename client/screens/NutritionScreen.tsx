@@ -221,6 +221,11 @@ export default function NutritionScreen() {
     return Colors.light.error;
   };
 
+  // Guards every ratio passed to ProgressRing — see comment at the
+  // ring grid below for why this matters.
+  const safeRatio = (actual: number, target: number): number =>
+    target > 0 ? actual / target : 0;
+
   const handleCameraFAB = async () => {
     if (!cameraPermission?.granted) {
       const result = await requestCameraPermission();
@@ -373,29 +378,34 @@ export default function NutritionScreen() {
 
         {macroTargets && periodMode === "day" ? (
           <View style={styles.macroRings}>
+            {/* safeRatio: protein/carbs/fat targets can legitimately be 0
+                (EditMacrosScreen allows >= 0 for macros). Dividing by 0
+                produces NaN/Infinity which ProgressRing animates to via
+                withTiming(Math.min(NaN, 1)) — the arc fails to render.
+                Returning 0 paints an empty ring, an honest "0 of 0". */}
             <ProgressRing
-              progress={todayTotals.calories / macroTargets.calories}
+              progress={safeRatio(todayTotals.calories, macroTargets.calories)}
               size={90}
               label="Calories"
               value={`${todayTotals.calories}`}
               color={Colors.light.primary}
             />
             <ProgressRing
-              progress={todayTotals.protein / macroTargets.protein}
+              progress={safeRatio(todayTotals.protein, macroTargets.protein)}
               size={90}
               label="Protein"
               value={`${todayTotals.protein}g`}
               color={Colors.light.success}
             />
             <ProgressRing
-              progress={todayTotals.carbs / macroTargets.carbs}
+              progress={safeRatio(todayTotals.carbs, macroTargets.carbs)}
               size={90}
               label="Carbs"
               value={`${todayTotals.carbs}g`}
               color="#FFA500"
             />
             <ProgressRing
-              progress={todayTotals.fat / macroTargets.fat}
+              progress={safeRatio(todayTotals.fat, macroTargets.fat)}
               size={90}
               label="Fat"
               value={`${todayTotals.fat}g`}
