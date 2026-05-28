@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Alert, Platform } from "react-native";
+import { View, StyleSheet, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { MapDisplay } from "@/components/MapDisplay";
+import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem } from "@/types";
@@ -58,21 +59,14 @@ export default function RunDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
     };
-
-    if (Platform.OS === "web") {
-      if (window.confirm("Delete this run? This action cannot be undone.")) {
-        doDelete();
-      }
-    } else {
-      Alert.alert(
-        "Delete Run",
-        "Are you sure you want to delete this run? This action cannot be undone.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: doDelete },
-        ]
-      );
-    }
+    showSystemMenu({
+      title: "Delete Run",
+      message: "Are you sure you want to delete this run? This action cannot be undone.",
+      options: [
+        { label: "Delete", destructive: true, onPress: doDelete },
+        { label: "Cancel", cancel: true },
+      ],
+    });
   };
 
   const handleShare = () => {

@@ -75,6 +75,10 @@ export default function RunTrackerScreen() {
   const durationRef = useRef(0);
   const unitSystemRef = useRef<UnitSystem>("imperial");
   const distanceRef = useRef(0);
+  // Prevents completeRun from firing twice when the user taps Stop in
+  // the same tick that the goal-reached effect fires. Without this,
+  // both branches call saveRunEntry() and navigate to RunComplete twice.
+  const isCompletingRef = useRef(false);
 
   const speakCue = (text: string) => {
     if (audioMutedRef.current) return;
@@ -130,6 +134,7 @@ export default function RunTrackerScreen() {
         goalReachedRef.current = false;
         durationRef.current = 0;
         distanceRef.current = 0;
+        isCompletingRef.current = false;
       }
     }, [isRunning])
   );
@@ -266,6 +271,7 @@ export default function RunTrackerScreen() {
     lastAnnouncedMile.current = 0;
     durationRef.current = 0;
     distanceRef.current = 0;
+    isCompletingRef.current = false;
     startTimeRef.current = new Date().toISOString();
 
     if (goal) {
@@ -338,8 +344,11 @@ export default function RunTrackerScreen() {
   }, [distance, duration, isRunning, isPaused]);
   
   const completeRun = async (goalReached: boolean) => {
+    if (isCompletingRef.current) return;
+    isCompletingRef.current = true;
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
@@ -627,14 +636,21 @@ export default function RunTrackerScreen() {
         </View>
         
         <View style={styles.historySection}>
-          <ThemedText type="h3" style={{ marginBottom: Spacing.md }}>Run History</ThemedText>
+          <View style={styles.historyHeaderRow}>
+            <ThemedText type="h3">Run History</ThemedText>
+            {runHistory.length > 5 ? (
+              <AnimatedPress onPress={() => navigation.navigate("RunHistory")}>
+                <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: "600" }}>
+                  See all
+                </ThemedText>
+              </AnimatedPress>
+            ) : null}
+          </View>
           {runHistory.length > 0 ? (
             runHistory.slice(0, 5).map((run) => (
               <Card
                 key={run.id}
-                onPress={() => {
-                  navigation.navigate("RunDetail" as any, { run });
-                }}
+                onPress={() => navigation.navigate("RunDetail", { run })}
                 style={styles.historyCard}
               >
                 <View style={styles.historyHeader}>
@@ -913,6 +929,12 @@ const styles = StyleSheet.create({
   },
   historySection: {
     padding: Spacing.lg,
+  },
+  historyHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Spacing.md,
   },
   historyCard: {
     marginBottom: Spacing.sm,

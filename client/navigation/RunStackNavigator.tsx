@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import RunGoalScreen from "@/screens/RunGoalScreen";
 import RunTrackerScreen from "@/screens/RunTrackerScreen";
 import RunDetailScreen from "@/screens/RunDetailScreen";
+import RunHistoryScreen from "@/screens/RunHistoryScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import type { RunEntry } from "@/types";
 
@@ -18,6 +19,7 @@ export type RunStackParamList = {
   RunGoal: undefined;
   RunTracker: { goal?: RunGoal };
   RunDetail: { run: RunEntry };
+  RunHistory: undefined;
 };
 
 const Stack = createNativeStackNavigator<RunStackParamList>();
@@ -41,6 +43,11 @@ export default function RunStackNavigator() {
         name="RunDetail"
         component={RunDetailScreen}
         options={{ headerTitle: "Run Details" }}
+      />
+      <Stack.Screen
+        name="RunHistory"
+        component={RunHistoryScreen}
+        options={{ headerTitle: "All Runs" }}
       />
     </Stack.Navigator>
   );

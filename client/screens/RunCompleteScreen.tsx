@@ -48,6 +48,21 @@ export default function RunCompleteScreen() {
   const [maxHRInput, setMaxHRInput] = useState("");
   const [userAge, setUserAge] = useState(30);
   const [hrSaved, setHrSaved] = useState(false);
+  const [hrError, setHrError] = useState<string | null>(null);
+
+  // Plausible adult resting → max-effort range. Rejects 0, negatives,
+  // typos like 9999, and the silent-undefined trap from `parseInt("0") || undefined`.
+  const HR_MIN = 30;
+  const HR_MAX = 250;
+  const parseHR = (raw: string): { value: number | undefined; invalid: boolean } => {
+    const trimmed = raw.trim();
+    if (!trimmed) return { value: undefined, invalid: false };
+    const parsed = parseInt(trimmed, 10);
+    if (!Number.isFinite(parsed) || parsed < HR_MIN || parsed > HR_MAX) {
+      return { value: undefined, invalid: true };
+    }
+    return { value: parsed, invalid: false };
+  };
 
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
@@ -75,8 +90,21 @@ export default function RunCompleteScreen() {
 
   const handleSaveHeartRate = async () => {
     if (!run) return;
-    const avgHR = parseInt(avgHRInput) || undefined;
-    const maxHR = parseInt(maxHRInput) || undefined;
+    const avgParsed = parseHR(avgHRInput);
+    const maxParsed = parseHR(maxHRInput);
+
+    if (avgParsed.invalid || maxParsed.invalid) {
+      setHrError(`Enter a value between ${HR_MIN} and ${HR_MAX} bpm.`);
+      return;
+    }
+    if (maxParsed.value !== undefined && avgParsed.value !== undefined && maxParsed.value < avgParsed.value) {
+      setHrError("Max HR must be greater than or equal to average HR.");
+      return;
+    }
+    setHrError(null);
+
+    const avgHR = avgParsed.value;
+    const maxHR = maxParsed.value;
     if (avgHR || maxHR) {
       let hrZone: HeartRateZone | undefined;
       if (avgHR) {
@@ -161,8 +189,11 @@ export default function RunCompleteScreen() {
   const paceUnit = formatPaceUnit(unitSystem);
   const calories = run.calories || Math.round(run.distanceKm * 0.621371 * 100);
 
-  const zoneInfo = avgHRInput
-    ? getZoneForHeartRate(parseInt(avgHRInput) || 0, userAge)
+  // Only preview a zone for an in-range avg HR. Out-of-range / non-numeric
+  // input shows no preview rather than the spurious "Zone 1" for 0 bpm.
+  const previewParsed = parseHR(avgHRInput);
+  const zoneInfo = previewParsed.value !== undefined
+    ? getZoneForHeartRate(previewParsed.value, userAge)
     : null;
 
   return (
@@ -259,10 +290,11 @@ export default function RunCompleteScreen() {
                       <TextInput
                         style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
                         value={avgHRInput}
-                        onChangeText={setAvgHRInput}
+                        onChangeText={(t) => { setAvgHRInput(t); if (hrError) setHrError(null); }}
                         keyboardType="number-pad"
                         placeholder="145"
                         placeholderTextColor={theme.textSecondary}
+                        maxLength={3}
                       />
                     </View>
                     <View style={styles.hrInputGroup}>
@@ -270,10 +302,11 @@ export default function RunCompleteScreen() {
                       <TextInput
                         style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
                         value={maxHRInput}
-                        onChangeText={setMaxHRInput}
+                        onChangeText={(t) => { setMaxHRInput(t); if (hrError) setHrError(null); }}
                         keyboardType="number-pad"
                         placeholder="175"
                         placeholderTextColor={theme.textSecondary}
+                        maxLength={3}
                       />
                     </View>
                   </View>
@@ -286,6 +319,12 @@ export default function RunCompleteScreen() {
                       </ThemedText>
                     </View>
                   )}
+
+                  {hrError ? (
+                    <ThemedText type="small" style={{ color: Colors.light.error, textAlign: "center", marginBottom: Spacing.sm }}>
+                      {hrError}
+                    </ThemedText>
+                  ) : null}
 
                   <View style={styles.hrButtons}>
                     <AnimatedPress
