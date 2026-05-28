@@ -641,13 +641,13 @@ export default function ProfileScreen() {
               <ThemedText type="small">Protein</ThemedText>
             </View>
             <View style={styles.macroItem}>
-              <ThemedText type="h3" style={{ color: "#FFA500" }}>
+              <ThemedText type="h3" style={{ color: Colors.light.macroCarbs }}>
                 {macros.carbs}g
               </ThemedText>
               <ThemedText type="small">Carbs</ThemedText>
             </View>
             <View style={styles.macroItem}>
-              <ThemedText type="h3" style={{ color: "#9B59B6" }}>
+              <ThemedText type="h3" style={{ color: Colors.light.macroFat }}>
                 {macros.fat}g
               </ThemedText>
               <ThemedText type="small">Fat</ThemedText>

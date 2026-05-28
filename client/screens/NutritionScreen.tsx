@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useMemo } from "react";
 import { View, StyleSheet, Pressable, Image, Platform, Linking, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
@@ -99,9 +99,6 @@ export default function NutritionScreen() {
   const [periodMode, setPeriodMode] = useState<PeriodMode>("day");
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [macroTargets, setMacroTargets] = useState<MacroTargets | null>(null);
-  const [todayTotals, setTodayTotals] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
-  const [periodAverages, setPeriodAverages] = useState<MacroTargets>({ calories: 0, protein: 0, carbs: 0, fat: 0 });
-  const [periodDaysLogged, setPeriodDaysLogged] = useState(0);
   const [foodLog, setFoodLog] = useState<FoodLogEntry[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,26 +115,12 @@ export default function NutritionScreen() {
     const requestId = ++loadRequestIdRef.current;
 
     if (periodMode === "day") {
-      // Single /api/food-logs?date=X call — totals are summed locally
-      // from the same response (previously getDailyTotals(date) plus
-      // getFoodLog(date) made two round-trips per render).
       const [targets, log] = await Promise.all([
         storage.getMacroTargets(),
         storage.getFoodLog(selectedDate),
       ]);
       if (requestId !== loadRequestIdRef.current) return;
-
-      const totals = log.reduce(
-        (acc, entry) => ({
-          calories: acc.calories + entry.food.calories,
-          protein: acc.protein + entry.food.protein,
-          carbs: acc.carbs + entry.food.carbs,
-          fat: acc.fat + entry.food.fat,
-        }),
-        { calories: 0, protein: 0, carbs: 0, fat: 0 },
-      );
       setMacroTargets(targets);
-      setTodayTotals(totals);
       setFoodLog(log);
     } else {
       const range = getDateRange(selectedDate, periodMode);
@@ -148,36 +131,7 @@ export default function NutritionScreen() {
         storage.getFoodLog({ start: range.start, end: range.end }),
       ]);
       if (requestId !== loadRequestIdRef.current) return;
-
-      // Group by date and sum
-      const dailyMap = new Map<string, MacroTargets>();
-      for (const entry of periodEntries) {
-        const existing = dailyMap.get(entry.date) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
-        existing.calories += entry.food.calories;
-        existing.protein += entry.food.protein;
-        existing.carbs += entry.food.carbs;
-        existing.fat += entry.food.fat;
-        dailyMap.set(entry.date, existing);
-      }
-
-      const daysWithData = dailyMap.size;
-      const divisor = Math.max(daysWithData, 1);
-      const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-      for (const day of dailyMap.values()) {
-        totals.calories += day.calories;
-        totals.protein += day.protein;
-        totals.carbs += day.carbs;
-        totals.fat += day.fat;
-      }
-
       setMacroTargets(targets);
-      setPeriodAverages({
-        calories: Math.round(totals.calories / divisor),
-        protein: Math.round(totals.protein / divisor),
-        carbs: Math.round(totals.carbs / divisor),
-        fat: Math.round(totals.fat / divisor),
-      });
-      setPeriodDaysLogged(daysWithData);
       setFoodLog(periodEntries);
     }
     if (!hasLoadedRef.current) {
@@ -185,6 +139,55 @@ export default function NutritionScreen() {
       setIsLoading(false);
     }
   };
+
+  // Derive totals/averages from foodLog instead of recomputing imperatively
+  // inside loadData on every focus. Discriminated union so render branches
+  // narrow cleanly without optional-chaining the macro fields.
+  type Aggregates =
+    | { mode: "day"; totals: MacroTargets }
+    | { mode: "period"; averages: MacroTargets; daysLogged: number };
+  const aggregates: Aggregates = useMemo(() => {
+    if (periodMode === "day") {
+      const totals = foodLog.reduce<MacroTargets>(
+        (acc, entry) => ({
+          calories: acc.calories + entry.food.calories,
+          protein: acc.protein + entry.food.protein,
+          carbs: acc.carbs + entry.food.carbs,
+          fat: acc.fat + entry.food.fat,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
+      return { mode: "day", totals };
+    }
+    const dailyMap = new Map<string, MacroTargets>();
+    for (const entry of foodLog) {
+      const existing = dailyMap.get(entry.date) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      existing.calories += entry.food.calories;
+      existing.protein += entry.food.protein;
+      existing.carbs += entry.food.carbs;
+      existing.fat += entry.food.fat;
+      dailyMap.set(entry.date, existing);
+    }
+    const daysWithData = dailyMap.size;
+    const divisor = Math.max(daysWithData, 1);
+    const sum = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    for (const day of dailyMap.values()) {
+      sum.calories += day.calories;
+      sum.protein += day.protein;
+      sum.carbs += day.carbs;
+      sum.fat += day.fat;
+    }
+    return {
+      mode: "period",
+      averages: {
+        calories: Math.round(sum.calories / divisor),
+        protein: Math.round(sum.protein / divisor),
+        carbs: Math.round(sum.carbs / divisor),
+        fat: Math.round(sum.fat / divisor),
+      },
+      daysLogged: daysWithData,
+    };
+  }, [foodLog, periodMode]);
 
   useFocusEffect(
     useCallback(() => {
@@ -209,12 +212,12 @@ export default function NutritionScreen() {
     setSelectedDate(getLocalDateString(current));
   };
 
-  const isAtToday = (() => {
+  const isAtToday = useMemo(() => {
     const today = getLocalDateString();
     if (periodMode === "day") return selectedDate === today;
     const range = getDateRange(selectedDate, periodMode);
     return range.end >= today;
-  })();
+  }, [selectedDate, periodMode]);
 
   const macroColor = (actual: number, target: number): string => {
     if (target === 0) return theme.text;
@@ -382,7 +385,7 @@ export default function NutritionScreen() {
           </Pressable>
         </View>
 
-        {macroTargets && periodMode === "day" ? (
+        {macroTargets && aggregates.mode === "day" ? (
           <View style={styles.macroRings}>
             {/* safeRatio: protein/carbs/fat targets can legitimately be 0
                 (EditMacrosScreen allows >= 0 for macros). Dividing by 0
@@ -390,42 +393,46 @@ export default function NutritionScreen() {
                 withTiming(Math.min(NaN, 1)) — the arc fails to render.
                 Returning 0 paints an empty ring, an honest "0 of 0". */}
             <ProgressRing
-              progress={safeRatio(todayTotals.calories, macroTargets.calories)}
+              progress={safeRatio(aggregates.totals.calories, macroTargets.calories)}
               size={90}
               label="Calories"
-              value={`${todayTotals.calories}`}
+              value={`${aggregates.totals.calories}`}
               color={Colors.light.primary}
             />
             <ProgressRing
-              progress={safeRatio(todayTotals.protein, macroTargets.protein)}
+              progress={safeRatio(aggregates.totals.protein, macroTargets.protein)}
               size={90}
               label="Protein"
-              value={`${todayTotals.protein}g`}
+              value={`${aggregates.totals.protein}g`}
               color={Colors.light.success}
             />
             <ProgressRing
-              progress={safeRatio(todayTotals.carbs, macroTargets.carbs)}
+              progress={safeRatio(aggregates.totals.carbs, macroTargets.carbs)}
               size={90}
               label="Carbs"
-              value={`${todayTotals.carbs}g`}
-              color="#FFA500"
+              value={`${aggregates.totals.carbs}g`}
+              color={Colors.light.macroCarbs}
             />
             <ProgressRing
-              progress={safeRatio(todayTotals.fat, macroTargets.fat)}
+              progress={safeRatio(aggregates.totals.fat, macroTargets.fat)}
               size={90}
               label="Fat"
-              value={`${todayTotals.fat}g`}
-              color="#9B59B6"
+              value={`${aggregates.totals.fat}g`}
+              color={Colors.light.macroFat}
             />
           </View>
         ) : null}
 
-        {macroTargets && periodMode !== "day" ? (
+        {macroTargets && aggregates.mode === "period" ? (
           <Card style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
-              <ThemedText type="h4">Daily Averages</ThemedText>
+              {/* "Average per logged day" — used to read just "Daily
+                  Averages", which was easy to misread as
+                  sum-over-days-in-period. The divisor is logged days
+                  only so an unlogged day doesn't drag the average to 0. */}
+              <ThemedText type="h4">Average per logged day</ThemedText>
               <ThemedText type="caption" style={{ opacity: 0.5 }}>
-                {periodDaysLogged} day{periodDaysLogged !== 1 ? "s" : ""} logged
+                {aggregates.daysLogged} day{aggregates.daysLogged !== 1 ? "s" : ""} logged
               </ThemedText>
             </View>
             <View style={styles.summaryGrid}>
@@ -433,9 +440,9 @@ export default function NutritionScreen() {
                 <ThemedText type="caption" style={{ opacity: 0.6 }}>Calories</ThemedText>
                 <ThemedText
                   type="h3"
-                  style={{ color: macroColor(periodAverages.calories, macroTargets.calories) }}
+                  style={{ color: macroColor(aggregates.averages.calories, macroTargets.calories) }}
                 >
-                  {periodAverages.calories}
+                  {aggregates.averages.calories}
                 </ThemedText>
                 <ThemedText type="caption" style={{ opacity: 0.4 }}>
                   / {macroTargets.calories}
@@ -445,9 +452,9 @@ export default function NutritionScreen() {
                 <ThemedText type="caption" style={{ opacity: 0.6 }}>Protein</ThemedText>
                 <ThemedText
                   type="h3"
-                  style={{ color: macroColor(periodAverages.protein, macroTargets.protein) }}
+                  style={{ color: macroColor(aggregates.averages.protein, macroTargets.protein) }}
                 >
-                  {periodAverages.protein}g
+                  {aggregates.averages.protein}g
                 </ThemedText>
                 <ThemedText type="caption" style={{ opacity: 0.4 }}>
                   / {macroTargets.protein}g
@@ -457,9 +464,9 @@ export default function NutritionScreen() {
                 <ThemedText type="caption" style={{ opacity: 0.6 }}>Carbs</ThemedText>
                 <ThemedText
                   type="h3"
-                  style={{ color: macroColor(periodAverages.carbs, macroTargets.carbs) }}
+                  style={{ color: macroColor(aggregates.averages.carbs, macroTargets.carbs) }}
                 >
-                  {periodAverages.carbs}g
+                  {aggregates.averages.carbs}g
                 </ThemedText>
                 <ThemedText type="caption" style={{ opacity: 0.4 }}>
                   / {macroTargets.carbs}g
@@ -469,9 +476,9 @@ export default function NutritionScreen() {
                 <ThemedText type="caption" style={{ opacity: 0.6 }}>Fat</ThemedText>
                 <ThemedText
                   type="h3"
-                  style={{ color: macroColor(periodAverages.fat, macroTargets.fat) }}
+                  style={{ color: macroColor(aggregates.averages.fat, macroTargets.fat) }}
                 >
-                  {periodAverages.fat}g
+                  {aggregates.averages.fat}g
                 </ThemedText>
                 <ThemedText type="caption" style={{ opacity: 0.4 }}>
                   / {macroTargets.fat}g
@@ -520,11 +527,11 @@ export default function NutritionScreen() {
                         P {entry.food.protein}g
                       </ThemedText>
                       <View style={styles.macroDot} />
-                      <ThemedText type="small" style={{ color: "#FFA500", fontWeight: "600" }}>
+                      <ThemedText type="small" style={{ color: Colors.light.macroCarbs, fontWeight: "600" }}>
                         C {entry.food.carbs}g
                       </ThemedText>
                       <View style={styles.macroDot} />
-                      <ThemedText type="small" style={{ color: "#9B59B6", fontWeight: "600" }}>
+                      <ThemedText type="small" style={{ color: Colors.light.macroFat, fontWeight: "600" }}>
                         F {entry.food.fat}g
                       </ThemedText>
                     </View>
@@ -559,6 +566,9 @@ export default function NutritionScreen() {
       <Pressable
         onPress={handleCameraFAB}
         disabled={isAnalyzing}
+        accessibilityRole="button"
+        accessibilityLabel={isAnalyzing ? "Analyzing food photo" : "Take a photo of food"}
+        accessibilityState={{ disabled: isAnalyzing, busy: isAnalyzing }}
         style={[
           styles.fab,
           { bottom: tabBarHeight + Spacing.lg },

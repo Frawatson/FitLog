@@ -597,13 +597,13 @@ export default function OnboardingScreen() {
             <ThemedText type="small">Protein</ThemedText>
           </View>
           <View style={[styles.macroCard, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText type="h1" style={{ color: "#FFA500" }}>
+            <ThemedText type="h1" style={{ color: Colors.light.macroCarbs }}>
               {macros.carbs}g
             </ThemedText>
             <ThemedText type="small">Carbs</ThemedText>
           </View>
           <View style={[styles.macroCard, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText type="h1" style={{ color: "#9B59B6" }}>
+            <ThemedText type="h1" style={{ color: Colors.light.macroFat }}>
               {macros.fat}g
             </ThemedText>
             <ThemedText type="small">Fat</ThemedText>

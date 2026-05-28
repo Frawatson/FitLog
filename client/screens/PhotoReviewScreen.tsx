@@ -192,14 +192,14 @@ export default function PhotoReviewScreen() {
           </View>
           <View style={[styles.totalsDivider, { backgroundColor: theme.border }]} />
           <View style={styles.totalsMacro}>
-            <ThemedText type="small" style={{ color: "#FFA500", fontWeight: "700" }}>
+            <ThemedText type="small" style={{ color: Colors.light.macroCarbs, fontWeight: "700" }}>
               {totals.carbs}g
             </ThemedText>
             <ThemedText type="small" style={{ opacity: 0.6 }}>Carbs</ThemedText>
           </View>
           <View style={[styles.totalsDivider, { backgroundColor: theme.border }]} />
           <View style={styles.totalsMacro}>
-            <ThemedText type="small" style={{ color: "#9B59B6", fontWeight: "700" }}>
+            <ThemedText type="small" style={{ color: Colors.light.macroFat, fontWeight: "700" }}>
               {totals.fat}g
             </ThemedText>
             <ThemedText type="small" style={{ opacity: 0.6 }}>Fat</ThemedText>
@@ -290,7 +290,7 @@ export default function PhotoReviewScreen() {
                     />
                   </View>
                   <View style={styles.editField}>
-                    <ThemedText type="small" style={[styles.editLabel, { color: "#FFA500" }]}>C (g)</ThemedText>
+                    <ThemedText type="small" style={[styles.editLabel, { color: Colors.light.macroCarbs }]}>C (g)</ThemedText>
                     <TextInput
                       style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
                       value={item.carbs}
@@ -299,7 +299,7 @@ export default function PhotoReviewScreen() {
                     />
                   </View>
                   <View style={styles.editField}>
-                    <ThemedText type="small" style={[styles.editLabel, { color: "#9B59B6" }]}>F (g)</ThemedText>
+                    <ThemedText type="small" style={[styles.editLabel, { color: Colors.light.macroFat }]}>F (g)</ThemedText>
                     <TextInput
                       style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
                       value={item.fat}

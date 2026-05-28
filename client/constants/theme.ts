@@ -19,6 +19,12 @@ export const Brand = {
 
 const successGreen = "#00D084"; // Semantic — kept distinct from brand green
 const errorRed = "#D32F2F";     // Semantic
+// Macro accent colors — same on light + dark so the carbs/fat numbers
+// stay recognizable across the app (rings, food rows, edit forms,
+// onboarding, profile). Calories use Brand.green via Colors.X.primary;
+// protein uses successGreen via Colors.X.success.
+const macroCarbsOrange = "#FFA500";
+const macroFatPurple = "#9B59B6";
 
 export const Colors = {
   light: {
@@ -31,6 +37,8 @@ export const Colors = {
     primary: Brand.green,
     success: successGreen,
     error: errorRed,
+    macroCarbs: macroCarbsOrange,
+    macroFat: macroFatPurple,
     border: "#E0E0E0",
     backgroundRoot: "#FFFFFF",
     backgroundDefault: "#F5F5F5",
@@ -50,6 +58,8 @@ export const Colors = {
     primary: Brand.green,
     success: successGreen,
     error: errorRed,
+    macroCarbs: macroCarbsOrange,
+    macroFat: macroFatPurple,
     border: Brand.greenBorder,
     backgroundRoot: Brand.greenDeep,
     backgroundDefault: Brand.greenSurface,

@@ -263,13 +263,13 @@ export default function FoodDetailScreen() {
             <ThemedText type="small" style={{ color: theme.textSecondary }}>Protein</ThemedText>
           </View>
           <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
-            <ThemedText type="h3" style={{ color: "#FFA500" }}>
+            <ThemedText type="h3" style={{ color: Colors.light.macroCarbs }}>
               {entry.food.carbs}g
             </ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>Carbs</ThemedText>
           </View>
           <View style={[styles.macroBox, styles.macroBoxSmall, { backgroundColor: theme.backgroundCard }]}>
-            <ThemedText type="h3" style={{ color: "#9B59B6" }}>
+            <ThemedText type="h3" style={{ color: Colors.light.macroFat }}>
               {entry.food.fat}g
             </ThemedText>
             <ThemedText type="small" style={{ color: theme.textSecondary }}>Fat</ThemedText>

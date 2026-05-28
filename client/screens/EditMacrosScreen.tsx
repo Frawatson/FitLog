@@ -23,8 +23,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 const MACRO_CONFIG = [
   { key: "calories", label: "Calories", suffix: "kcal", icon: "zap" as const, color: Colors.light.primary, placeholder: "2000" },
   { key: "protein", label: "Protein", suffix: "g", icon: "target" as const, color: Colors.light.success, placeholder: "150" },
-  { key: "carbs", label: "Carbs", suffix: "g", icon: "box" as const, color: "#FFA500", placeholder: "200" },
-  { key: "fat", label: "Fat", suffix: "g", icon: "droplet" as const, color: "#9B59B6", placeholder: "60" },
+  { key: "carbs", label: "Carbs", suffix: "g", icon: "box" as const, color: Colors.light.macroCarbs, placeholder: "200" },
+  { key: "fat", label: "Fat", suffix: "g", icon: "droplet" as const, color: Colors.light.macroFat, placeholder: "60" },
 ];
 
 export default function EditMacrosScreen() {
