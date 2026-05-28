@@ -257,7 +257,7 @@ export default function OnboardingScreen() {
           
           <Input
             label="Password"
-            placeholder="Create a password (min 6 characters)"
+            placeholder="Create a password (min 8 characters)"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
