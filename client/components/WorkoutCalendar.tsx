@@ -66,7 +66,9 @@ export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarP
     
     const runDates = new Set<string>();
     runs.forEach((r) => {
-      const date = new Date(r.completedAt);
+      // Fall back to startedAt so in-progress / interrupted runs still
+      // appear on the calendar — matches WorkoutHistoryScreen's list.
+      const date = new Date(r.completedAt || r.startedAt);
       if (date.getMonth() === month && date.getFullYear() === year) {
         runDates.add(date.getDate().toString());
       }
@@ -82,7 +84,6 @@ export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarP
   }, [workouts, runs]);
   
   const today = new Date().getDate();
-  const isCurrentMonth = new Date().getMonth() === new Date().getMonth();
   
   const getDateString = (day: number): string => {
     const now = new Date();
@@ -120,7 +121,7 @@ export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarP
           {week.map((day, dayIndex) => {
             const hasWorkout = day !== null && workoutDates.has(day.toString());
             const hasRun = day !== null && runDates.has(day.toString());
-            const isToday = day === today && isCurrentMonth;
+            const isToday = day === today;
             
             return (
               <Pressable

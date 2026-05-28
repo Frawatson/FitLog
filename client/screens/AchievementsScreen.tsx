@@ -45,14 +45,14 @@ export default function AchievementsScreen() {
 
       setAchievements(results);
       setError(false);
+      // Only mark loaded on success so a failed first load doesn't
+      // permanently disable the skeleton on retry.
+      hasLoadedRef.current = true;
     } catch (e) {
       console.log("Failed to load achievements:", e);
       setError(true);
     } finally {
-      if (!hasLoadedRef.current) {
-        hasLoadedRef.current = true;
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   };
 
@@ -83,7 +83,7 @@ export default function AchievementsScreen() {
         <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg, textAlign: "center" }}>
           Could not load achievements.
         </ThemedText>
-        <Button onPress={() => { setError(false); setIsLoading(true); loadData(); }} variant="outline">
+        <Button onPress={() => { setError(false); loadData(); }} variant="outline">
           Retry
         </Button>
       </View>
