@@ -61,6 +61,7 @@ export default function AddFoodScreen() {
   const [carbs, setCarbs] = useState(prefill?.carbs || "");
   const [fat, setFat] = useState(prefill?.fat || "");
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
+  const [servingSize, setServingSize] = useState<string | undefined>(prefill?.serving);
   const [foodImage, setFoodImage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -73,6 +74,7 @@ export default function AddFoodScreen() {
   const MAX_CAL_PER_ENTRY = 10000;
   const MAX_MACRO_G = 1000;
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nameSuggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
   const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
@@ -86,6 +88,7 @@ export default function AddFoodScreen() {
     setProtein("");
     setCarbs("");
     setFat("");
+    setServingSize(undefined);
     setNameSuggestions([]);
     setShowSuggestions(false);
   }, []);
@@ -109,6 +112,9 @@ export default function AddFoodScreen() {
   useEffect(() => {
     loadSavedFoods();
     loadRecentMeals();
+    return () => {
+      if (nameSuggestTimeoutRef.current) clearTimeout(nameSuggestTimeoutRef.current);
+    };
   }, []);
 
   const loadRecentMeals = async () => {
@@ -299,6 +305,13 @@ export default function AddFoodScreen() {
   };
   
   const analyzePhoto = async (base64: string | null, uri: string) => {
+    if (!base64) {
+      // compressImage failed — without this branch we sent null to the
+      // server, which 400'd back as a generic "Failed to analyze photo".
+      setPhotoError("Couldn't process this image. Try a different photo, or enter details manually.");
+      setIsAnalyzingPhoto(false);
+      return;
+    }
     try {
       const url = new URL("/api/foods/analyze-photo", getApiUrl());
       const controller = new AbortController();
@@ -353,14 +366,19 @@ export default function AddFoodScreen() {
   const handleNameChange = (text: string) => {
     setName(text);
     if (submitError) setSubmitError(null);
-    if (text.trim().length >= 2) {
+    // Debounce the local-DB scan — was running on every keystroke,
+    // synchronously, with no upper bound on DB growth.
+    if (nameSuggestTimeoutRef.current) clearTimeout(nameSuggestTimeoutRef.current);
+    if (text.trim().length < 2) {
+      setNameSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    nameSuggestTimeoutRef.current = setTimeout(() => {
       const matches = searchFoods(text);
       setNameSuggestions(matches);
       setShowSuggestions(matches.length > 0);
-    } else {
-      setNameSuggestions([]);
-      setShowSuggestions(false);
-    }
+    }, 200);
   };
 
   const handleSelectSuggestion = (food: FoodDatabaseItem) => {
@@ -382,6 +400,7 @@ export default function AddFoodScreen() {
     setProtein(food.protein.toString());
     setCarbs(food.carbs.toString());
     setFat(food.fat.toString());
+    setServingSize(food.servingSize || undefined);
     setSearchQuery("");
     setSearchResults([]);
     setShowForm(true);
@@ -404,6 +423,7 @@ export default function AddFoodScreen() {
       carbs: food.carbs,
       fat: food.fat,
       isSaved: false,
+      ...(food.servingSize ? { serving: food.servingSize } : {}),
     };
     const today = getLocalDateString();
     await storage.addFoodLogEntry(foodEntry, today);
@@ -456,6 +476,7 @@ export default function AddFoodScreen() {
       carbs: cb,
       fat: f,
       isSaved: saveAsFavorite,
+      ...(servingSize ? { serving: servingSize } : {}),
     };
     
     if (saveAsFavorite) {
@@ -465,6 +486,7 @@ export default function AddFoodScreen() {
         protein: food.protein,
         carbs: food.carbs,
         fat: food.fat,
+        ...(food.serving ? { serving: food.serving } : {}),
       });
     }
     

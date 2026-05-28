@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { View, StyleSheet, ScrollView, Image, Pressable, TextInput, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp, StackActions } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -60,6 +60,7 @@ export default function PhotoReviewScreen() {
   );
 
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  const [isLogging, setIsLogging] = useState(false);
   const bgElevated = (theme as any).backgroundElevated || theme.backgroundSecondary;
 
   const totals = items.reduce(
@@ -107,30 +108,48 @@ export default function PhotoReviewScreen() {
   };
 
   const handleLogAll = async () => {
-    if (items.length === 0) return;
+    if (items.length === 0 || isLogging) return;
+    // Drop any item that's been zeroed out — the screen lets the user
+    // delete a row, but they can also just clear all fields. Either way
+    // we don't want a 0-cal placeholder entry in the log.
+    const valid = items.filter((i) => i.calories > 0 || i.protein > 0 || i.carbs > 0 || i.fat > 0);
+    if (valid.length === 0) return;
 
-    const today = getLocalDateString();
-    let persistentImageUri: string | undefined;
-    if (imageUri) {
-      persistentImageUri = await createPersistentImageUri(imageUri);
+    setIsLogging(true);
+    try {
+      const today = getLocalDateString();
+      let persistentImageUri: string | undefined;
+      if (imageUri) {
+        persistentImageUri = await createPersistentImageUri(imageUri);
+      }
+
+      // One log entry per identified item so the user can edit / delete
+      // each one independently later. The meal photo is attached only to
+      // the first entry — duplicating the same base64 image across N
+      // rows would blow up AsyncStorage.
+      for (let i = 0; i < valid.length; i++) {
+        const item = valid[i];
+        const food: Food = {
+          id: uuidv4(),
+          name: item.name,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+          isSaved: false,
+          ...(item.servingSize ? { serving: item.servingSize } : {}),
+        };
+        const imageForEntry = i === 0 ? persistentImageUri : undefined;
+        await storage.addFoodLogEntry(food, today, imageForEntry);
+      }
+      if (Platform.OS !== "web") {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      navigation.dispatch(StackActions.popToTop());
+    } catch (err) {
+      console.error("Failed to log meal:", err);
+      setIsLogging(false);
     }
-
-    const combinedName = items.map((i) => i.name).join(", ");
-    const food: Food = {
-      id: uuidv4(),
-      name: combinedName,
-      calories: totals.calories,
-      protein: totals.protein,
-      carbs: totals.carbs,
-      fat: totals.fat,
-      isSaved: false,
-    };
-
-    await storage.addFoodLogEntry(food, today, persistentImageUri);
-    if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-    navigation.popTo("Main");
   };
 
   const confidenceColor = (c: string) => {
@@ -295,8 +314,8 @@ export default function PhotoReviewScreen() {
       })}
 
       {items.length > 0 ? (
-        <Button onPress={handleLogAll} style={styles.logButton}>
-          Log Meal ({totals.calories} cal)
+        <Button onPress={handleLogAll} disabled={isLogging} style={styles.logButton}>
+          {isLogging ? "Saving..." : `Log Meal (${totals.calories} cal)`}
         </Button>
       ) : (
         <ThemedText type="body" style={{ textAlign: "center", opacity: 0.6, marginTop: Spacing.xl }}>

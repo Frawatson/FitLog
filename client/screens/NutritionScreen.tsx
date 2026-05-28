@@ -312,8 +312,11 @@ export default function NutritionScreen() {
             <Pressable
               key={mode}
               onPress={() => {
+                // Keep the currently-viewed date when switching modes so
+                // toggling day→week→day doesn't snap the user back to today
+                // and lose context. week/month pick the range containing
+                // the same date via getDateRange().
                 setPeriodMode(mode);
-                setSelectedDate(getLocalDateString());
               }}
               style={[
                 styles.periodButton,

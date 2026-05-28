@@ -68,9 +68,13 @@ export default function EditMacrosScreen() {
   const handleAutoCalculate = async () => {
     const profile = await storage.getUserProfile();
     if (!profile || !profile.weightKg || !profile.heightCm || !profile.age) {
+      // Without this surface the button just fired a haptic and did
+      // nothing, leaving the user to wonder why it didn't work.
+      setError("Add your weight, height, and age in your profile to auto-calculate macros.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
+    setError(null);
     const macros = storage.calculateMacros(profile);
     setCalories(macros.calories.toString());
     setProtein(macros.protein.toString());

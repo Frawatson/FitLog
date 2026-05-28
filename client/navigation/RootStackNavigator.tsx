@@ -51,7 +51,7 @@ export type RootStackParamList = {
   ActiveWorkout: { routineId: string };
   WorkoutComplete: { workoutId: string };
   RunComplete: { runId: string };
-  AddFood: { prefill?: { name: string; calories: string; protein: string; carbs: string; fat: string } } | undefined;
+  AddFood: { prefill?: { name: string; calories: string; protein: string; carbs: string; fat: string; serving?: string } } | undefined;
   PhotoReview: { foods: any[]; imageUri: string; imageBase64?: string; mode?: string };
   FoodDetail: { entry: import("@/types").FoodLogEntry };
   WorkoutHistory: undefined;
