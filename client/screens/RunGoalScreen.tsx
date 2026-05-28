@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -13,12 +13,16 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { RunStackParamList } from "@/navigation/RunStackNavigator";
+import * as storage from "@/lib/storage";
+import type { UnitSystem } from "@/types";
 
 type NavigationProp = NativeStackNavigationProp<RunStackParamList>;
 
 type GoalType = "free" | "distance" | "time";
 
-const DISTANCE_OPTIONS = [1, 2, 3, 5, 10]; // miles
+// Same numeric presets in both unit systems — they're sensible round
+// distances either way. The unit label switches to match the user.
+const DISTANCE_OPTIONS = [1, 2, 3, 5, 10];
 const TIME_OPTIONS = [15, 20, 30, 45, 60]; // minutes
 
 export default function RunGoalScreen() {
@@ -30,6 +34,17 @@ export default function RunGoalScreen() {
   const [goalType, setGoalType] = useState<GoalType>("free");
   const [selectedDistance, setSelectedDistance] = useState(3);
   const [selectedTime, setSelectedTime] = useState(30);
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+
+  useEffect(() => {
+    (async () => {
+      const profile = await storage.getUserProfile();
+      if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
+    })();
+  }, []);
+
+  const distanceUnitShort: "mi" | "km" = unitSystem === "imperial" ? "mi" : "km";
+  const distanceUnitWord = unitSystem === "imperial" ? "Mile" : "Kilometer";
 
   const handleStartRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -37,7 +52,7 @@ export default function RunGoalScreen() {
     const goal = goalType === "free"
       ? undefined
       : goalType === "distance"
-        ? { type: "distance" as const, value: selectedDistance }
+        ? { type: "distance" as const, value: selectedDistance, unit: distanceUnitShort }
         : { type: "time" as const, value: selectedTime };
 
     navigation.navigate("RunTracker", { goal });
@@ -169,7 +184,7 @@ export default function RunGoalScreen() {
                     type="small"
                     style={{ color: selectedDistance === dist ? "rgba(255,255,255,0.8)" : theme.textSecondary }}
                   >
-                    mi
+                    {distanceUnitShort}
                   </ThemedText>
                 </AnimatedPress>
               ))}
@@ -224,7 +239,7 @@ export default function RunGoalScreen() {
                 {goalType === "free"
                   ? "Start Free Run"
                   : goalType === "distance"
-                    ? `Start ${selectedDistance} Mile Run`
+                    ? `Start ${selectedDistance} ${distanceUnitWord}${selectedDistance === 1 ? "" : "s"} Run`
                     : `Start ${selectedTime} Min Run`
                 }
               </ThemedText>

@@ -6,10 +6,13 @@ import RunDetailScreen from "@/screens/RunDetailScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import type { RunEntry } from "@/types";
 
-export type RunGoal = {
-  type: "distance" | "time";
-  value: number;
-};
+// Distance goals carry their own unit so the tracker doesn't have to
+// guess from the user's current preference (which could have changed
+// since the goal was set, and which loads async). Time goals are always
+// minutes.
+export type RunGoal =
+  | { type: "distance"; value: number; unit: "mi" | "km" }
+  | { type: "time"; value: number };
 
 export type RunStackParamList = {
   RunGoal: undefined;

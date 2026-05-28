@@ -64,6 +64,17 @@ export default function RunTrackerScreen() {
   const goalReachedRef = useRef(false);
   const lastAnnouncedMile = useRef<number>(0);
   const audioMutedRef = useRef(false);
+  // Mirror state into refs that need to be read from the location-watcher
+  // callback. The callback closes over the values present when
+  // watchPositionAsync was called; state updates after that don't reach
+  // it. Without these refs, splits used the duration-at-start (always 0)
+  // and unit-aware math always used "imperial".
+  // distanceRef also lets us decide whether to record a split with a
+  // pure setDistance updater — performing setSplits side-effects from
+  // inside the updater would double-fire under React strict mode.
+  const durationRef = useRef(0);
+  const unitSystemRef = useRef<UnitSystem>("imperial");
+  const distanceRef = useRef(0);
 
   const speakCue = (text: string) => {
     if (audioMutedRef.current) return;
@@ -103,6 +114,7 @@ export default function RunTrackerScreen() {
     const profile = await storage.getUserProfile();
     if (profile?.unitSystem) {
       setUnitSystem(profile.unitSystem);
+      unitSystemRef.current = profile.unitSystem;
     }
   };
   
@@ -116,6 +128,8 @@ export default function RunTrackerScreen() {
         setRoute([]);
         setSplits([]);
         goalReachedRef.current = false;
+        durationRef.current = 0;
+        distanceRef.current = 0;
       }
     }, [isRunning])
   );
@@ -156,12 +170,90 @@ export default function RunTrackerScreen() {
     setRunHistory(runs);
   };
   
+  // Per-tick duration update. Mirrors the count into durationRef so
+  // the location-watcher callback can read the current value (state
+  // wouldn't reach it — see ref declarations above).
+  const startTimer = () => {
+    timerRef.current = setInterval(() => {
+      setDuration((d) => {
+        const next = d + 1;
+        durationRef.current = next;
+        return next;
+      });
+    }, 1000);
+  };
+
+  // Single shared location-update callback used by both startRun and
+  // resumeRun. Previously these were duplicated and resume's copy
+  // silently dropped split tracking + audio cues. All unit math reads
+  // unitSystemRef so it's correct regardless of when the profile loaded.
+  const handleLocationUpdate = (location: Location.LocationObject) => {
+    const { latitude, longitude } = location.coords;
+
+    setRoute((prev) => [...prev, { latitude, longitude }]);
+    setCurrentLocation({ latitude, longitude });
+
+    if (lastLocation.current) {
+      const dist = calculateDistance(
+        lastLocation.current.coords.latitude,
+        lastLocation.current.coords.longitude,
+        latitude,
+        longitude,
+      );
+      // Compute synchronously with distanceRef so the setDistance updater
+      // stays pure (strict-mode safe). Side-effects (setSplits, ref
+      // mutations, audio cue) happen exactly once below.
+      const newDistance = distanceRef.current + dist;
+      distanceRef.current = newDistance;
+      setDistance(newDistance);
+
+      const userUnit = unitSystemRef.current;
+      const distanceInUserUnit = userUnit === "imperial"
+        ? newDistance * 0.621371
+        : newDistance;
+      const lastInUserUnit = userUnit === "imperial"
+        ? lastSplitDistance.current * 0.621371
+        : lastSplitDistance.current;
+      const currentMilestone = Math.floor(distanceInUserUnit);
+      const lastMilestone = Math.floor(lastInUserUnit);
+
+      // Splits and audio fire on the same boundary but are tracked
+      // separately: lastAnnouncedMile advances even when muted (so
+      // unmuting later doesn't replay every catch-up cue), and
+      // speakCue() itself no-ops when muted.
+      if (currentMilestone > lastMilestone && currentMilestone > 0) {
+        setSplits((prev) => [...prev, durationRef.current]);
+        lastSplitDistance.current = newDistance;
+      }
+      if (currentMilestone > lastAnnouncedMile.current && currentMilestone > 0) {
+        lastAnnouncedMile.current = currentMilestone;
+        const unitLabel = userUnit === "imperial"
+          ? (currentMilestone === 1 ? "mile" : "miles")
+          : (currentMilestone === 1 ? "kilometer" : "kilometers");
+        speakCue(`${currentMilestone} ${unitLabel} completed`);
+      }
+    }
+
+    lastLocation.current = location;
+  };
+
+  const startWatcher = async () => {
+    locationSubscription.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 2000,
+        distanceInterval: 5,
+      },
+      handleLocationUpdate,
+    );
+  };
+
   const startRun = async () => {
     if (permission !== "granted") {
       requestPermission();
       return;
     }
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setIsRunning(true);
     setIsPaused(false);
@@ -172,63 +264,23 @@ export default function RunTrackerScreen() {
     lastLocation.current = null;
     lastSplitDistance.current = 0;
     lastAnnouncedMile.current = 0;
+    durationRef.current = 0;
+    distanceRef.current = 0;
     startTimeRef.current = new Date().toISOString();
 
     if (goal) {
-      const goalDesc = goal.type === "distance" ? `${goal.value} ${unitSystem === "imperial" ? "mile" : "kilometer"} goal` : `${goal.value} minute goal`;
+      const goalDesc = goal.type === "distance"
+        ? `${goal.value} ${goal.unit === "mi" ? (goal.value === 1 ? "mile" : "miles") : (goal.value === 1 ? "kilometer" : "kilometers")} goal`
+        : `${goal.value} minute goal`;
       speakCue(`Run started. ${goalDesc}`);
     } else {
       speakCue("Run started");
     }
-    
-    timerRef.current = setInterval(() => {
-      setDuration((d) => d + 1);
-    }, 1000);
-    
-    locationSubscription.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 2000,
-        distanceInterval: 5,
-      },
-      (location) => {
-        const { latitude, longitude } = location.coords;
-        
-        setRoute((prev) => [...prev, { latitude, longitude }]);
-        setCurrentLocation({ latitude, longitude });
-        
-        if (lastLocation.current) {
-          const dist = calculateDistance(
-            lastLocation.current.coords.latitude,
-            lastLocation.current.coords.longitude,
-            latitude,
-            longitude
-          );
-          setDistance((d) => {
-            const newDistance = d + dist;
-            const currentMile = Math.floor(newDistance * 0.621371);
-            const lastMile = Math.floor(lastSplitDistance.current * 0.621371);
-            if (currentMile > lastMile && currentMile > 0) {
-              setSplits((prev) => [...prev, duration]);
-              lastSplitDistance.current = newDistance;
-            }
-            // Audio milestone announcement
-            const milestoneUnit = unitSystem === "imperial" ? newDistance * 0.621371 : newDistance;
-            const currentMilestone = Math.floor(milestoneUnit);
-            if (currentMilestone > lastAnnouncedMile.current && currentMilestone > 0) {
-              lastAnnouncedMile.current = currentMilestone;
-              const unitLabel = unitSystem === "imperial" ? (currentMilestone === 1 ? "mile" : "miles") : (currentMilestone === 1 ? "kilometer" : "kilometers");
-              speakCue(`${currentMilestone} ${unitLabel} completed`);
-            }
-            return newDistance;
-          });
-        }
-        
-        lastLocation.current = location;
-      }
-    );
+
+    startTimer();
+    await startWatcher();
   };
-  
+
   const pauseRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     speakCue("Paused");
@@ -245,53 +297,33 @@ export default function RunTrackerScreen() {
       locationSubscription.current = null;
     }
   };
-  
+
   const resumeRun = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     speakCue("Resumed");
     setIsPaused(false);
-    
-    timerRef.current = setInterval(() => {
-      setDuration((d) => d + 1);
-    }, 1000);
-    
-    locationSubscription.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 2000,
-        distanceInterval: 5,
-      },
-      (location) => {
-        const { latitude, longitude } = location.coords;
-        
-        setRoute((prev) => [...prev, { latitude, longitude }]);
-        setCurrentLocation({ latitude, longitude });
-        
-        if (lastLocation.current) {
-          const dist = calculateDistance(
-            lastLocation.current.coords.latitude,
-            lastLocation.current.coords.longitude,
-            latitude,
-            longitude
-          );
-          setDistance((d) => d + dist);
-        }
-        
-        lastLocation.current = location;
-      }
-    );
+    // Reset lastLocation so the first post-resume sample doesn't add
+    // the gap distance (user may have moved between pause and resume).
+    lastLocation.current = null;
+    startTimer();
+    await startWatcher();
   };
   
   const checkGoalReached = (currentDistance: number, currentDuration: number) => {
     if (!goal || goalReachedRef.current) return;
 
-    const currentDisplayDistance = formatDistanceValue(currentDistance, unitSystem);
     const durationMinutes = currentDuration / 60;
 
-    if (goal.type === "distance" && currentDisplayDistance >= goal.value) {
-      goalReachedRef.current = true;
-      speakCue("Goal reached! Great job!");
-      completeRun(true);
+    if (goal.type === "distance") {
+      // Convert tracked distance (always km) into the goal's declared unit.
+      const distanceInGoalUnit = goal.unit === "mi"
+        ? currentDistance * 0.621371
+        : currentDistance;
+      if (distanceInGoalUnit >= goal.value) {
+        goalReachedRef.current = true;
+        speakCue("Goal reached! Great job!");
+        completeRun(true);
+      }
     } else if (goal.type === "time" && durationMinutes >= goal.value) {
       goalReachedRef.current = true;
       speakCue("Goal reached! Great job!");
@@ -390,12 +422,14 @@ export default function RunTrackerScreen() {
     setSplits([]);
     lastAnnouncedMile.current = 0;
     lastSplitDistance.current = 0;
+    distanceRef.current = 0;
+    durationRef.current = 0;
   };
 
   const stopRun = async () => {
     const goalReached = goal ? (
       goal.type === "distance"
-        ? formatDistanceValue(distance, unitSystem) >= goal.value
+        ? (goal.unit === "mi" ? distance * 0.621371 : distance) >= goal.value
         : duration / 60 >= goal.value
     ) : false;
     completeRun(goalReached);
@@ -465,7 +499,7 @@ export default function RunTrackerScreen() {
   
   const goalProgress = goal ? (
     goal.type === "distance"
-      ? (displayDistance / goal.value) * 100
+      ? ((goal.unit === "mi" ? distance * 0.621371 : distance) / goal.value) * 100
       : ((duration / 60) / goal.value) * 100
   ) : 0;
   
@@ -496,7 +530,7 @@ export default function RunTrackerScreen() {
           {goal && isRunning ? (
             <View style={styles.goalBadge}>
               <ThemedText style={styles.goalBadgeText}>
-                {goal.type === "distance" ? `${goal.value} ${distanceUnit} goal` : `${goal.value} min goal`}
+                {goal.type === "distance" ? `${goal.value} ${goal.unit} goal` : `${goal.value} min goal`}
               </ThemedText>
             </View>
           ) : null}
@@ -569,7 +603,7 @@ export default function RunTrackerScreen() {
                 <View style={styles.startButtonContent}>
                   <Feather name="play" size={28} color="#fff" />
                   <ThemedText type="body" style={styles.startButtonText}>
-                    {goal ? `START ${goal.type === "distance" ? `${goal.value} ${distanceUnit.toUpperCase()}` : `${goal.value} MIN`} RUN` : "FREE RUN"}
+                    {goal ? `START ${goal.type === "distance" ? `${goal.value} ${goal.unit.toUpperCase()}` : `${goal.value} MIN`} RUN` : "FREE RUN"}
                   </ThemedText>
                 </View>
               </Button>

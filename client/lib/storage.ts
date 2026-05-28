@@ -687,11 +687,20 @@ async function getRunHistoryLocal(): Promise<RunEntry[]> {
   }
 }
 
+// Upsert by run id. Server-side saveRun is also ON CONFLICT DO UPDATE on
+// (user_id, client_id) so calling this again with the same id (e.g. when
+// the user adds heart rate on the completion screen) updates both local
+// and remote in lockstep instead of duplicating.
 export async function saveRunEntry(run: RunEntry): Promise<void> {
   const runs = await getRunHistoryLocal();
-  runs.push(run);
+  const existingIndex = runs.findIndex((r) => r.id === run.id);
+  if (existingIndex >= 0) {
+    runs[existingIndex] = run;
+  } else {
+    runs.push(run);
+  }
   await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
-  
+
   if (await isAuthenticated()) {
     await syncWithRetry("/api/runs", "POST", {
       clientId: run.id,

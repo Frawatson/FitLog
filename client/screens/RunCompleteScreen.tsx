@@ -78,26 +78,23 @@ export default function RunCompleteScreen() {
     const avgHR = parseInt(avgHRInput) || undefined;
     const maxHR = parseInt(maxHRInput) || undefined;
     if (avgHR || maxHR) {
-      const runs = await storage.getRunHistory();
-      const updatedRuns = runs.map((r) => {
-        if (r.id === run.id) {
-          let hrZone: HeartRateZone | undefined;
-          if (avgHR) {
-            const zoneInfo = getZoneForHeartRate(avgHR, userAge);
-            hrZone = zoneInfo?.zone;
-          }
-          const updated = {
-            ...r,
-            avgHeartRate: avgHR,
-            maxHeartRate: maxHR,
-            heartRateZone: hrZone,
-          };
-          setRun(updated);
-          return updated;
-        }
-        return r;
-      });
-      await storage.saveRunHistory(updatedRuns);
+      let hrZone: HeartRateZone | undefined;
+      if (avgHR) {
+        const zoneInfo = getZoneForHeartRate(avgHR, userAge);
+        hrZone = zoneInfo?.zone;
+      }
+      const updated: RunEntry = {
+        ...run,
+        avgHeartRate: avgHR,
+        maxHeartRate: maxHR,
+        heartRateZone: hrZone,
+      };
+      // saveRunEntry is now an upsert + POSTs to /api/runs (server is
+      // ON CONFLICT DO UPDATE on (user_id, client_id)). The previous
+      // saveRunHistory call only wrote AsyncStorage, so HR never
+      // synced to the server.
+      await storage.saveRunEntry(updated);
+      setRun(updated);
     }
     if (Platform.OS !== "web") {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
