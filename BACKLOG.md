@@ -112,6 +112,20 @@ Updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
   `(user_id, type, actor_id, reference_id)` unique constraint so
   follow→unfollow→follow generates two follow notifications.
 
+- [ ] **P1** Follower / following counts drift on user deletion.
+  `users.followers_count` and `users.following_count` are denormalized
+  columns maintained manually inside `followUser` / `unfollowUser` /
+  `blockUser` (server/db.ts). `deleteUser` (server/db.ts:578) just
+  drops the user row; the `follows` table cascade-deletes correctly
+  but the surviving users' counts are never decremented. Symptom: B's
+  profile shows `followers_count = 5`, tapping Followers shows fewer
+  names (or empty) because the cascade removed the orphan rows.
+  Fix options: (a) drop the cached counts, do live `COUNT(*)` queries
+  with the existing `IDX_follows_following` / `IDX_follows_follower`
+  indexes; (b) decrement in `deleteUser` before the user-row delete;
+  (c) Postgres `AFTER DELETE` trigger on `follows` that decrements
+  both sides — fires for cascade deletes too, most robust.
+
 ## Web / Desktop
 
 - [x] **P1** Lists stretch edge-to-edge at desktop widths (no max-width).
@@ -144,6 +158,21 @@ Updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
   every interactive element. Web a11y baseline.
 
 - [ ] **P3** Cmd+K command palette. Cool but not blocking.
+
+- [ ] **P2** Marketing landing page exists as a Figma file
+  (https://www.figma.com/design/BZeehDl9wzVDF8Vn0igMfr) but isn't built
+  yet. Implement as a static HTML file served by Express at `/` for
+  unauthenticated requests (cleanest — same origin as the app, no SPA
+  hydration cost, good SEO). Sections: nav, hero, six-card feature
+  grid, AI-macros showcase row with phone screenshot, dark CTA band,
+  footer. Brand color `#1B3A27`, copy already in the Figma file.
+
+- [ ] **P3** Mobile (375px) frame for the landing page in the Figma
+  file above — desktop frame is the only one designed today.
+
+- [ ] **P3** Replace the illustrative phone mockup in the Figma
+  landing page's showcase section with an actual exported screenshot
+  of `NutritionScreen` so the visual matches the real product.
 
 ## Accessibility (App Store risk)
 
