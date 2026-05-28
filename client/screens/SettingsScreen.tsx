@@ -30,6 +30,16 @@ export default function SettingsScreen() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  // Per-toggle in-flight gating. Rapid double-toggles previously raced —
+  // each handler read a stale notifSettings snapshot and the persisted
+  // state could drift from what was actually scheduled. Refs serialize
+  // synchronously within a tick (state-only gate would let two taps in
+  // the same JS tick both pass since the closure captures stale false);
+  // state drives the Switch's disabled prop for visual feedback.
+  const togglingWorkoutRef = useRef(false);
+  const togglingStreakRef = useRef(false);
+  const [togglingWorkout, setTogglingWorkout] = useState(false);
+  const [togglingStreak, setTogglingStreak] = useState(false);
 
   const handleExportData = async () => {
     if (isExporting) return;
@@ -97,50 +107,77 @@ export default function SettingsScreen() {
   );
 
   const handleToggleWorkoutReminders = async (value: boolean) => {
-    if (value) {
-      const granted = await notifications.requestNotificationPermissions();
-      if (!granted) {
-        if (Platform.OS === "web") {
-          window.alert("Notifications are not available on web. Please use the mobile app.");
-        } else {
-          Alert.alert("Permission Required", "Please enable notifications in your device settings.");
+    if (togglingWorkoutRef.current) return;
+    togglingWorkoutRef.current = true;
+    setTogglingWorkout(true);
+    try {
+      if (value) {
+        const granted = await notifications.requestNotificationPermissions();
+        if (!granted) {
+          if (Platform.OS === "web") {
+            window.alert("Notifications are not available on web. Please use the mobile app.");
+          } else {
+            Alert.alert("Permission Required", "Please enable notifications in your device settings.");
+          }
+          return;
         }
-        return;
+        // scheduleX swallows internal errors and returns null. Without
+        // this check, the toggle would flip ON and the prefs would
+        // persist enabled even though nothing was actually scheduled.
+        const id = await notifications.scheduleWorkoutReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
+        if (!id) {
+          webSafeAlert("Couldn't enable reminder", "Please try again.");
+          return;
+        }
+      } else {
+        // Cancel only the workout reminder — was previously
+        // cancelAllNotifications which would also wipe the streak reminder.
+        await notifications.cancelWorkoutReminder();
       }
-      await notifications.scheduleWorkoutReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
-    } else {
-      // Cancel only the workout reminder — was previously
-      // cancelAllNotifications which would also wipe the streak reminder.
-      await notifications.cancelWorkoutReminder();
+      const updated = { ...notifSettings, workoutReminders: value };
+      setNotifSettings(updated);
+      await notifications.saveNotificationSettings(updated);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } finally {
+      togglingWorkoutRef.current = false;
+      setTogglingWorkout(false);
     }
-    const updated = { ...notifSettings, workoutReminders: value };
-    setNotifSettings(updated);
-    await notifications.saveNotificationSettings(updated);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleToggleStreakAlerts = async (value: boolean) => {
-    if (value) {
-      const granted = await notifications.requestNotificationPermissions();
-      if (!granted) {
-        if (Platform.OS === "web") {
-          window.alert("Notifications are not available on web. Please use the mobile app.");
-        } else {
-          Alert.alert("Permission Required", "Please enable notifications in your device settings.");
+    if (togglingStreakRef.current) return;
+    togglingStreakRef.current = true;
+    setTogglingStreak(true);
+    try {
+      if (value) {
+        const granted = await notifications.requestNotificationPermissions();
+        if (!granted) {
+          if (Platform.OS === "web") {
+            window.alert("Notifications are not available on web. Please use the mobile app.");
+          } else {
+            Alert.alert("Permission Required", "Please enable notifications in your device settings.");
+          }
+          return;
         }
-        return;
+        // Previously this toggle ONLY persisted to AsyncStorage —
+        // no scheduling, no reminder ever fired. Now schedules a daily
+        // notification at the same hour:minute as the workout reminder.
+        const id = await notifications.scheduleStreakReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
+        if (!id) {
+          webSafeAlert("Couldn't enable streak alert", "Please try again.");
+          return;
+        }
+      } else {
+        await notifications.cancelStreakReminder();
       }
-      // Previously this toggle ONLY persisted to AsyncStorage —
-      // no scheduling, no reminder ever fired. Now schedules a daily
-      // notification at the same hour:minute as the workout reminder.
-      await notifications.scheduleStreakReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
-    } else {
-      await notifications.cancelStreakReminder();
+      const updated = { ...notifSettings, streakAlerts: value };
+      setNotifSettings(updated);
+      await notifications.saveNotificationSettings(updated);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } finally {
+      togglingStreakRef.current = false;
+      setTogglingStreak(false);
     }
-    const updated = { ...notifSettings, streakAlerts: value };
-    setNotifSettings(updated);
-    await notifications.saveNotificationSettings(updated);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleReminderTimeChange = (hour: number, minute: number) => {
@@ -235,6 +272,7 @@ export default function SettingsScreen() {
                 <Switch
                   value={notifSettings.workoutReminders}
                   onValueChange={handleToggleWorkoutReminders}
+                  disabled={togglingWorkout}
                   trackColor={{ false: theme.border, true: Colors.light.primary }}
                   thumbColor="#FFFFFF"
                 />
@@ -267,6 +305,7 @@ export default function SettingsScreen() {
                 <Switch
                   value={notifSettings.streakAlerts}
                   onValueChange={handleToggleStreakAlerts}
+                  disabled={togglingStreak}
                   trackColor={{ false: theme.border, true: Colors.light.primary }}
                   thumbColor="#FFFFFF"
                 />

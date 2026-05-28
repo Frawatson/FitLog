@@ -231,6 +231,26 @@ export async function cancelAllNotifications(): Promise<void> {
   }
 }
 
+// Full reset of this device's notification state — cancels every scheduled
+// OS notification and wipes both AsyncStorage keys (settings + tracked
+// ids). Called on logout / account-delete / cross-user login so reminders
+// scheduled for user A don't continue firing under user B's session.
+// Server-side prefs are preserved (re-pulled on next login).
+export async function clearScheduledNotifications(): Promise<void> {
+  if (Platform.OS !== "web") {
+    try {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    } catch {
+      // best-effort — proceed to clear local state even if cancel fails
+    }
+  }
+  try {
+    await AsyncStorage.multiRemove([NOTIFICATION_IDS_KEY, NOTIFICATION_SETTINGS_KEY]);
+  } catch {
+    // best-effort
+  }
+}
+
 export async function getScheduledNotifications() {
   if (Platform.OS === "web") {
     return [];

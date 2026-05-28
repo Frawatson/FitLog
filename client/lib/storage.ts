@@ -16,6 +16,7 @@ import { syncToServer, syncWithRetry, isAuthenticated, initSyncService } from "@
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { getZoneForHeartRate } from "@/lib/heartRateZones";
+import { clearScheduledNotifications } from "@/lib/notifications";
 
 export { initSyncService };
 
@@ -804,4 +805,7 @@ export async function deleteRunEntry(id: string): Promise<void> {
 // Clear all data (for logout)
 export async function clearAllData(): Promise<void> {
   await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+  // Cancels OS-scheduled reminders + wipes the notification AsyncStorage
+  // keys, which live outside STORAGE_KEYS in notifications.ts.
+  await clearScheduledNotifications();
 }

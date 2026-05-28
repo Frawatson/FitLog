@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, Pressable, Modal, Platform, TextInput, Switch, Image, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Pressable, Modal, Platform, TextInput, Switch, Image, ActivityIndicator, Alert } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -256,9 +256,27 @@ export default function ProfileScreen() {
     });
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await logout();
+    // Delete Account sits directly above Log Out — confirm before signing
+    // out so a scroll-overshoot mishit doesn't tear down the session.
+    const proceed = () => {
+      logout();
+    };
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Log out of your account?")) {
+        proceed();
+      }
+      return;
+    }
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Log Out", style: "destructive", onPress: proceed },
+      ],
+    );
   };
   
   const performDeleteAccount = async () => {

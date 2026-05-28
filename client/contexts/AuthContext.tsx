@@ -4,6 +4,7 @@ import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
 import { initSyncService } from "@/lib/storage";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
+import { clearScheduledNotifications } from "@/lib/notifications";
 
 export interface User {
   id: number;
@@ -163,6 +164,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Logout error:", error);
     }
+    // Stop OS-scheduled reminders so they don't keep firing while signed
+    // out. Server-side prefs are preserved and re-pulled on next login.
+    await clearScheduledNotifications();
     // Clear stored token
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthToken(null);
