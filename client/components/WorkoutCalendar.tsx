@@ -1,11 +1,12 @@
-import React, { useMemo } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, StyleSheet, Pressable, AppState } from "react-native";
 import { Feather } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Workout, RunEntry } from "@/types";
+import { getLocalDateString } from "@/lib/dateUtils";
 
 const ACCENT_COLOR = "#1B3A27"; // Brand.green
 const RUN_COLOR = "#00CED1";
@@ -20,7 +21,21 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarProps) {
   const { theme } = useTheme();
-  
+  // Refresh the calendar when the local day rolls over (e.g. app left
+  // open or backgrounded past midnight). AppState 'active' is the most
+  // common trigger — continuous foreground past midnight isn't covered
+  // and is rare enough to ignore for this small UX nit.
+  const [todayKey, setTodayKey] = useState(getLocalDateString());
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        const k = getLocalDateString();
+        setTodayKey((cur) => (cur !== k ? k : cur));
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   const { weeks, currentMonth, currentYear, workoutDates, runDates } = useMemo(() => {
     const now = new Date();
     const year = now.getFullYear();
@@ -81,7 +96,7 @@ export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarP
       workoutDates,
       runDates,
     };
-  }, [workouts, runs]);
+  }, [workouts, runs, todayKey]);
   
   const today = new Date().getDate();
   

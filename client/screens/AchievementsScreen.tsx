@@ -28,7 +28,7 @@ export default function AchievementsScreen() {
   // ProgressChartsScreen / NutritionScreen.
   const loadRequestIdRef = useRef(0);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const requestId = ++loadRequestIdRef.current;
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
@@ -63,12 +63,12 @@ export default function AchievementsScreen() {
       // would otherwise clear the skeleton while a newer call is loading.
       if (requestId === loadRequestIdRef.current) setIsLoading(false);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, [loadData])
   );
 
   const unlocked = achievements.filter((a) => a.unlocked);

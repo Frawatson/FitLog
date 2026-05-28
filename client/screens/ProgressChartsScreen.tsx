@@ -192,7 +192,6 @@ export default function ProgressChartsScreen() {
       }
     : null;
 
-  // Muscle group frequency
   const exerciseFrequency = getExerciseFrequency(workouts);
 
   return (
@@ -251,12 +250,18 @@ export default function ProgressChartsScreen() {
                 height={200}
                 chartConfig={{
                   ...chartConfig,
+                  // RGB form of Colors.light.success (#00D084) — chart-kit
+                  // needs an opacity-callback rather than a hex string.
                   color: (opacity = 1) => `rgba(0, 208, 132, ${opacity})`,
+                  propsForDots: {
+                    ...chartConfig.propsForDots,
+                    stroke: Colors.light.success,
+                  },
                 }}
                 bezier
                 style={styles.chart}
                 withInnerLines={false}
-                yAxisSuffix={unitSystem === "imperial" ? "" : ""}
+                yAxisSuffix={unitSystem === "imperial" ? " lb" : " kg"}
               />
             ) : (
               <View style={styles.emptyChart}>
@@ -320,6 +325,10 @@ export default function ProgressChartsScreen() {
                 chartConfig={{
                   ...chartConfig,
                   color: (opacity = 1) => `rgba(255, 165, 0, ${opacity})`,
+                  propsForDots: {
+                    ...chartConfig.propsForDots,
+                    stroke: "#FFA500",
+                  },
                 }}
                 bezier
                 style={styles.chart}
