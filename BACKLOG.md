@@ -192,19 +192,23 @@ Updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
 
 ## Mobile / App Store
 
-- [ ] **P0** Decide whether to change `ios.bundleIdentifier` /
-  `android.package` (`fitness.mergefitness.app` → e.g.
-  `com.gbolofitness.app`). The existing identifiers are tied to App
-  Store Connect (`ascAppId: 6759593482` in eas.json). Changing them
-  orphans the listing.
+- [ ] **P0** Bundle ID was changed from `fitness.mergefitness.app` →
+  `fit.gbolo.app` (reverse-DNS of `gbolo.fit`). If the previous bundle
+  was already submitted to App Store Connect (`ascAppId: 6759593482`
+  in eas.json), that listing is now orphaned and a brand-new listing
+  must be created against the new bundle. Verify the prior bundle was
+  never published before treating this as final.
 
-- [ ] **P1** Email sender domain — currently
-  `support@mergefitness.fitness`. Switch to `support@gbolofitness.com`
-  after DNS is configured on Resend. Touches `server/auth.ts:254, 283,
-  636` (TODO comments already in place).
+- [ ] **P1** Email sender domain was switched to `support@gbolo.fit`
+  (server/auth.ts). REQUIRES gbolo.fit DNS (SPF/DKIM/Return-Path) to
+  be verified in Resend (https://resend.com/domains) — otherwise all
+  auth emails (register confirmation, register-attempt notice,
+  password reset codes) silently fail to send.
 
-- [ ] **P1** Stand up `gbolofitness.com/privacy` and `/terms` pages.
-  `SettingsScreen.tsx:221, 234` links point there but they 404 today.
+- [ ] **P1** Stand up `gbolo.fit/privacy` and `/terms` pages.
+  `SettingsScreen.tsx:328, 342` links point there but they 404 today.
+  `app.json` `ios.privacyUrl` also points to `gbolo.fit/privacy` —
+  required by App Store Connect.
 
 - [ ] **P2** EAS production build needs `JWT_SECRET` set as an EAS
   secret (server reads it; EAS bundle doesn't). Already in Railway, not

@@ -324,8 +324,8 @@ export default function SettingsScreen() {
               <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Legal</ThemedText>
 
               <AnimatedPress
-                // TODO: stand up privacy page on gbolofitness.com before launch
-                onPress={() => WebBrowser.openBrowserAsync("https://gbolofitness.com/privacy")}
+                // TODO: stand up privacy page on gbolo.fit before launch
+                onPress={() => WebBrowser.openBrowserAsync("https://gbolo.fit/privacy")}
                 style={styles.settingRow}
               >
                 <View style={styles.settingInfo}>
@@ -338,8 +338,8 @@ export default function SettingsScreen() {
               </AnimatedPress>
 
               <AnimatedPress
-                // TODO: stand up terms page on gbolofitness.com before launch
-                onPress={() => WebBrowser.openBrowserAsync("https://gbolofitness.com/terms")}
+                // TODO: stand up terms page on gbolo.fit before launch
+                onPress={() => WebBrowser.openBrowserAsync("https://gbolo.fit/terms")}
                 style={[styles.settingRow, { marginTop: Spacing.lg }]}
               >
                 <View style={styles.settingInfo}>

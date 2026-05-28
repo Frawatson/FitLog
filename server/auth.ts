@@ -248,10 +248,11 @@ async function sendRegisterConfirmEmail(email: string, name: string, token: stri
   try {
     const resend = new Resend(resendApiKey);
     await resend.emails.send({
-      // TODO: switch sender domain to gbolofitness.com once DNS is configured
-      // on Resend (currently still using the verified mergefitness.fitness
-      // sender — domain change is non-functional until that DNS lands).
-      from: "Gbolo Fitness and Nutrition <support@mergefitness.fitness>",
+      // Sender domain switched to gbolo.fit. REQUIRES Resend DNS records
+      // (SPF/DKIM/Return-Path) for gbolo.fit to be verified — otherwise
+      // these emails silently fail to send and users never get their
+      // confirmation link. Verify at https://resend.com/domains.
+      from: "Gbolo Fitness and Nutrition <support@gbolo.fit>",
       to: [email.toLowerCase()],
       subject: "Confirm your Gbolo account",
       html: `
@@ -279,8 +280,7 @@ async function sendRegisterAttemptEmail(email: string): Promise<void> {
   try {
     const resend = new Resend(resendApiKey);
     await resend.emails.send({
-      // TODO: switch sender to support@gbolofitness.com once DNS is configured
-      from: "Gbolo Fitness and Nutrition <support@mergefitness.fitness>",
+      from: "Gbolo Fitness and Nutrition <support@gbolo.fit>",
       to: [email.toLowerCase()],
       subject: "Someone tried to register with your email",
       html: `
@@ -632,8 +632,7 @@ router.post("/forgot-password", resetLimiter, async (req: Request, res: Response
       try {
         const resend = new Resend(resendApiKey);
         await resend.emails.send({
-          // TODO: switch sender to support@gbolofitness.com once DNS is configured
-          from: "Gbolo Fitness and Nutrition <support@mergefitness.fitness>",
+          from: "Gbolo Fitness and Nutrition <support@gbolo.fit>",
           to: [email.toLowerCase()],
           subject: "Your Gbolo Password Reset Code",
           html: `
