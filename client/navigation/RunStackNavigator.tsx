@@ -32,7 +32,8 @@ export default function RunStackNavigator() {
       <Stack.Screen
         name="RunTracker"
         component={RunTrackerScreen}
-        options={{ headerTitle: "Run", gestureEnabled: false }}
+        // Native header off — RunTrackerScreen renders a RetractableHeader.
+        options={{ headerShown: false, gestureEnabled: false }}
       />
       <Stack.Screen
         name="RunGoal"

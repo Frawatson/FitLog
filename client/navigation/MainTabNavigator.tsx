@@ -73,12 +73,9 @@ export default function MainTabNavigator() {
         component={DashboardScreen}
         options={{
           title: "Home",
-          headerShown: true,
-          headerTitle: "Gbolo",
-          headerTintColor: theme.text,
-          headerStyle: {
-            backgroundColor: theme.backgroundRoot,
-          },
+          // Native header disabled — DashboardScreen renders its own
+          // <RetractableHeader/> with the brand logo that slides on scroll.
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),

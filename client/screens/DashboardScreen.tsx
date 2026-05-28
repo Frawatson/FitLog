@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef } from "react";
 import { View, StyleSheet, ScrollView, Pressable, RefreshControl } from "react-native";
+import Animated from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -13,6 +14,8 @@ import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
+import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
+import { RetractableHeader } from "@/components/RetractableHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import Svg, { Circle as SvgCircle } from "react-native-svg";
@@ -86,6 +89,8 @@ export default function DashboardScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user } = useAuth();
+  const { scrollHandler, headerAnimStyle } = useRetractableHeader();
+  const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [macros, setMacros] = useState<MacroTargets | null>(null);
@@ -217,16 +222,24 @@ export default function DashboardScreen() {
 
   // ── Render ──────────────────────────────────────────────────────
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{
-        paddingTop: Spacing.xl,
-        paddingBottom: tabBarHeight + Spacing["5xl"],
-        paddingHorizontal: Spacing.lg,
-      }}
-      scrollIndicatorInsets={{ bottom: insets.bottom }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-    >
+    <>
+      <RetractableHeader
+        logoSource={require("../../assets/images/icon.png")}
+        logoHeight={32}
+        animatedStyle={headerAnimStyle}
+      />
+      <Animated.ScrollView
+        style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingBottom: tabBarHeight + Spacing["5xl"],
+          paddingHorizontal: Spacing.lg,
+        }}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
       {/* ── 1. Smart Greeting + Status Bar ─────────────────────── */}
       <View style={styles.greetingSection}>
         <ThemedText type="h1">{getGreeting()}, {getName()}</ThemedText>
@@ -454,7 +467,8 @@ export default function DashboardScreen() {
 
       </>
       )}
-    </ScrollView>
+      </Animated.ScrollView>
+    </>
   );
 }
 

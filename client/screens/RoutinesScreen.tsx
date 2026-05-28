@@ -1,32 +1,39 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, ScrollView, Pressable } from "react-native";
+import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import Animated from "react-native-reanimated";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { AnimatedPress } from "@/components/AnimatedPress";
+import { RetractableHeader } from "@/components/RetractableHeader";
+import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Routine>);
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export default function RoutinesScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const { scrollHandler, headerAnimStyle } = useRetractableHeader();
+  // Native header is disabled (RoutinesStackNavigator.tsx); our custom
+  // header overlays the screen, so content needs to start below it.
+  const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
   
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,37 +163,49 @@ export default function RoutinesScreen() {
   
   if (loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: theme.backgroundRoot,
-            paddingTop: headerHeight + Spacing.xl,
-            paddingHorizontal: Spacing.lg,
-          },
-        ]}
-      >
-        <View style={{ gap: Spacing.md }}>
-          <SkeletonLoader variant="card" />
-          <SkeletonLoader variant="card" />
-          <SkeletonLoader variant="card" />
+      <>
+        <RetractableHeader title="Workouts" />
+        <View
+          style={[
+            styles.container,
+            {
+              backgroundColor: theme.backgroundRoot,
+              paddingTop: headerHeight + Spacing.xl,
+              paddingHorizontal: Spacing.lg,
+            },
+          ]}
+        >
+          <View style={{ gap: Spacing.md }}>
+            <SkeletonLoader variant="card" />
+            <SkeletonLoader variant="card" />
+            <SkeletonLoader variant="card" />
+          </View>
         </View>
-      </View>
+      </>
     );
   }
 
   if (routines.length === 0 && !loading) {
     return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: theme.backgroundRoot,
-            paddingTop: headerHeight,
-            paddingBottom: tabBarHeight,
-          },
-        ]}
-      >
+      <>
+        <RetractableHeader
+          title="Workouts"
+          rightAction={{
+            icon: "plus",
+            onPress: () => navigation.navigate("EditRoutine", {}),
+            accessibilityLabel: "New workout",
+          }}
+        />
+        <View
+          style={[
+            styles.container,
+            {
+              backgroundColor: theme.backgroundRoot,
+              paddingTop: headerHeight,
+              paddingBottom: tabBarHeight,
+            },
+          ]}
+        >
         <EmptyState
           image={require("../../assets/images/empty-routines.png")}
           title="No workouts yet"
@@ -218,10 +237,11 @@ export default function RoutinesScreen() {
             </ThemedText>
           </AnimatedPress>
         </View>
-      </View>
+        </View>
+      </>
     );
   }
-  
+
   const renderDeleteModal = () => {
     if (!deleteModalVisible) return null;
     
@@ -258,7 +278,16 @@ export default function RoutinesScreen() {
 
   return (
     <>
-      <FlatList
+      <RetractableHeader
+        title="Workouts"
+        rightAction={{
+          icon: "plus",
+          onPress: () => navigation.navigate("EditRoutine", {}),
+          accessibilityLabel: "New workout",
+        }}
+        animatedStyle={headerAnimStyle}
+      />
+      <AnimatedFlatList
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.xl,
@@ -266,13 +295,12 @@ export default function RoutinesScreen() {
           paddingHorizontal: Spacing.lg,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         ListHeaderComponent={
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillRow}
-            style={{ marginBottom: Spacing.lg }}
-          >
+          // Three pills sharing the row evenly so all three fit on a
+          // narrow phone without horizontal scrolling.
+          <View style={[styles.pillRow, { marginBottom: Spacing.lg }]}>
             <AnimatedPress
               onPress={() => navigation.navigate("RoutineTemplates")}
               style={[styles.pillButton, { backgroundColor: Colors.light.primary + "15" }]}
@@ -280,7 +308,7 @@ export default function RoutinesScreen() {
               <View style={[styles.pillIcon, { backgroundColor: Colors.light.primary }]}>
                 <Feather name="grid" size={14} color="#FFFFFF" />
               </View>
-              <ThemedText type="small" style={{ fontWeight: "600", color: Colors.light.primary }}>
+              <ThemedText type="small" style={{ fontWeight: "600", color: Colors.light.primary }} numberOfLines={1}>
                 Templates
               </ThemedText>
             </AnimatedPress>
@@ -292,7 +320,7 @@ export default function RoutinesScreen() {
               <View style={[styles.pillIcon, { backgroundColor: "#9333EA" }]}>
                 <Feather name="zap" size={14} color="#FFFFFF" />
               </View>
-              <ThemedText type="small" style={{ fontWeight: "600", color: "#9333EA" }}>
+              <ThemedText type="small" style={{ fontWeight: "600", color: "#9333EA" }} numberOfLines={1}>
                 Generate
               </ThemedText>
             </AnimatedPress>
@@ -304,15 +332,15 @@ export default function RoutinesScreen() {
               <View style={[styles.pillIcon, { backgroundColor: "#0D9488" }]}>
                 <Feather name="book-open" size={14} color="#FFFFFF" />
               </View>
-              <ThemedText type="small" style={{ fontWeight: "600", color: "#0D9488" }}>
+              <ThemedText type="small" style={{ fontWeight: "600", color: "#0D9488" }} numberOfLines={1}>
                 Exercises
               </ThemedText>
             </AnimatedPress>
-          </ScrollView>
+          </View>
         }
         data={routines}
-        keyExtractor={(item) => item.id}
-        renderItem={renderRoutine}
+        keyExtractor={(item) => (item as Routine).id}
+        renderItem={renderRoutine as any}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.md }} />}
       />
       {renderDeleteModal()}
@@ -329,12 +357,14 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   pillButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.sm,
     borderRadius: BorderRadius.full,
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   pillIcon: {
     width: 24,

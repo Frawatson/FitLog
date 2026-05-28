@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, Pressable, Alert, Modal, Platform, TextIn
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import Animated from "react-native-reanimated";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -16,6 +16,8 @@ import { Input } from "@/components/Input";
 import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { RetractableHeader } from "@/components/RetractableHeader";
+import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -31,8 +33,9 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList & ProfileStac
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
+  const { scrollHandler, headerAnimStyle } = useRetractableHeader();
+  const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user, logout, deleteAccount } = useAuth();
@@ -226,7 +229,8 @@ export default function ProfileScreen() {
   
   return (
     <>
-    <ScrollView
+    <RetractableHeader title="Profile" animatedStyle={headerAnimStyle} />
+    <Animated.ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
         paddingTop: headerHeight + Spacing.xl,
@@ -234,6 +238,8 @@ export default function ProfileScreen() {
         paddingHorizontal: Spacing.lg,
       }}
       scrollIndicatorInsets={{ bottom: insets.bottom }}
+      onScroll={scrollHandler}
+      scrollEventThrottle={16}
     >
       {isLoading ? (
         <View style={{ gap: Spacing.lg }}>
@@ -564,7 +570,7 @@ export default function ProfileScreen() {
       </AnimatedPress>
       </>
       )}
-    </ScrollView>
+    </Animated.ScrollView>
 
     <Modal
       visible={showDeleteModal}

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Image, Platform, Linking, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Pressable, Image, Platform, Linking, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import Animated from "react-native-reanimated";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -17,6 +17,8 @@ import { ProgressRing } from "@/components/ProgressRing";
 import { EmptyState } from "@/components/EmptyState";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { RetractableHeader } from "@/components/RetractableHeader";
+import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { MacroTargets, FoodLogEntry } from "@/types";
@@ -84,10 +86,11 @@ function formatPeriodLabel(date: string, mode: PeriodMode): string {
 
 export default function NutritionScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const { scrollHandler, headerAnimStyle } = useRetractableHeader();
+  const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
 
   const [periodMode, setPeriodMode] = useState<PeriodMode>("day");
   const [selectedDate, setSelectedDate] = useState(getLocalDateString());
@@ -283,7 +286,16 @@ export default function NutritionScreen() {
   
   return (
     <>
-      <ScrollView
+      <RetractableHeader
+        title="Nutrition"
+        animatedStyle={headerAnimStyle}
+        rightAction={{
+          icon: "plus",
+          onPress: () => navigation.navigate("AddFood"),
+          accessibilityLabel: "Add food",
+        }}
+      />
+      <Animated.ScrollView
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.xl,
@@ -291,6 +303,8 @@ export default function NutritionScreen() {
           paddingHorizontal: Spacing.lg,
         }}
         scrollIndicatorInsets={{ bottom: insets.bottom }}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
         {isLoading ? (
           <View style={{ gap: Spacing.xl }}>
@@ -524,7 +538,7 @@ export default function NutritionScreen() {
         ) : null}
         </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       <Pressable
         onPress={handleCameraFAB}

@@ -3,11 +3,10 @@ import {
   View,
   StyleSheet,
   Platform,
-  ScrollView,
   Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import Animated from "react-native-reanimated";
 import { useNavigation, useRoute, RouteProp, useFocusEffect, CommonActions } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
@@ -21,6 +20,8 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { MapDisplay } from "@/components/MapDisplay";
+import { RetractableHeader } from "@/components/RetractableHeader";
+import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem } from "@/types";
@@ -36,10 +37,11 @@ const MAP_HEIGHT = 220;
 
 export default function RunTrackerScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
   const route_ = useRoute<RunTrackerRouteProp>();
   const { theme } = useTheme();
+  const { scrollHandler, headerAnimStyle } = useRetractableHeader();
+  const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
   
   const goal = route_.params?.goal;
   
@@ -484,30 +486,36 @@ export default function RunTrackerScreen() {
   
   if (permission === null && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
-        <View style={styles.centered}>
-          <ThemedText type="body">Checking location access...</ThemedText>
+      <>
+        <RetractableHeader title="Run" />
+        <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+          <View style={styles.centered}>
+            <ThemedText type="body">Checking location access...</ThemedText>
+          </View>
         </View>
-      </View>
+      </>
     );
   }
-  
+
   if (permission !== "granted" && Platform.OS !== "web") {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
-        <View style={styles.centered}>
-          <Feather name="map-pin" size={48} color={Colors.light.primary} />
-          <ThemedText type="h3" style={styles.permissionTitle}>
-            Track Your Runs
-          </ThemedText>
-          <ThemedText type="body" style={styles.permissionText}>
-            Allow location access to track distance, pace, and route.
-          </ThemedText>
-          <Button onPress={requestPermission} style={styles.permissionButton}>
-            Enable Location
-          </Button>
+      <>
+        <RetractableHeader title="Run" />
+        <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+          <View style={styles.centered}>
+            <Feather name="map-pin" size={48} color={Colors.light.primary} />
+            <ThemedText type="h3" style={styles.permissionTitle}>
+              Track Your Runs
+            </ThemedText>
+            <ThemedText type="body" style={styles.permissionText}>
+              Allow location access to track distance, pace, and route.
+            </ThemedText>
+            <Button onPress={requestPermission} style={styles.permissionButton}>
+              Enable Location
+            </Button>
+          </View>
         </View>
-      </View>
+      </>
     );
   }
   
@@ -519,13 +527,16 @@ export default function RunTrackerScreen() {
   
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
-      <ScrollView
+      <RetractableHeader title="Run" animatedStyle={headerAnimStyle} />
+      <Animated.ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: headerHeight,
           paddingBottom: insets.bottom + Spacing["3xl"],
         }}
         showsVerticalScrollIndicator={false}
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
       >
         <View style={styles.mapContainer}>
           <MapDisplay
@@ -711,7 +722,7 @@ export default function RunTrackerScreen() {
             </Card>
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }

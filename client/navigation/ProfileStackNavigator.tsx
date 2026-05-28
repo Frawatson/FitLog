@@ -24,9 +24,8 @@ export default function ProfileStackNavigator() {
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{
-          headerTitle: "Profile",
-        }}
+        // Native header off — ProfileScreen renders a RetractableHeader.
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="ProgressCharts"
