@@ -1035,8 +1035,10 @@ Return JSON only:
   app.get("/api/food-logs", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const date = req.query.date as string | undefined;
-      const logs = await getFoodLogs(userId, date);
+      const date = typeof req.query.date === "string" ? req.query.date : undefined;
+      const start = typeof req.query.start === "string" ? req.query.start : undefined;
+      const end = typeof req.query.end === "string" ? req.query.end : undefined;
+      const logs = await getFoodLogs(userId, { date, start, end });
       res.json(logs);
     } catch (error) {
       console.error("Error getting food logs:", error);

@@ -852,13 +852,22 @@ export interface FoodLogData {
   mealType?: string;
 }
 
-export async function getFoodLogs(userId: number, date?: string): Promise<FoodLogData[]> {
+export async function getFoodLogs(
+  userId: number,
+  opts?: { date?: string; start?: string; end?: string },
+): Promise<FoodLogData[]> {
   let query = `SELECT client_id, food_data, date, created_at, image_data, meal_type FROM food_logs WHERE user_id = $1`;
   const params: any[] = [userId];
 
-  if (date) {
-    query += ` AND date = $2`;
-    params.push(date);
+  // `date` takes precedence so existing single-day callers keep working.
+  // The (start, end) pair lets NutritionScreen pull a week/month in one
+  // round-trip instead of loading every entry and filtering in JS.
+  if (opts?.date) {
+    query += ` AND date = $${params.length + 1}`;
+    params.push(opts.date);
+  } else if (opts?.start && opts?.end) {
+    query += ` AND date >= $${params.length + 1} AND date <= $${params.length + 2}`;
+    params.push(opts.start, opts.end);
   }
 
   query += ` ORDER BY created_at DESC LIMIT 500`;

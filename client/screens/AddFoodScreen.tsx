@@ -79,6 +79,10 @@ export default function AddFoodScreen() {
   const MAX_CAL_PER_ENTRY = 10000;
   const MAX_MACRO_G = 1000;
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Race guard for the food-search fetch. Debounce alone isn't enough —
+  // a slow fetch for "chic" can still resolve after a fast fetch for
+  // "chicken breast" and overwrite the better result.
+  const searchRequestIdRef = useRef(0);
   const nameSuggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
@@ -138,17 +142,21 @@ export default function AddFoodScreen() {
   
   // Debounced search - tries API first, falls back to local database
   useEffect(() => {
+    // Bump request id unconditionally so an in-flight fetch from a
+    // previous longer query can't write back results after the user
+    // shortened the query below the search threshold.
+    const requestId = ++searchRequestIdRef.current;
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-    
+
     if (searchQuery.trim().length < 2) {
       setSearchResults([]);
       setIsSearching(false);
       setSearchUsedLocalFallback(false);
       return;
     }
-    
+
     setIsSearching(true);
     const localFallback = (): APIFoodResult[] => searchFoods(searchQuery).map(f => ({
       id: f.id,
@@ -167,6 +175,9 @@ export default function AddFoodScreen() {
         url.searchParams.set("query", searchQuery.trim());
 
         const response = await fetch(url.toString(), { credentials: "include" });
+        // Stale-response guard: a faster fetch for a later keystroke may
+        // have already returned and rendered; don't let this one clobber it.
+        if (requestId !== searchRequestIdRef.current) return;
         if (response.ok) {
           const data = await response.json();
           if (data.foods && data.foods.length > 0) {
@@ -185,12 +196,14 @@ export default function AddFoodScreen() {
           setSearchUsedLocalFallback(true);
         }
       } catch (error) {
+        if (requestId !== searchRequestIdRef.current) return;
         console.error("Food search error:", error);
         // Network error — same treatment as 503.
         setSearchResults(localFallback());
         setSearchUsedLocalFallback(true);
       } finally {
-        setIsSearching(false);
+        // Gate so a stale call can't flip the spinner off mid-search.
+        if (requestId === searchRequestIdRef.current) setIsSearching(false);
       }
     }, 400); // 400ms debounce
     

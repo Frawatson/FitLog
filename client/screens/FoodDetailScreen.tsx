@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from "react";
+import React, { useState, useLayoutEffect, useRef } from "react";
 import { View, StyleSheet, TextInput, ScrollView, Image, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -40,6 +40,15 @@ export default function FoodDetailScreen() {
   const [editProtein, setEditProtein] = useState(String(entry.food.protein));
   const [editCarbs, setEditCarbs] = useState(String(entry.food.carbs));
   const [editFat, setEditFat] = useState(String(entry.food.fat));
+  // Prevents double-tap during the async updateFoodLogEntry → goBack
+  // round-trip; without this, tapping Save twice on a slow network
+  // queued two updates and (if the user then hit Cancel) jumped them
+  // straight off the screen mid-save. Ref serializes synchronously
+  // within a single JS tick (state alone wouldn't since the handler's
+  // closure captures the stale `false`); state drives the disabled
+  // prop for visual feedback.
+  const isSavingRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -83,6 +92,7 @@ export default function FoodDetailScreen() {
   const MAX_MACRO_G = 1000;
 
   const handleSaveEdit = async () => {
+    if (isSavingRef.current) return;
     const cal = parseInt(editCalories.trim(), 10);
     if (!Number.isFinite(cal) || cal <= 0 || cal > MAX_CAL_PER_ENTRY) {
       webSafeAlert("Invalid value", `Calories must be between 1 and ${MAX_CAL_PER_ENTRY}.`);
@@ -105,9 +115,16 @@ export default function FoodDetailScreen() {
       carbs: cb,
       fat: f,
     };
-    await storage.updateFoodLogEntry(entry.id, updatedFood);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.goBack();
+    isSavingRef.current = true;
+    setIsSaving(true);
+    try {
+      await storage.updateFoodLogEntry(entry.id, updatedFood);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.goBack();
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
+    }
   };
 
   if (isEditing) {
@@ -189,8 +206,12 @@ export default function FoodDetailScreen() {
         </View>
 
         <View style={styles.actions}>
-          <Button onPress={handleSaveEdit}>Save</Button>
-          <Button onPress={() => setIsEditing(false)}>Cancel</Button>
+          <Button onPress={handleSaveEdit} disabled={isSaving}>
+            {isSaving ? "Saving…" : "Save"}
+          </Button>
+          <Button onPress={() => setIsEditing(false)} disabled={isSaving}>
+            Cancel
+          </Button>
         </View>
       </KeyboardAwareScrollViewCompat>
     );

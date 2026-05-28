@@ -25,13 +25,17 @@ import type { MacroTargets, FoodLogEntry } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { getLocalDateString, parseLocalDate } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type PeriodMode = "day" | "week" | "month";
 
 function getDateRange(date: string, mode: PeriodMode): { start: string; end: string; days: number } {
-  const d = new Date(date);
+  // parseLocalDate so `d.getDay()` and `setDate()` operate in the same
+  // local-tz frame as the YYYY-MM-DD input — `new Date(ymd)` parses as
+  // UTC midnight and shifts the week start by a day in negative-UTC
+  // zones.
+  const d = parseLocalDate(date);
   if (mode === "day") {
     return { start: date, end: date, days: 1 };
   }
@@ -66,7 +70,7 @@ function getDateRange(date: string, mode: PeriodMode): { start: string; end: str
 }
 
 function formatPeriodLabel(date: string, mode: PeriodMode): string {
-  const d = new Date(date);
+  const d = parseLocalDate(date);
   if (mode === "day") {
     const today = new Date();
     const yesterday = new Date(today);
@@ -77,8 +81,8 @@ function formatPeriodLabel(date: string, mode: PeriodMode): string {
   }
   if (mode === "week") {
     const range = getDateRange(date, "week");
-    const s = new Date(range.start);
-    const e = new Date(range.end);
+    const s = parseLocalDate(range.start);
+    const e = parseLocalDate(range.end);
     return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
   }
   return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -137,15 +141,13 @@ export default function NutritionScreen() {
       setFoodLog(log);
     } else {
       const range = getDateRange(selectedDate, periodMode);
-      const [targets, allEntries] = await Promise.all([
+      // Server filters by range now — was previously pulling every entry
+      // ever and filtering in JS, which scales badly for long-time users.
+      const [targets, periodEntries] = await Promise.all([
         storage.getMacroTargets(),
-        storage.getFoodLog(),
+        storage.getFoodLog({ start: range.start, end: range.end }),
       ]);
       if (requestId !== loadRequestIdRef.current) return;
-
-      const periodEntries = allEntries.filter(
-        (e) => e.date >= range.start && e.date <= range.end
-      );
 
       // Group by date and sum
       const dailyMap = new Map<string, MacroTargets>();
@@ -217,8 +219,12 @@ export default function NutritionScreen() {
   const macroColor = (actual: number, target: number): string => {
     if (target === 0) return theme.text;
     const ratio = actual / target;
-    if (ratio >= 0.85 && ratio <= 1.15) return Colors.light.success;
-    return Colors.light.error;
+    // Over-budget is the only "bad" state worth flagging red. Under-budget
+    // is neutral — for a user on a cutting day, sitting at 60% of the
+    // calorie target by lunchtime is desired progress, not failure.
+    if (ratio > 1.15) return Colors.light.error;
+    if (ratio >= 0.85) return Colors.light.success;
+    return theme.text;
   };
 
   // Guards every ratio passed to ProgressRing — see comment at the

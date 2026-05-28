@@ -523,11 +523,22 @@ export async function deleteSavedFood(foodId: string): Promise<void> {
   }
 }
 
-// Food Log
-export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
+// Food Log.
+// `filter` accepts either a single YYYY-MM-DD string (legacy single-day
+// callers) or a { start, end } range (NutritionScreen week/month views).
+// The range form lets the server filter by date instead of streaming the
+// whole history for client-side filtering.
+export async function getFoodLog(
+  filter?: string | { start: string; end: string },
+): Promise<FoodLogEntry[]> {
   try {
     if (await isAuthenticated()) {
-      const endpoint = date ? `/api/food-logs?date=${date}` : "/api/food-logs";
+      let endpoint = "/api/food-logs";
+      if (typeof filter === "string") {
+        endpoint = `/api/food-logs?date=${filter}`;
+      } else if (filter && filter.start && filter.end) {
+        endpoint = `/api/food-logs?start=${filter.start}&end=${filter.end}`;
+      }
       const result = await syncToServer<any[]>(endpoint, "GET");
       if (result.success && result.data) {
         const localEntries = await getFoodLogLocal();
@@ -564,8 +575,11 @@ export async function getFoodLog(date?: string): Promise<FoodLogEntry[]> {
     }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.FOOD_LOG);
     const entries: FoodLogEntry[] = data ? JSON.parse(data) : [];
-    if (date) {
-      return entries.filter((e) => e.date === date);
+    if (typeof filter === "string") {
+      return entries.filter((e) => e.date === filter);
+    }
+    if (filter && filter.start && filter.end) {
+      return entries.filter((e) => e.date >= filter.start && e.date <= filter.end);
     }
     return entries;
   } catch {
