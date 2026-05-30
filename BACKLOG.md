@@ -234,10 +234,12 @@ Updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
   auth emails (register confirmation, register-attempt notice,
   password reset codes) silently fail to send.
 
-- [ ] **P1** Stand up `gbolo.fit/privacy` and `/terms` pages.
-  `SettingsScreen.tsx:328, 342` links point there but they 404 today.
-  `app.json` `ios.privacyUrl` also points to `gbolo.fit/privacy` —
-  required by App Store Connect.
+- [x] **P1** Stand up `gbolo.fit/privacy` and `/terms` pages.
+  Served as plain HTML by Express from `server/legalPages.ts`; routes
+  defined in `server/index.ts` before the SPA fallback so they don't
+  get caught by the catch-all. Copy is a working draft — needs legal
+  review before App Store submission (an on-page disclaimer reflects
+  that).
 
 - [ ] **P2** EAS production build needs `JWT_SECRET` set as an EAS
   secret (server reads it; EAS bundle doesn't). Already in Railway, not

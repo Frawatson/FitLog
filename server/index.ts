@@ -10,6 +10,7 @@ import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import authRouter, { authLimiter } from "./auth";
 import { initializeDatabase, pool } from "./db";
+import { privacyHtml, termsHtml } from "./legalPages";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -238,6 +239,18 @@ async function startServer() {
           "self.addEventListener('activate',(e)=>e.waitUntil(self.clients.claim()));" +
           "self.addEventListener('fetch',()=>{});",
       );
+    });
+
+    // Legal pages — served as plain static HTML so they load instantly,
+    // are crawlable, and aren't dependent on the web bundle. These
+    // routes MUST be defined before the SPA fallback below; otherwise
+    // /privacy and /terms get caught by the catch-all regex and the
+    // user is silently rerouted to the app shell.
+    app.get("/privacy", (_req: Request, res: Response) => {
+      res.type("html").send(privacyHtml());
+    });
+    app.get("/terms", (_req: Request, res: Response) => {
+      res.type("html").send(termsHtml());
     });
     // static-build/ holds native OTA bundles (manifests served above);
     // dist/ holds the Expo web export (built by `npm run web:build`).
