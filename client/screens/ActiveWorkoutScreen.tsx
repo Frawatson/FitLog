@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Alert, Pressable } from "react-native";
+import { View, StyleSheet, ScrollView, TextInput, Alert, Pressable, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -122,6 +122,16 @@ export default function ActiveWorkoutScreen() {
   };
   
   const handleCancel = () => {
+    // Alert.alert is a no-op on react-native-web, so the X button felt
+    // dead on the web build — user tapped, nothing happened. Native uses
+    // the proper Alert; web falls back to window.confirm.
+    const proceed = () => navigation.goBack();
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Cancel this workout? Progress will be lost.")) {
+        proceed();
+      }
+      return;
+    }
     Alert.alert(
       "Cancel Workout",
       "Are you sure you want to cancel this workout? Progress will be lost.",
@@ -130,16 +140,23 @@ export default function ActiveWorkoutScreen() {
         {
           text: "Cancel Workout",
           style: "destructive",
-          onPress: () => navigation.goBack(),
+          onPress: proceed,
         },
       ]
     );
   };
   
+  // Outer bounds match the TextInput maxLength (4 chars weight, 3 reps).
+  // Defensive: paste / autofill could in theory bypass maxLength.
+  const MAX_WEIGHT = 9999;
+  const MAX_REPS = 999;
+
   const updateSet = (exerciseIndex: number, setIndex: number, field: "weight" | "reps", value: string) => {
     const updated = [...exercises];
-    const numValue = parseInt(value) || 0;
-    updated[exerciseIndex].sets[setIndex][field] = numValue;
+    const parsed = parseInt(value, 10);
+    const safe = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    const max = field === "weight" ? MAX_WEIGHT : MAX_REPS;
+    updated[exerciseIndex].sets[setIndex][field] = Math.min(safe, max);
     setExercises(updated);
   };
   
@@ -347,9 +364,14 @@ export default function ActiveWorkoutScreen() {
                     {
                       backgroundColor: theme.backgroundDefault,
                       color: theme.text,
+                      borderColor: theme.text,
                     },
                   ]}
                   keyboardType="number-pad"
+                  // maxLength=4 caps the visible value at "9999" — without
+                  // it, a tap-and-hold zero or paste of "999999" overflows
+                  // the box and stores nonsense in the workout history.
+                  maxLength={4}
                   value={set.weight > 0 ? set.weight.toString() : ""}
                   onChangeText={(v) => updateSet(exerciseIndex, setIndex, "weight", v)}
                   placeholder="0"
@@ -361,9 +383,11 @@ export default function ActiveWorkoutScreen() {
                     {
                       backgroundColor: theme.backgroundDefault,
                       color: theme.text,
+                      borderColor: theme.text,
                     },
                   ]}
                   keyboardType="number-pad"
+                  maxLength={3}
                   value={set.reps > 0 ? set.reps.toString() : ""}
                   onChangeText={(v) => updateSet(exerciseIndex, setIndex, "reps", v)}
                   placeholder="0"
@@ -500,6 +524,11 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: BorderRadius.xs,
+    // Visible border so the weight/reps cells read as input fields
+    // rather than blending into the card background — especially in
+    // dark mode where the field bg sat almost the same shade as the
+    // card. borderColor is applied per-instance via theme.text.
+    borderWidth: 1.5,
     textAlign: "center",
     fontSize: 16,
     fontWeight: "600",
