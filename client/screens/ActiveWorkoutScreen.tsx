@@ -503,7 +503,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginBottom: Spacing.sm,
-    paddingHorizontal: Spacing.xs,
+    // Match the body setRow exactly (same gap, no extra horizontal
+    // padding) so the Weight / Reps column labels actually sit above
+    // the input boxes underneath them.
+    gap: Spacing.sm,
   },
   headerCell: {
     flex: 1,
@@ -522,6 +525,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
+    // minWidth: 0 overrides RN's default `minWidth: auto` which
+    // refuses to shrink a flex item below its intrinsic content size.
+    // Without this, the weight + reps cells stayed wide enough to
+    // hold their content, pushing the check column off-screen on
+    // narrower phones.
+    minWidth: 0,
     height: 44,
     borderRadius: BorderRadius.xs,
     // Visible border so the weight/reps cells read as input fields
