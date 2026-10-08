@@ -70,15 +70,25 @@ function WebMap({ currentLocation, route }: MapDisplayProps) {
         zoomControl: true,
       });
 
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        {
-          maxZoom: 19,
-          // Required by OSM/CARTO tile usage policies.
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        },
-      ).addTo(map);
+      // OpenStreetMap standard tiles: free and keyless. CARTO's basemaps
+      // now require an API key and serve an "API KEY REQUIRED" image for
+      // every tile without one. The dark look comes from a CSS filter on
+      // this layer's pane (className below) rather than a dark tile set.
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        className: "fitlog-dark-tiles",
+        // Required by the OSM tile usage policy.
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+
+      if (!document.getElementById("fitlog-dark-tiles-css")) {
+        const style = document.createElement("style");
+        style.id = "fitlog-dark-tiles-css";
+        style.textContent =
+          ".fitlog-dark-tiles{filter:invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.6)}";
+        document.head.appendChild(style);
+      }
 
       mapInstanceRef.current = map;
 

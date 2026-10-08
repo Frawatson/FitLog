@@ -513,7 +513,7 @@ async function startServer() {
       "'self'",
       "data:", // Base64 post/food/avatar images served inline
       "blob:", // Image-picker previews
-      "https://*.basemaps.cartocdn.com", // Map tiles
+      "https://tile.openstreetmap.org", // Map tiles (web run tracker)
       "https://unpkg.com", // Leaflet's CSS references marker icons here
     ],
     scriptSrc: [

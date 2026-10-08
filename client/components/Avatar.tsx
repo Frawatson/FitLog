@@ -19,7 +19,7 @@ import { apiImageSource } from "@/lib/mediaSource";
 //
 // Note: never load `uri` as a raw http(s) URL from a third party — the
 // CSP imgSrc only allows our own origin + data:/blob: + the leaflet/
-// cartocdn hosts; an arbitrary URL would be blocked by the browser.
+// map-tile hosts; an arbitrary URL would be blocked by the browser.
 
 export interface AvatarProps {
   uri?: string | null;
