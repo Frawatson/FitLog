@@ -9,8 +9,13 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
 import { initSyncService } from "@/lib/storage";
+import { flushSyncQueue } from "@/lib/syncService";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
-import { clearScheduledNotifications } from "@/lib/notifications";
+
+// Last server-confirmed user object, kept so an app start WITHOUT network
+// (subway, airplane mode) restores the signed-in state instead of bouncing
+// a token-holding user to the Login screen.
+const AUTH_USER_CACHE_KEY = "@merge_auth_user";
 
 export interface User {
   id: number;
@@ -82,27 +87,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       );
       if (response.ok) {
+        // NOTE: never log the user object — it carries health PII.
         const userData = await response.json();
-        console.log(
-          "[AuthContext] Received user data:",
-          JSON.stringify(userData, null, 2),
-        );
         setUser(userData);
+        await AsyncStorage.setItem(
+          AUTH_USER_CACHE_KEY,
+          JSON.stringify(userData),
+        );
         // Initialize sync service for authenticated user
         initSyncService();
-      } else {
+      } else if (response.status === 401 || response.status === 403) {
+        // The token itself was rejected — clear it.
         console.log(
           "[AuthContext] Auth check failed, status:",
           response.status,
         );
-        // Clear invalid token
         if (token) {
           await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
           setAuthToken(null);
         }
+        await AsyncStorage.removeItem(AUTH_USER_CACHE_KEY);
+      } else {
+        // Server error (5xx / 502 from a mid-deploy proxy): NOT evidence
+        // the token is bad. Fall back to the cached signed-in state.
+        await restoreCachedUser(token);
       }
     } catch (error) {
-      console.log("[AuthContext] Not authenticated, error:", error);
+      // Network failure. With a stored token, restore the cached user so
+      // the app opens into the (locally cached) data instead of Login.
+      console.log("[AuthContext] Auth check unreachable:", error);
+      await restoreCachedUser(token);
+    }
+  };
+
+  const restoreCachedUser = async (token?: string | null) => {
+    if (!token) return;
+    try {
+      const cached = await AsyncStorage.getItem(AUTH_USER_CACHE_KEY);
+      if (cached) {
+        setUser(JSON.parse(cached));
+      }
+    } catch {
+      // Cache unreadable — leave signed out.
     }
   };
 
@@ -143,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(userData.token);
     }
     setUser(userData);
+    await AsyncStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(userData));
     // Initialize sync service for authenticated user
     initSyncService();
   };
@@ -176,6 +203,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Push any still-queued offline writes up under the CURRENT token
+    // before it goes away — clearAllData below drops whatever remains.
+    try {
+      await flushSyncQueue();
+    } catch {
+      // Best effort only.
+    }
     try {
       const headers: HeadersInit = {};
       if (authToken) {
@@ -189,9 +223,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Logout error:", error);
     }
-    // Stop OS-scheduled reminders so they don't keep firing while signed
-    // out. Server-side prefs are preserved and re-pulled on next login.
-    await clearScheduledNotifications();
+    // Wipe local health data AND the sync queue. Leaving either behind
+    // on a shared computer exposes this user's data to the next account
+    // (and replays this user's queued writes into that account). Server
+    // data is untouched — everything re-syncs on next login.
+    await storage.clearAllData();
+    await AsyncStorage.removeItem(AUTH_USER_CACHE_KEY);
     // Clear stored token
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthToken(null);
@@ -266,6 +303,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(errorData.error || "Failed to delete account");
     }
 
+    // Account is gone server-side; remove every local trace too.
+    await storage.clearAllData();
+    await AsyncStorage.removeItem(AUTH_USER_CACHE_KEY);
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthToken(null);
     setUser(null);

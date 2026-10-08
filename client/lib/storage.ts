@@ -17,6 +17,9 @@ import {
   syncWithRetry,
   isAuthenticated,
   initSyncService,
+  getPendingSyncItems,
+  clearSyncQueue,
+  addToSyncQueue,
 } from "@/lib/syncService";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import { getLocalDateString } from "@/lib/dateUtils";
@@ -147,6 +150,62 @@ const DEFAULT_EXERCISES: Exercise[] = [
   { id: "18", name: "cable seated row", muscleGroup: "Back", isCustom: false },
 ];
 
+// Reconcile a server list response with the local cache instead of
+// blindly replacing it. Three rules:
+//   1. A local item with a write still waiting in the sync queue beats
+//      the server copy (the server hasn't seen that write yet — without
+//      this, anything saved offline visually vanished on the next fetch
+//      until the queue flushed).
+//   2. With `unionLocal`, local items missing from the server response
+//      are kept. Used for append-mostly history (workouts, runs) where
+//      the server caps list responses at 100 rows — the old overwrite
+//      actively deleted local history past that cap.
+//   3. A local item with a pending DELETE is dropped even if the server
+//      still returns it.
+async function mergeServerList<T extends { id: string }>(
+  serverItems: T[],
+  localItems: T[],
+  endpoint: string,
+  opts?: {
+    unionLocal?: boolean;
+    getUpsertId?: (data: any) => string | undefined;
+  },
+): Promise<T[]> {
+  const pending = await getPendingSyncItems();
+  const getId = opts?.getUpsertId ?? ((d: any) => d?.clientId);
+
+  const pendingUpsertIds = new Set<string>();
+  const pendingDeleteIds = new Set<string>();
+  for (const item of pending) {
+    if (
+      item.endpoint === endpoint &&
+      (item.method === "POST" || item.method === "PUT")
+    ) {
+      const id = getId(item.data);
+      if (id) pendingUpsertIds.add(id);
+    } else if (
+      item.method === "DELETE" &&
+      item.endpoint.startsWith(endpoint + "/")
+    ) {
+      pendingDeleteIds.add(item.endpoint.slice(endpoint.length + 1));
+    }
+  }
+
+  const byId = new Map<string, T>(serverItems.map((i) => [i.id, i]));
+  for (const local of localItems) {
+    if (
+      pendingUpsertIds.has(local.id) ||
+      (opts?.unionLocal && !byId.has(local.id))
+    ) {
+      byId.set(local.id, local);
+    }
+  }
+  for (const id of pendingDeleteIds) {
+    byId.delete(id);
+  }
+  return [...byId.values()];
+}
+
 // User Profile
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
@@ -243,12 +302,21 @@ export async function getExercises(): Promise<Exercise[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/custom-exercises", "GET");
       if (result.success && result.data) {
-        const customExercises: Exercise[] = result.data.map((e) => ({
+        const serverCustom: Exercise[] = result.data.map((e) => ({
           id: e.clientId,
           name: e.name,
           muscleGroup: e.muscleGroup,
           isCustom: true,
         }));
+        const localData = await AsyncStorage.getItem(STORAGE_KEYS.EXERCISES);
+        const localCustom: Exercise[] = (
+          localData ? JSON.parse(localData) : []
+        ).filter((e: Exercise) => e.isCustom);
+        const customExercises = await mergeServerList(
+          serverCustom,
+          localCustom,
+          "/api/custom-exercises",
+        );
         const allExercises = [...DEFAULT_EXERCISES, ...customExercises];
         await AsyncStorage.setItem(
           STORAGE_KEYS.EXERCISES,
@@ -302,7 +370,7 @@ export async function getRoutines(): Promise<Routine[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/routines", "GET");
       if (result.success && result.data) {
-        const routines: Routine[] = result.data.map((r) => ({
+        const serverRoutines: Routine[] = result.data.map((r) => ({
           id: r.clientId,
           name: r.name,
           exercises: r.exercises,
@@ -311,6 +379,11 @@ export async function getRoutines(): Promise<Routine[]> {
           isFavorite: r.isFavorite,
           category: r.category,
         }));
+        const routines = await mergeServerList(
+          serverRoutines,
+          await getRoutinesLocal(),
+          "/api/routines",
+        );
         await AsyncStorage.setItem(
           STORAGE_KEYS.ROUTINES,
           JSON.stringify(routines),
@@ -373,7 +446,7 @@ export async function getWorkouts(): Promise<Workout[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/workouts", "GET");
       if (result.success && result.data) {
-        const workouts: Workout[] = result.data.map((w) => ({
+        const serverWorkouts: Workout[] = result.data.map((w) => ({
           id: w.clientId,
           routineId: w.routineId,
           routineName: w.routineName,
@@ -384,6 +457,14 @@ export async function getWorkouts(): Promise<Workout[]> {
           notes: w.notes,
           totalVolumeKg: w.totalVolumeKg,
         }));
+        // unionLocal: the server returns at most 100 workouts, so local
+        // history older than that must survive the merge.
+        const workouts = await mergeServerList(
+          serverWorkouts,
+          await getWorkoutsLocal(),
+          "/api/workouts",
+          { unionLocal: true },
+        );
         await AsyncStorage.setItem(
           STORAGE_KEYS.WORKOUTS,
           JSON.stringify(workouts),
@@ -476,11 +557,31 @@ export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
 
         if (response.ok) {
           const serverData = await response.json();
-          const entries: BodyWeightEntry[] = serverData.map((item: any) => ({
-            id: String(item.id),
-            weightKg: item.weightKg,
-            date: item.date.split("T")[0],
-          }));
+          const serverEntries: BodyWeightEntry[] = serverData.map(
+            (item: any) => ({
+              id: String(item.id),
+              weightKg: item.weightKg,
+              date: item.date.split("T")[0],
+            }),
+          );
+          // Keep local entries whose POST is still queued (matched by
+          // date — body weights are one-per-day and offline entries have
+          // client-generated ids the server doesn't know).
+          const pendingDates = new Set(
+            (await getPendingSyncItems())
+              .filter(
+                (i) =>
+                  i.endpoint === "/api/body-weights" && i.method === "POST",
+              )
+              .map((i) => i.data?.date)
+              .filter(Boolean),
+          );
+          const local = await getBodyWeightsLocal();
+          const byDate = new Map(serverEntries.map((e) => [e.date, e]));
+          for (const le of local) {
+            if (pendingDates.has(le.date)) byDate.set(le.date, le);
+          }
+          const entries = [...byDate.values()];
           await AsyncStorage.setItem(
             STORAGE_KEYS.BODY_WEIGHTS,
             JSON.stringify(entries),
@@ -538,9 +639,18 @@ export async function addBodyWeight(
           weightKg: serverEntry.weightKg,
           date: serverEntry.date.split("T")[0],
         };
+      } else if (response.status >= 500 || response.status === 429) {
+        await addToSyncQueue("/api/body-weights", "POST", {
+          weightKg,
+          date: today,
+        });
       }
     } catch (e) {
-      console.log("Failed to sync body weight to server, saving locally");
+      // Network failure — queue it instead of silently never syncing.
+      await addToSyncQueue("/api/body-weights", "POST", {
+        weightKg,
+        date: today,
+      });
     }
   }
 
@@ -582,7 +692,9 @@ export async function deleteBodyWeight(id: string): Promise<void> {
         headers: await getAuthHeaders(),
       });
     } catch (e) {
-      console.log("Failed to delete body weight on server");
+      // Network failure — queue the delete so it isn't resurrected by
+      // the next server fetch.
+      await addToSyncQueue(`/api/body-weights/${id}`, "DELETE", {});
     }
   }
 }
@@ -593,7 +705,7 @@ export async function getSavedFoods(): Promise<Food[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/saved-foods", "GET");
       if (result.success && result.data) {
-        const foods: Food[] = result.data.map((f) => ({
+        const serverFoods: Food[] = result.data.map((f) => ({
           id: f.id,
           name: f.name,
           calories: f.calories,
@@ -602,6 +714,14 @@ export async function getSavedFoods(): Promise<Food[]> {
           fat: f.fat,
           isSaved: true,
         }));
+        const localData = await AsyncStorage.getItem(STORAGE_KEYS.SAVED_FOODS);
+        const foods = await mergeServerList(
+          serverFoods,
+          (localData ? JSON.parse(localData) : []) as Food[],
+          "/api/saved-foods",
+          // saveFood posts { food: {...} }, not { clientId }.
+          { getUpsertId: (d) => d?.food?.id },
+        );
         await AsyncStorage.setItem(
           STORAGE_KEYS.SAVED_FOODS,
           JSON.stringify(foods),
@@ -666,6 +786,17 @@ export async function getFoodLog(
       const result = await syncToServer<any[]>(endpoint, "GET");
       if (result.success && result.data) {
         const localEntries = await getFoodLogLocal();
+        // Entries with a DELETE still queued must not be resurrected by
+        // the server copy.
+        const pendingDeletes = new Set(
+          (await getPendingSyncItems())
+            .filter(
+              (i) =>
+                i.method === "DELETE" &&
+                i.endpoint.startsWith("/api/food-logs/"),
+            )
+            .map((i) => i.endpoint.slice("/api/food-logs/".length)),
+        );
         const localImageMap = new Map<string, string>();
         for (const le of localEntries) {
           if (le.imageUri) {
@@ -688,8 +819,9 @@ export async function getFoodLog(
                 : {}),
           };
         });
+        const visibleEntries = entries.filter((e) => !pendingDeletes.has(e.id));
         const allLocal = [...localEntries];
-        for (const entry of entries) {
+        for (const entry of visibleEntries) {
           const idx = allLocal.findIndex((le) => le.id === entry.id);
           if (idx !== -1) {
             allLocal[idx] = entry;
@@ -697,11 +829,12 @@ export async function getFoodLog(
             allLocal.push(entry);
           }
         }
+        const allLocalKept = allLocal.filter((e) => !pendingDeletes.has(e.id));
         await AsyncStorage.setItem(
           STORAGE_KEYS.FOOD_LOG,
-          JSON.stringify(allLocal),
+          JSON.stringify(allLocalKept),
         );
-        return entries;
+        return visibleEntries;
       }
     }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.FOOD_LOG);
@@ -873,7 +1006,7 @@ export async function getRunHistory(): Promise<RunEntry[]> {
         const profile = await getUserProfile();
         const age = profile?.age ?? 30;
 
-        const runs: RunEntry[] = result.data.map((r) => {
+        const serverRuns: RunEntry[] = result.data.map((r) => {
           const local = localById.get(r.clientId);
           const zoneInfo = r.avgHeartRate
             ? getZoneForHeartRate(r.avgHeartRate, age)
@@ -895,6 +1028,17 @@ export async function getRunHistory(): Promise<RunEntry[]> {
             splitsUnit: local?.splitsUnit,
           };
         });
+        // unionLocal: /api/runs is capped at 100 rows — keep older local
+        // history and any run whose POST is still queued.
+        const runs = (
+          await mergeServerList(serverRuns, localBefore, "/api/runs", {
+            unionLocal: true,
+          })
+        ).sort(
+          (a, b) =>
+            new Date(b.completedAt).getTime() -
+            new Date(a.completedAt).getTime(),
+        );
         await AsyncStorage.setItem(
           STORAGE_KEYS.RUN_HISTORY,
           JSON.stringify(runs),
@@ -973,6 +1117,11 @@ export async function deleteRunEntry(id: string): Promise<void> {
 // Clear all data (for logout)
 export async function clearAllData(): Promise<void> {
   await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+  // The pending-write queue lives under its own key in syncService. It
+  // MUST go too: left behind, the next account to sign in on this device
+  // replays the previous account's queued workouts/food logs under the
+  // new token.
+  await clearSyncQueue();
   // Cancels OS-scheduled reminders + wipes the notification AsyncStorage
   // keys, which live outside STORAGE_KEYS in notifications.ts.
   await clearScheduledNotifications();

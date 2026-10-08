@@ -32,6 +32,7 @@ export default function WorkoutCompleteScreen() {
   const { theme } = useTheme();
 
   const [workout, setWorkout] = useState<Workout | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [progressions, setProgressions] = useState<
     { exercise: string; message: string }[]
   >([]);
@@ -52,6 +53,13 @@ export default function WorkoutCompleteScreen() {
   const loadWorkout = async () => {
     const workouts = await storage.getWorkouts();
     const found = workouts.find((w) => w.id === route.params.workoutId);
+    if (!found) {
+      // Shouldn't happen now that reads merge in locally-saved items,
+      // but a refresh with a bad id should land somewhere sane rather
+      // than an empty celebration screen.
+      setNotFound(true);
+      return;
+    }
     if (found) {
       setWorkout(found);
 
@@ -151,6 +159,38 @@ export default function WorkoutCompleteScreen() {
         }, 0)
       );
     }, 0) || 0;
+
+  if (notFound) {
+    return (
+      <ThemedView
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top + Spacing["3xl"],
+            alignItems: "center",
+            justifyContent: "center",
+            padding: Spacing.xl,
+          },
+        ]}
+      >
+        <Feather name="alert-circle" size={40} color={theme.textSecondary} />
+        <ThemedText type="h4" style={{ marginTop: Spacing.md }}>
+          Workout not found
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={{
+            color: theme.textSecondary,
+            textAlign: "center",
+            marginVertical: Spacing.md,
+          }}
+        >
+          This summary is no longer available.
+        </ThemedText>
+        <Button onPress={() => navigation.navigate("Main")}>Go Home</Button>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView

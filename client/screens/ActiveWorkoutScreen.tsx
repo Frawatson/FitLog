@@ -34,10 +34,23 @@ import type {
 } from "@/types";
 import * as storage from "@/lib/storage";
 import { weightLabel } from "@/lib/units";
+import { showSystemMenu } from "@/components/SystemMenu";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, "ActiveWorkout">;
+
+// In-progress session, persisted so a page refresh / browser Back / app
+// kill doesn't silently destroy a half-finished workout.
+const WORKOUT_DRAFT_KEY = "@merge_active_workout_draft";
+const DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+interface WorkoutDraft {
+  routineId: string;
+  startedAt: string;
+  exercises: WorkoutExercise[];
+}
 
 export default function ActiveWorkoutScreen() {
   const insets = useSafeAreaInsets();
@@ -47,8 +60,9 @@ export default function ActiveWorkoutScreen() {
   const { theme } = useTheme();
 
   const [routine, setRoutine] = useState<Routine | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
-  const [startTime] = useState(new Date());
+  const [startTime, setStartTime] = useState(new Date());
   const [restTimer, setRestTimer] = useState(0);
   const [isResting, setIsResting] = useState(false);
   const [restDuration, setRestDuration] = useState(90);
@@ -59,7 +73,21 @@ export default function ActiveWorkoutScreen() {
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [showExerciseInfo, setShowExerciseInfo] = useState(false);
   const [selectedExerciseName, setSelectedExerciseName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  // Raw text being typed into weight/reps cells, keyed by set id. The
+  // numeric model can't hold intermediate states like "22." — parsing
+  // on every keystroke ate the decimal point, which made 22.5 kg (or any
+  // 2.5 lb microplate load) impossible to enter.
+  const [draftText, setDraftText] = useState<
+    Record<string, { weight?: string; reps?: string }>
+  >({});
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Wall-clock end of the current rest. Counting "ticks" drifts badly on
+  // web, where background tabs throttle intervals to ~1/min.
+  const restEndsAtRef = useRef<number | null>(null);
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exercisesRef = useRef<WorkoutExercise[]>([]);
+  exercisesRef.current = exercises;
 
   useEffect(() => {
     loadUnitSystem();
@@ -104,45 +132,127 @@ export default function ActiveWorkoutScreen() {
   const loadRoutine = async () => {
     const routines = await storage.getRoutines();
     const found = routines.find((r) => r.id === route.params.routineId);
-    if (found) {
-      setRoutine(found);
-
-      // Initialize exercises with empty sets
-      const workoutExercises: WorkoutExercise[] = await Promise.all(
-        found.exercises.map(async (ex) => {
-          const lastSets = await storage.getLastWorkoutForExercise(
-            ex.exerciseId,
-          );
-          const initialSets: WorkoutSet[] = lastSets
-            ? lastSets.map((s) => ({
-                id: uuidv4(),
-                weight: s.weight,
-                reps: s.reps,
-                completed: false,
-              }))
-            : [
-                { id: uuidv4(), weight: 0, reps: 0, completed: false },
-                { id: uuidv4(), weight: 0, reps: 0, completed: false },
-                { id: uuidv4(), weight: 0, reps: 0, completed: false },
-              ];
-
-          return {
-            exerciseId: ex.exerciseId,
-            exerciseName: ex.exerciseName,
-            sets: initialSets,
-          };
-        }),
-      );
-
-      setExercises(workoutExercises);
+    if (!found) {
+      // Previously this left "Loading..." up forever (e.g. a routine
+      // created offline that a server fetch clobbered, or a stale link).
+      setLoadFailed(true);
+      return;
     }
+    setRoutine(found);
+
+    // Resume an interrupted session for this routine (refresh, crash,
+    // closed tab) if a recent draft exists.
+    try {
+      const draftRaw = await AsyncStorage.getItem(WORKOUT_DRAFT_KEY);
+      if (draftRaw) {
+        const draft: WorkoutDraft = JSON.parse(draftRaw);
+        const ageMs = Date.now() - new Date(draft.startedAt).getTime();
+        if (
+          draft.routineId === found.id &&
+          ageMs >= 0 &&
+          ageMs < DRAFT_MAX_AGE_MS &&
+          Array.isArray(draft.exercises) &&
+          draft.exercises.length > 0
+        ) {
+          setExercises(draft.exercises);
+          setStartTime(new Date(draft.startedAt));
+          return;
+        }
+        // Stale, or for a different routine — discard it.
+        await AsyncStorage.removeItem(WORKOUT_DRAFT_KEY);
+      }
+    } catch {
+      // Unreadable draft — start fresh.
+    }
+
+    // One history read for the whole screen. This used to call
+    // getLastWorkoutForExercise per exercise, and EACH call downloaded
+    // the user's entire workout history from the server.
+    const workouts = await storage.getWorkouts();
+    const sorted = workouts
+      .filter((w) => w.completedAt)
+      .sort(
+        (a, b) =>
+          new Date(b.completedAt!).getTime() -
+          new Date(a.completedAt!).getTime(),
+      );
+    const lastSetsFor = (exerciseId: string) => {
+      for (const workout of sorted) {
+        const ex = workout.exercises.find((e) => e.exerciseId === exerciseId);
+        if (ex && ex.sets.length > 0) return ex.sets;
+      }
+      return null;
+    };
+
+    const workoutExercises: WorkoutExercise[] = found.exercises.map((ex) => {
+      const lastSets = lastSetsFor(ex.exerciseId);
+      const initialSets: WorkoutSet[] = lastSets
+        ? lastSets.map((s) => ({
+            id: uuidv4(),
+            weight: s.weight,
+            reps: s.reps,
+            completed: false,
+          }))
+        : [
+            { id: uuidv4(), weight: 0, reps: 0, completed: false },
+            { id: uuidv4(), weight: 0, reps: 0, completed: false },
+            { id: uuidv4(), weight: 0, reps: 0, completed: false },
+          ];
+
+      return {
+        exerciseId: ex.exerciseId,
+        exerciseName: ex.exerciseName,
+        sets: initialSets,
+      };
+    });
+
+    setExercises(workoutExercises);
   };
+
+  // Persist the in-progress session (debounced — state changes on every
+  // keystroke). Cleared on finish/cancel.
+  useEffect(() => {
+    if (!routine || exercises.length === 0 || isSaving) return;
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = setTimeout(() => {
+      const draft: WorkoutDraft = {
+        routineId: routine.id,
+        startedAt: startTime.toISOString(),
+        exercises: exercisesRef.current,
+      };
+      AsyncStorage.setItem(WORKOUT_DRAFT_KEY, JSON.stringify(draft)).catch(
+        () => {},
+      );
+    }, 400);
+    return () => {
+      if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    };
+  }, [exercises, routine, startTime, isSaving]);
+
+  // Warn before the tab closes mid-workout (web). The draft above makes
+  // a refresh recoverable, but an intentional-looking close still gets a
+  // chance to be cancelled once any set has been completed.
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const hasProgress = exercises.some((e) => e.sets.some((s) => s.completed));
+    if (!hasProgress || isSaving) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      // Chrome requires returnValue to be set for the prompt to show.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [exercises, isSaving]);
 
   const handleCancel = () => {
     // Alert.alert is a no-op on react-native-web, so the X button felt
     // dead on the web build — user tapped, nothing happened. Native uses
     // the proper Alert; web falls back to window.confirm.
-    const proceed = () => navigation.goBack();
+    const proceed = () => {
+      AsyncStorage.removeItem(WORKOUT_DRAFT_KEY).catch(() => {});
+      navigation.goBack();
+    };
     if (Platform.OS === "web") {
       if (
         typeof window !== "undefined" &&
@@ -177,12 +287,60 @@ export default function ActiveWorkoutScreen() {
     field: "weight" | "reps",
     value: string,
   ) => {
-    const updated = [...exercises];
-    const parsed = parseInt(value, 10);
+    const set = exercises[exerciseIndex].sets[setIndex];
+
+    // Weights accept decimals (22.5 kg, 2.5 lb microplates); reps stay
+    // whole numbers. The raw text is kept per-set so intermediate states
+    // like "22." survive the keystroke instead of being parsed away.
+    const normalized = value.replace(",", ".");
+    const parsed =
+      field === "weight" ? parseFloat(normalized) : parseInt(normalized, 10);
     const safe = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
     const max = field === "weight" ? MAX_WEIGHT : MAX_REPS;
-    updated[exerciseIndex].sets[setIndex][field] = Math.min(safe, max);
-    setExercises(updated);
+    const clamped = Math.min(safe, max);
+    // Round weights to 2 decimals so float noise never reaches storage.
+    const final =
+      field === "weight" ? Math.round(clamped * 100) / 100 : clamped;
+
+    setDraftText((prev) => ({
+      ...prev,
+      [set.id]: { ...prev[set.id], [field]: value },
+    }));
+
+    // Immutable update — mutating nested set objects in place kept stale
+    // references alive across renders.
+    setExercises((prev) =>
+      prev.map((ex, ei) =>
+        ei !== exerciseIndex
+          ? ex
+          : {
+              ...ex,
+              sets: ex.sets.map((s, si) =>
+                si !== setIndex ? s : { ...s, [field]: final },
+              ),
+            },
+      ),
+    );
+  };
+
+  // What a weight/reps cell displays: the text mid-edit if the user is
+  // typing, otherwise the stored number.
+  const cellValue = (set: WorkoutSet, field: "weight" | "reps"): string => {
+    const draft = draftText[set.id]?.[field];
+    if (draft !== undefined) return draft;
+    const num = set[field];
+    return num > 0 ? String(num) : "";
+  };
+
+  // On blur, drop the raw text so the cell snaps back to the canonical
+  // stored number (e.g. a dangling "22." becomes "22").
+  const clearCellDraft = (setId: string, field: "weight" | "reps") => {
+    setDraftText((prev) => {
+      if (prev[setId]?.[field] === undefined) return prev;
+      const next = { ...prev, [setId]: { ...prev[setId] } };
+      delete next[setId][field];
+      return next;
+    });
   };
 
   const toggleSetComplete = (exerciseIndex: number, setIndex: number) => {
@@ -225,17 +383,24 @@ export default function ActiveWorkoutScreen() {
     setRestingExerciseIndex(exerciseIndex);
     setRestTimer(restDuration);
     setIsResting(true);
+    // Count down against a wall-clock deadline, not interval ticks.
+    // Browsers throttle background-tab intervals to ~1/minute, so a
+    // tick-based countdown froze whenever the user switched tabs. This
+    // also keeps side effects out of the setState updater (which
+    // double-fires under StrictMode).
+    restEndsAtRef.current = Date.now() + restDuration * 1000;
     timerRef.current = setInterval(() => {
-      setRestTimer((prev) => {
-        if (prev <= 1) {
-          setIsResting(false);
-          setRestingExerciseIndex(null);
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          if (timerRef.current) clearInterval(timerRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
+      const endsAt = restEndsAtRef.current;
+      if (endsAt === null) return;
+      const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      setRestTimer(remaining);
+      if (remaining <= 0) {
+        restEndsAtRef.current = null;
+        setIsResting(false);
+        setRestingExerciseIndex(null);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (timerRef.current) clearInterval(timerRef.current);
+      }
     }, 1000);
   };
 
@@ -243,40 +408,76 @@ export default function ActiveWorkoutScreen() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
+    restEndsAtRef.current = null;
     setIsResting(false);
     setRestingExerciseIndex(null);
     setRestTimer(0);
   };
 
-  const finishWorkout = async () => {
-    if (!routine) return;
+  const finishWorkout = () => {
+    if (!routine || isSaving) return;
 
-    const endTime = new Date();
-    const durationMinutes = Math.round(
-      (endTime.getTime() - startTime.getTime()) / 60000,
+    const hasCompletedSet = exercises.some((e) =>
+      e.sets.some((s) => s.completed),
     );
+    if (!hasCompletedSet) {
+      showSystemMenu({
+        title: "No completed sets",
+        message:
+          "You haven't checked off any sets. Finish and save this workout anyway?",
+        options: [
+          { label: "Finish Anyway", onPress: () => void doFinishWorkout() },
+          { label: "Keep Training", cancel: true },
+        ],
+      });
+      return;
+    }
+    void doFinishWorkout();
+  };
 
-    const workout: Workout = {
-      id: uuidv4(),
-      routineId: routine.id,
-      routineName: routine.name,
-      exercises,
-      startedAt: startTime.toISOString(),
-      completedAt: endTime.toISOString(),
-      durationMinutes,
-    };
+  const doFinishWorkout = async () => {
+    if (!routine || isSaving) return;
+    // Guard against double-clicks: each click used to mint a fresh uuid
+    // and save a duplicate workout while the first POST was in flight.
+    setIsSaving(true);
 
-    await storage.saveWorkout(workout);
+    try {
+      const endTime = new Date();
+      const durationMinutes = Math.round(
+        (endTime.getTime() - startTime.getTime()) / 60000,
+      );
 
-    // Update routine's last completed date
-    const updatedRoutine = {
-      ...routine,
-      lastCompletedAt: endTime.toISOString(),
-    };
-    await storage.saveRoutine(updatedRoutine);
+      const workout: Workout = {
+        id: uuidv4(),
+        routineId: routine.id,
+        routineName: routine.name,
+        exercises,
+        startedAt: startTime.toISOString(),
+        completedAt: endTime.toISOString(),
+        durationMinutes,
+      };
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.replace("WorkoutComplete", { workoutId: workout.id });
+      await storage.saveWorkout(workout);
+
+      // Update routine's last completed date
+      const updatedRoutine = {
+        ...routine,
+        lastCompletedAt: endTime.toISOString(),
+      };
+      await storage.saveRoutine(updatedRoutine);
+
+      await AsyncStorage.removeItem(WORKOUT_DRAFT_KEY).catch(() => {});
+
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.replace("WorkoutComplete", { workoutId: workout.id });
+    } catch (error) {
+      console.error("Failed to save workout:", error);
+      setIsSaving(false);
+      webSafeAlert(
+        "Save failed",
+        "Your workout could not be saved. Please try again — your sets are still here.",
+      );
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -285,9 +486,44 @@ export default function ActiveWorkoutScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  if (loadFailed) {
+    return (
+      <ThemedView
+        style={[
+          styles.container,
+          styles.centerContent,
+          { paddingTop: headerHeight },
+        ]}
+      >
+        <Feather name="alert-circle" size={40} color={theme.textSecondary} />
+        <ThemedText type="h4" style={{ marginTop: Spacing.md }}>
+          Workout not found
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={{
+            color: theme.textSecondary,
+            textAlign: "center",
+            marginTop: Spacing.xs,
+            marginBottom: Spacing.lg,
+          }}
+        >
+          This routine may have been deleted or hasn&apos;t synced yet.
+        </ThemedText>
+        <Button onPress={() => navigation.goBack()}>Go Back</Button>
+      </ThemedView>
+    );
+  }
+
   if (!routine) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: headerHeight }]}>
+      <ThemedView
+        style={[
+          styles.container,
+          styles.centerContent,
+          { paddingTop: headerHeight },
+        ]}
+      >
         <ThemedText>Loading...</ThemedText>
       </ThemedView>
     );
@@ -358,7 +594,13 @@ export default function ActiveWorkoutScreen() {
         </ThemedText>
 
         {exercises.map((exercise, exerciseIndex) => (
-          <Card key={exercise.exerciseId} style={styles.exerciseCard}>
+          // Index in the key: a routine can legitimately list the same
+          // exercise twice (EditRoutine allows it), and duplicate keys
+          // make React recycle the wrong card.
+          <Card
+            key={`${exercise.exerciseId}-${exerciseIndex}`}
+            style={styles.exerciseCard}
+          >
             <View
               style={{
                 flexDirection: "row",
@@ -436,15 +678,18 @@ export default function ActiveWorkoutScreen() {
                       borderColor: theme.text,
                     },
                   ]}
-                  keyboardType="number-pad"
-                  // maxLength=4 caps the visible value at "9999" — without
+                  // decimal-pad so 22.5 kg / 2.5 lb plates are enterable.
+                  keyboardType="decimal-pad"
+                  inputMode="decimal"
+                  // maxLength caps the visible value ("9999.5") — without
                   // it, a tap-and-hold zero or paste of "999999" overflows
                   // the box and stores nonsense in the workout history.
-                  maxLength={4}
-                  value={set.weight > 0 ? set.weight.toString() : ""}
+                  maxLength={6}
+                  value={cellValue(set, "weight")}
                   onChangeText={(v) =>
                     updateSet(exerciseIndex, setIndex, "weight", v)
                   }
+                  onBlur={() => clearCellDraft(set.id, "weight")}
                   placeholder="0"
                   placeholderTextColor={theme.textSecondary}
                 />
@@ -458,11 +703,13 @@ export default function ActiveWorkoutScreen() {
                     },
                   ]}
                   keyboardType="number-pad"
+                  inputMode="numeric"
                   maxLength={3}
-                  value={set.reps > 0 ? set.reps.toString() : ""}
+                  value={cellValue(set, "reps")}
                   onChangeText={(v) =>
                     updateSet(exerciseIndex, setIndex, "reps", v)
                   }
+                  onBlur={() => clearCellDraft(set.id, "reps")}
                   placeholder="0"
                   placeholderTextColor={theme.textSecondary}
                 />
@@ -567,8 +814,12 @@ export default function ActiveWorkoutScreen() {
       <View
         style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
       >
-        <Button onPress={finishWorkout} style={styles.finishButton}>
-          Finish Workout
+        <Button
+          onPress={finishWorkout}
+          disabled={isSaving}
+          style={styles.finishButton}
+        >
+          {isSaving ? "Saving..." : "Finish Workout"}
         </Button>
       </View>
       <ExerciseInfoModal
@@ -583,6 +834,11 @@ export default function ActiveWorkoutScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centerContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing.xl,
   },
   cardFooter: {
     flexDirection: "row",
