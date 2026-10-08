@@ -915,7 +915,14 @@ export async function getFoodLogs(
   userId: number,
   opts?: { date?: string; start?: string; end?: string },
 ): Promise<FoodLogData[]> {
-  let query = `SELECT client_id, food_data, date, created_at, image_data, meal_type FROM food_logs WHERE user_id = $1`;
+  // Photos ride along only on single-day queries (the Nutrition day view,
+  // a bounded payload). Range and unbounded queries used to inline every
+  // base64 photo — tens of MB for heavy users — just to render summary
+  // rows that don't need them.
+  const includeImages = Boolean(opts?.date);
+  let query = `SELECT client_id, food_data, date, created_at, ${
+    includeImages ? "image_data" : "NULL AS image_data"
+  }, meal_type FROM food_logs WHERE user_id = $1`;
   const params: any[] = [userId];
 
   // `date` takes precedence so existing single-day callers keep working.
@@ -1320,6 +1327,21 @@ export async function isFollowing(
   return result.rows.length > 0;
 }
 
+// Avatars and post photos are stored as base64 TEXT. List queries never
+// return the blobs anymore — they used to repeat the same 20-40 KB avatar
+// per row (a 20-notification page from one actor carried 20 copies) and
+// put up to 700 KB of post image into every feed row, which is where the
+// multi-megabyte social payloads came from. Rows now carry a same-origin
+// media URL; /api/social/users/:id/avatar and /api/social/posts/:id/image
+// serve the decoded bytes with cache headers.
+export function avatarPath(userId: number): string {
+  return `/api/social/users/${userId}/avatar`;
+}
+
+export function postImagePath(postId: number): string {
+  return `/api/social/posts/${postId}/image`;
+}
+
 export interface FollowUserRow {
   userId: number;
   name: string;
@@ -1336,7 +1358,7 @@ export async function getFollowers(
 ): Promise<FollowUserRow[]> {
   const offset = page * limit;
   const result = await pool.query(
-    `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
+    `SELECT u.id AS user_id, u.name, (u.avatar_url IS NOT NULL) AS has_avatar, u.bio,
        EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id = $3 AND f2.following_id = u.id) AS is_followed_by_me
      FROM follows f
      JOIN users u ON u.id = f.follower_id
@@ -1350,7 +1372,7 @@ export async function getFollowers(
   return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
-    avatarUrl: row.avatar_url,
+    avatarUrl: row.has_avatar ? avatarPath(row.user_id) : null,
     bio: row.bio,
     isFollowedByMe: row.is_followed_by_me,
   }));
@@ -1364,7 +1386,7 @@ export async function getFollowing(
 ): Promise<FollowUserRow[]> {
   const offset = page * limit;
   const result = await pool.query(
-    `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
+    `SELECT u.id AS user_id, u.name, (u.avatar_url IS NOT NULL) AS has_avatar, u.bio,
        EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id = $3 AND f2.following_id = u.id) AS is_followed_by_me
      FROM follows f
      JOIN users u ON u.id = f.following_id
@@ -1378,7 +1400,7 @@ export async function getFollowing(
   return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
-    avatarUrl: row.avatar_url,
+    avatarUrl: row.has_avatar ? avatarPath(row.user_id) : null,
     bio: row.bio,
     isFollowedByMe: row.is_followed_by_me,
   }));
@@ -1394,7 +1416,7 @@ export interface PostRow {
   content: string | null;
   referenceId: string | null;
   referenceData: any;
-  imageData: string | null;
+  imageUrl: string | null;
   visibility: string;
   likesCount: number;
   commentsCount: number;
@@ -1447,7 +1469,7 @@ function mapPostRow(row: any): PostRow {
     content: row.content,
     referenceId: row.reference_id,
     referenceData: row.reference_data,
-    imageData: row.image_data,
+    imageUrl: row.has_image ? postImagePath(row.id) : null,
     visibility: row.visibility,
     likesCount: row.likes_count,
     commentsCount: row.comments_count,
@@ -1456,7 +1478,7 @@ function mapPostRow(row: any): PostRow {
         ? row.created_at.toISOString()
         : row.created_at,
     authorName: row.author_name,
-    authorAvatarUrl: row.author_avatar_url,
+    authorAvatarUrl: row.author_has_avatar ? avatarPath(row.user_id) : null,
     likedByMe: row.liked_by_me ?? false,
   };
 }
@@ -1466,7 +1488,11 @@ export async function getPost(
   requestingUserId: number,
 ): Promise<PostRow | null> {
   const result = await pool.query(
-    `SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
+    `SELECT p.id, p.user_id, p.client_id, p.post_type, p.content,
+       p.reference_id, p.reference_data, p.visibility, p.likes_count,
+       p.comments_count, p.created_at,
+       (p.image_data IS NOT NULL) AS has_image,
+       u.name AS author_name, (u.avatar_url IS NOT NULL) AS author_has_avatar,
        EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $2) AS liked_by_me
      FROM posts p
      JOIN users u ON u.id = p.user_id
@@ -1475,6 +1501,76 @@ export async function getPost(
   );
   if (result.rows.length === 0) return null;
   return mapPostRow(result.rows[0]);
+}
+
+// Can `requestingUserId` see content owned by `ownerId` with the given
+// visibility? One query covering: self, blocks in either direction, and
+// the public/followers rule. Used by the media endpoints (and the post
+// read paths) so followers-only photos can't be fetched by id-guessing.
+export async function canViewUserContent(
+  requestingUserId: number,
+  ownerId: number,
+  visibility: string,
+): Promise<boolean> {
+  if (requestingUserId === ownerId) return true;
+  const result = await pool.query(
+    `SELECT
+       EXISTS(SELECT 1 FROM user_blocks
+         WHERE (blocker_id = $1 AND blocked_id = $2)
+            OR (blocker_id = $2 AND blocked_id = $1)) AS blocked,
+       EXISTS(SELECT 1 FROM follows
+         WHERE follower_id = $1 AND following_id = $2) AS follows`,
+    [requestingUserId, ownerId],
+  );
+  const { blocked, follows } = result.rows[0];
+  if (blocked) return false;
+  if (visibility === "public") return true;
+  return follows;
+}
+
+// Decoded post photo for /api/social/posts/:id/image — the only query
+// that still touches posts.image_data.
+export async function getPostImage(
+  postId: number,
+  requestingUserId: number,
+): Promise<Buffer | null | "forbidden"> {
+  const result = await pool.query(
+    "SELECT user_id, visibility, image_data FROM posts WHERE id = $1",
+    [postId],
+  );
+  if (result.rows.length === 0 || !result.rows[0].image_data) return null;
+  const row = result.rows[0];
+  const allowed = await canViewUserContent(
+    requestingUserId,
+    row.user_id,
+    row.visibility,
+  );
+  if (!allowed) return "forbidden";
+  return Buffer.from(row.image_data, "base64");
+}
+
+// Decoded avatar for /api/social/users/:id/avatar. Stored as a data URI
+// ("data:image/jpeg;base64,...."); returns bytes + mime.
+export async function getUserAvatar(
+  targetUserId: number,
+  requestingUserId: number,
+): Promise<{ data: Buffer; mime: string } | null> {
+  const result = await pool.query(
+    `SELECT avatar_url,
+       EXISTS(SELECT 1 FROM user_blocks
+         WHERE (blocker_id = $2 AND blocked_id = $1)
+            OR (blocker_id = $1 AND blocked_id = $2)) AS blocked
+     FROM users WHERE id = $1`,
+    [targetUserId, requestingUserId],
+  );
+  if (result.rows.length === 0) return null;
+  const { avatar_url, blocked } = result.rows[0];
+  if (!avatar_url || (blocked && targetUserId !== requestingUserId)) {
+    return null;
+  }
+  const match = /^data:([^;]+);base64,(.+)$/.exec(avatar_url);
+  if (!match) return null;
+  return { data: Buffer.from(match[2], "base64"), mime: match[1] };
 }
 
 export async function deletePost(
@@ -1501,7 +1597,11 @@ export async function getFeedPosts(
   }
 
   const result = await pool.query(
-    `SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
+    `SELECT p.id, p.user_id, p.client_id, p.post_type, p.content,
+       p.reference_id, p.reference_data, p.visibility, p.likes_count,
+       p.comments_count, p.created_at,
+       (p.image_data IS NOT NULL) AS has_image,
+       u.name AS author_name, (u.avatar_url IS NOT NULL) AS author_has_avatar,
        EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $1) AS liked_by_me
      FROM posts p
      JOIN users u ON u.id = p.user_id
@@ -1539,7 +1639,11 @@ export async function getUserPosts(
   }
 
   const result = await pool.query(
-    `SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
+    `SELECT p.id, p.user_id, p.client_id, p.post_type, p.content,
+       p.reference_id, p.reference_data, p.visibility, p.likes_count,
+       p.comments_count, p.created_at,
+       (p.image_data IS NOT NULL) AS has_image,
+       u.name AS author_name, (u.avatar_url IS NOT NULL) AS author_has_avatar,
        EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $2) AS liked_by_me
      FROM posts p
      JOIN users u ON u.id = p.user_id
@@ -1643,7 +1747,7 @@ export async function getPostComments(
   const offset = page * limit;
   const result = await pool.query(
     `SELECT pc.id, pc.post_id, pc.user_id, pc.client_id, pc.content, pc.created_at,
-       u.name AS author_name, u.avatar_url AS author_avatar_url
+       u.name AS author_name, (u.avatar_url IS NOT NULL) AS author_has_avatar
      FROM post_comments pc
      JOIN users u ON u.id = pc.user_id
      WHERE pc.post_id = $1
@@ -1664,7 +1768,7 @@ export async function getPostComments(
         ? row.created_at.toISOString()
         : row.created_at,
     authorName: row.author_name,
-    authorAvatarUrl: row.author_avatar_url,
+    authorAvatarUrl: row.author_has_avatar ? avatarPath(row.user_id) : null,
   }));
 }
 
@@ -1690,7 +1794,11 @@ export async function addComment(
     await client.query("COMMIT");
 
     const row = result.rows[0];
-    const user = await getUserById(userId);
+    const userResult = await pool.query(
+      "SELECT name, (avatar_url IS NOT NULL) AS has_avatar FROM users WHERE id = $1",
+      [userId],
+    );
+    const user = userResult.rows[0];
     return {
       id: row.id,
       postId: row.post_id,
@@ -1702,7 +1810,9 @@ export async function addComment(
           ? row.created_at.toISOString()
           : row.created_at,
       authorName: user?.name || "Unknown",
-      authorAvatarUrl: null,
+      // Path-style like every other row, so a freshly-posted comment
+      // shows the author's avatar instead of a blank circle.
+      authorAvatarUrl: user?.has_avatar ? avatarPath(userId) : null,
     };
   } catch (e) {
     await client.query("ROLLBACK");
@@ -1750,7 +1860,7 @@ export async function searchUsers(
   limit = 20,
 ): Promise<FollowUserRow[]> {
   const result = await pool.query(
-    `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
+    `SELECT u.id AS user_id, u.name, (u.avatar_url IS NOT NULL) AS has_avatar, u.bio,
        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me
      FROM users u
      WHERE u.is_public = TRUE AND u.id != $2
@@ -1764,7 +1874,7 @@ export async function searchUsers(
   return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
-    avatarUrl: row.avatar_url,
+    avatarUrl: row.has_avatar ? avatarPath(row.user_id) : null,
     bio: row.bio,
     isFollowedByMe: row.is_followed_by_me,
   }));
@@ -1792,7 +1902,7 @@ export async function getSocialProfile(
   requestingUserId: number,
 ): Promise<SocialProfileRow | null> {
   const result = await pool.query(
-    `SELECT u.id AS user_id, u.name, u.bio, u.avatar_url, u.is_public,
+    `SELECT u.id AS user_id, u.name, u.bio, (u.avatar_url IS NOT NULL) AS has_avatar, u.is_public,
        u.followers_count, u.following_count, u.current_streak, u.created_at,
        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me,
        EXISTS(SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = $2 AND ub.blocked_id = u.id) AS is_blocked_by_me,
@@ -1809,7 +1919,7 @@ export async function getSocialProfile(
     userId: row.user_id,
     name: row.name,
     bio: row.bio,
-    avatarUrl: row.avatar_url,
+    avatarUrl: row.has_avatar ? avatarPath(row.user_id) : null,
     isPublic: row.is_public ?? true,
     followersCount: row.followers_count || 0,
     followingCount: row.following_count || 0,
@@ -1934,7 +2044,7 @@ export async function getBlockedUsers(userId: number): Promise<
   }[]
 > {
   const result = await pool.query(
-    `SELECT u.id AS user_id, u.name, u.avatar_url, b.created_at AS blocked_at
+    `SELECT u.id AS user_id, u.name, (u.avatar_url IS NOT NULL) AS has_avatar, b.created_at AS blocked_at
      FROM user_blocks b
      JOIN users u ON u.id = b.blocked_id
      WHERE b.blocker_id = $1
@@ -1944,7 +2054,7 @@ export async function getBlockedUsers(userId: number): Promise<
   return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
-    avatarUrl: row.avatar_url,
+    avatarUrl: row.has_avatar ? avatarPath(row.user_id) : null,
     blockedAt: row.blocked_at,
   }));
 }
@@ -2018,7 +2128,7 @@ export async function getNotifications(
   const offset = page * limit;
   const result = await pool.query(
     `SELECT n.id, n.user_id, n.type, n.actor_id, n.reference_id, n.message, n.is_read, n.created_at,
-       u.name AS actor_name, u.avatar_url AS actor_avatar_url
+       u.name AS actor_name, (u.avatar_url IS NOT NULL) AS actor_has_avatar
      FROM notifications n
      JOIN users u ON u.id = n.actor_id
      WHERE n.user_id = $1
@@ -2032,7 +2142,8 @@ export async function getNotifications(
     type: row.type,
     actorId: row.actor_id,
     actorName: row.actor_name,
-    actorAvatarUrl: row.actor_avatar_url,
+    actorAvatarUrl:
+      row.actor_has_avatar && row.actor_id ? avatarPath(row.actor_id) : null,
     referenceId: row.reference_id,
     message: row.message,
     isRead: row.is_read,

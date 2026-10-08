@@ -25,6 +25,7 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
+import { apiImageSource } from "@/lib/mediaSource";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Post, PostType, UnitSystem } from "@/types";
 import {
@@ -133,9 +134,9 @@ function PostCard({
         </ThemedText>
       ) : null}
 
-      {post.imageData ? (
+      {post.imageUrl ? (
         <Image
-          source={{ uri: `data:image/jpeg;base64,${post.imageData}` }}
+          source={apiImageSource(post.imageUrl)}
           style={styles.postImage}
           resizeMode="cover"
         />

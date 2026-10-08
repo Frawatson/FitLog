@@ -149,7 +149,9 @@ export interface Post {
   content?: string;
   referenceId?: string;
   referenceData?: any;
-  imageData?: string;
+  // Server-relative URL of the post photo (/api/social/posts/:id/image).
+  // The base64 blob itself is no longer inlined in list responses.
+  imageUrl?: string | null;
   visibility: PostVisibility;
   likesCount: number;
   commentsCount: number;

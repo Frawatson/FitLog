@@ -150,6 +150,52 @@ const DEFAULT_EXERCISES: Exercise[] = [
   { id: "18", name: "cable seated row", muscleGroup: "Back", isCustom: false },
 ];
 
+// ── Request de-duplication / micro-cache ─────────────────────────────
+// Screens re-fetch on every focus, so a single tab switch used to fire
+// the same collection GETs several times in a burst (Dashboard alone:
+// ~10). A 15s in-memory TTL + in-flight promise sharing absorbs those
+// bursts without changing any screen code. Writes invalidate their
+// collection, so saves still read fresh.
+const memCache = new Map<string, { at: number; promise: Promise<any> }>();
+const MEM_TTL_MS = 15_000;
+
+function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const hit = memCache.get(key);
+  if (hit && Date.now() - hit.at < MEM_TTL_MS) {
+    return hit.promise as Promise<T>;
+  }
+  const promise = fn().catch((e) => {
+    memCache.delete(key);
+    throw e;
+  });
+  memCache.set(key, { at: Date.now(), promise });
+  return promise;
+}
+
+export function invalidateCache(prefix?: string): void {
+  if (!prefix) {
+    memCache.clear();
+    return;
+  }
+  for (const key of memCache.keys()) {
+    if (key.startsWith(prefix)) memCache.delete(key);
+  }
+}
+
+// Serializes read-modify-write cycles on the FOOD_LOG key. Parallel
+// getFoodLog calls for different dates (ProgressCharts fires 7 at once)
+// each read-merge-write the same key; unserialized, later writers
+// clobber earlier ones (lost updates).
+let foodLogWriteChain: Promise<unknown> = Promise.resolve();
+function serializeFoodLogWrite<T>(fn: () => Promise<T>): Promise<T> {
+  const next = foodLogWriteChain.then(fn, fn);
+  foodLogWriteChain = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
 // Reconcile a server list response with the local cache instead of
 // blindly replacing it. Three rules:
 //   1. A local item with a write still waiting in the sync queue beats
@@ -224,7 +270,11 @@ export async function saveUserProfile(profile: UserProfile): Promise<void> {
 }
 
 // Macro Targets
-export async function getMacroTargets(): Promise<MacroTargets | null> {
+export function getMacroTargets(): Promise<MacroTargets | null> {
+  return cached("macro-targets", getMacroTargetsImpl);
+}
+
+async function getMacroTargetsImpl(): Promise<MacroTargets | null> {
   try {
     if (await isAuthenticated()) {
       const result = await syncToServer<MacroTargets>(
@@ -247,6 +297,7 @@ export async function getMacroTargets(): Promise<MacroTargets | null> {
 }
 
 export async function saveMacroTargets(targets: MacroTargets): Promise<void> {
+  invalidateCache("macro-targets");
   await AsyncStorage.setItem(
     STORAGE_KEYS.MACRO_TARGETS,
     JSON.stringify(targets),
@@ -297,7 +348,11 @@ export function calculateMacros(profile: UserProfile): MacroTargets {
 }
 
 // Exercises
-export async function getExercises(): Promise<Exercise[]> {
+export function getExercises(): Promise<Exercise[]> {
+  return cached("exercises", getExercisesImpl);
+}
+
+async function getExercisesImpl(): Promise<Exercise[]> {
   try {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/custom-exercises", "GET");
@@ -343,6 +398,7 @@ export async function addExercise(
   name: string,
   muscleGroup: string,
 ): Promise<Exercise> {
+  invalidateCache("exercises");
   const exercises = await getExercises();
   const newExercise: Exercise = {
     id: uuidv4(),
@@ -365,7 +421,11 @@ export async function addExercise(
 }
 
 // Routines
-export async function getRoutines(): Promise<Routine[]> {
+export function getRoutines(): Promise<Routine[]> {
+  return cached("routines", getRoutinesImpl);
+}
+
+async function getRoutinesImpl(): Promise<Routine[]> {
   try {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/routines", "GET");
@@ -408,6 +468,7 @@ async function getRoutinesLocal(): Promise<Routine[]> {
 }
 
 export async function saveRoutine(routine: Routine): Promise<void> {
+  invalidateCache("routines");
   const routines = await getRoutinesLocal();
   const existingIndex = routines.findIndex((r) => r.id === routine.id);
   if (existingIndex >= 0) {
@@ -431,6 +492,7 @@ export async function saveRoutine(routine: Routine): Promise<void> {
 }
 
 export async function deleteRoutine(routineId: string): Promise<void> {
+  invalidateCache("routines");
   const routines = await getRoutinesLocal();
   const filtered = routines.filter((r) => r.id !== routineId);
   await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(filtered));
@@ -441,7 +503,11 @@ export async function deleteRoutine(routineId: string): Promise<void> {
 }
 
 // Workouts
-export async function getWorkouts(): Promise<Workout[]> {
+export function getWorkouts(): Promise<Workout[]> {
+  return cached("workouts", getWorkoutsImpl);
+}
+
+async function getWorkoutsImpl(): Promise<Workout[]> {
   try {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/workouts", "GET");
@@ -489,6 +555,7 @@ async function getWorkoutsLocal(): Promise<Workout[]> {
 }
 
 export async function saveWorkout(workout: Workout): Promise<void> {
+  invalidateCache("workouts");
   const workouts = await getWorkoutsLocal();
   const existingIndex = workouts.findIndex((w) => w.id === workout.id);
   if (existingIndex >= 0) {
@@ -542,7 +609,11 @@ async function getAuthHeaders(): Promise<HeadersInit> {
 }
 
 // Body Weight
-export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
+export function getBodyWeights(): Promise<BodyWeightEntry[]> {
+  return cached("body-weights", getBodyWeightsImpl);
+}
+
+async function getBodyWeightsImpl(): Promise<BodyWeightEntry[]> {
   try {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
 
@@ -605,6 +676,7 @@ export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
 export async function addBodyWeight(
   weightKg: number,
 ): Promise<BodyWeightEntry> {
+  invalidateCache("body-weights");
   const entries = await getBodyWeightsLocal();
   const today = getLocalDateString();
 
@@ -677,6 +749,7 @@ async function getBodyWeightsLocal(): Promise<BodyWeightEntry[]> {
 }
 
 export async function deleteBodyWeight(id: string): Promise<void> {
+  invalidateCache("body-weights");
   const entries = await getBodyWeightsLocal();
   const filtered = entries.filter((e) => e.id !== id);
   await AsyncStorage.setItem(
@@ -700,7 +773,11 @@ export async function deleteBodyWeight(id: string): Promise<void> {
 }
 
 // Saved Foods
-export async function getSavedFoods(): Promise<Food[]> {
+export function getSavedFoods(): Promise<Food[]> {
+  return cached("saved-foods", getSavedFoodsImpl);
+}
+
+async function getSavedFoodsImpl(): Promise<Food[]> {
   try {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/saved-foods", "GET");
@@ -739,6 +816,7 @@ export async function getSavedFoods(): Promise<Food[]> {
 export async function saveFood(
   food: Omit<Food, "id" | "isSaved">,
 ): Promise<Food> {
+  invalidateCache("saved-foods");
   const foods = await getSavedFoods();
   const newFood: Food = {
     ...food,
@@ -755,6 +833,7 @@ export async function saveFood(
 }
 
 export async function deleteSavedFood(foodId: string): Promise<void> {
+  invalidateCache("saved-foods");
   const foods = await getSavedFoods();
   const filtered = foods.filter((f) => f.id !== foodId);
   await AsyncStorage.setItem(
@@ -772,7 +851,20 @@ export async function deleteSavedFood(foodId: string): Promise<void> {
 // callers) or a { start, end } range (NutritionScreen week/month views).
 // The range form lets the server filter by date instead of streaming the
 // whole history for client-side filtering.
-export async function getFoodLog(
+export function getFoodLog(
+  filter?: string | { start: string; end: string },
+): Promise<FoodLogEntry[]> {
+  const key =
+    "food-log:" +
+    (typeof filter === "string"
+      ? filter
+      : filter
+        ? `${filter.start}_${filter.end}`
+        : "all");
+  return cached(key, () => getFoodLogImpl(filter));
+}
+
+async function getFoodLogImpl(
   filter?: string | { start: string; end: string },
 ): Promise<FoodLogEntry[]> {
   try {
@@ -785,56 +877,65 @@ export async function getFoodLog(
       }
       const result = await syncToServer<any[]>(endpoint, "GET");
       if (result.success && result.data) {
-        const localEntries = await getFoodLogLocal();
-        // Entries with a DELETE still queued must not be resurrected by
-        // the server copy.
-        const pendingDeletes = new Set(
-          (await getPendingSyncItems())
-            .filter(
-              (i) =>
-                i.method === "DELETE" &&
-                i.endpoint.startsWith("/api/food-logs/"),
-            )
-            .map((i) => i.endpoint.slice("/api/food-logs/".length)),
-        );
-        const localImageMap = new Map<string, string>();
-        for (const le of localEntries) {
-          if (le.imageUri) {
-            localImageMap.set(le.id, le.imageUri);
+        const serverRows = result.data;
+        // The whole read-merge-write below runs under the food-log write
+        // lock — see serializeFoodLogWrite.
+        return await serializeFoodLogWrite(async () => {
+          const localEntries = await getFoodLogLocal();
+          // Entries with a DELETE still queued must not be resurrected by
+          // the server copy.
+          const pendingDeletes = new Set(
+            (await getPendingSyncItems())
+              .filter(
+                (i) =>
+                  i.method === "DELETE" &&
+                  i.endpoint.startsWith("/api/food-logs/"),
+              )
+              .map((i) => i.endpoint.slice("/api/food-logs/".length)),
+          );
+          const localImageMap = new Map<string, string>();
+          for (const le of localEntries) {
+            if (le.imageUri) {
+              localImageMap.set(le.id, le.imageUri);
+            }
           }
-        }
-        const entries: FoodLogEntry[] = result.data.map((log) => {
-          const serverImage = log.imageUri;
-          const localImage = localImageMap.get(log.clientId);
-          return {
-            id: log.clientId,
-            foodId: log.foodData.id,
-            food: log.foodData,
-            date: log.date,
-            createdAt: log.createdAt,
-            ...(serverImage
-              ? { imageUri: serverImage }
-              : localImage
-                ? { imageUri: localImage }
-                : {}),
-          };
+          const entries: FoodLogEntry[] = serverRows.map((log) => {
+            const serverImage = log.imageUri;
+            const localImage = localImageMap.get(log.clientId);
+            return {
+              id: log.clientId,
+              foodId: log.foodData.id,
+              food: log.foodData,
+              date: log.date,
+              createdAt: log.createdAt,
+              ...(serverImage
+                ? { imageUri: serverImage }
+                : localImage
+                  ? { imageUri: localImage }
+                  : {}),
+            };
+          });
+          const visibleEntries = entries.filter(
+            (e) => !pendingDeletes.has(e.id),
+          );
+          const allLocal = [...localEntries];
+          for (const entry of visibleEntries) {
+            const idx = allLocal.findIndex((le) => le.id === entry.id);
+            if (idx !== -1) {
+              allLocal[idx] = entry;
+            } else {
+              allLocal.push(entry);
+            }
+          }
+          const allLocalKept = allLocal.filter(
+            (e) => !pendingDeletes.has(e.id),
+          );
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.FOOD_LOG,
+            JSON.stringify(allLocalKept),
+          );
+          return visibleEntries;
         });
-        const visibleEntries = entries.filter((e) => !pendingDeletes.has(e.id));
-        const allLocal = [...localEntries];
-        for (const entry of visibleEntries) {
-          const idx = allLocal.findIndex((le) => le.id === entry.id);
-          if (idx !== -1) {
-            allLocal[idx] = entry;
-          } else {
-            allLocal.push(entry);
-          }
-        }
-        const allLocalKept = allLocal.filter((e) => !pendingDeletes.has(e.id));
-        await AsyncStorage.setItem(
-          STORAGE_KEYS.FOOD_LOG,
-          JSON.stringify(allLocalKept),
-        );
-        return visibleEntries;
       }
     }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.FOOD_LOG);
@@ -867,6 +968,7 @@ export async function addFoodLogEntry(
   date: string,
   imageUri?: string,
 ): Promise<FoodLogEntry> {
+  invalidateCache("food-log");
   const entries = await getFoodLogLocal();
   const entry: FoodLogEntry = {
     id: uuidv4(),
@@ -896,6 +998,7 @@ export async function updateFoodLogEntry(
   entryId: string,
   updatedFood: Food,
 ): Promise<void> {
+  invalidateCache("food-log");
   const entries = await getFoodLogLocal();
   const idx = entries.findIndex((e) => e.id === entryId);
   if (idx !== -1) {
@@ -912,6 +1015,7 @@ export async function updateFoodLogEntry(
 }
 
 export async function deleteFoodLogEntry(entryId: string): Promise<void> {
+  invalidateCache("food-log");
   const entries = await getFoodLogLocal();
   const filtered = entries.filter((e) => e.id !== entryId);
   await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(filtered));
@@ -992,7 +1096,11 @@ export function calculateProgression(
 }
 
 // Run History
-export async function getRunHistory(): Promise<RunEntry[]> {
+export function getRunHistory(): Promise<RunEntry[]> {
+  return cached("runs", getRunHistoryImpl);
+}
+
+async function getRunHistoryImpl(): Promise<RunEntry[]> {
   try {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/runs", "GET");
@@ -1071,6 +1179,7 @@ async function getRunHistoryLocal(): Promise<RunEntry[]> {
 // the user adds heart rate on the completion screen) updates both local
 // and remote in lockstep instead of duplicating.
 export async function saveRunEntry(run: RunEntry): Promise<void> {
+  invalidateCache("runs");
   const runs = await getRunHistoryLocal();
   const existingIndex = runs.findIndex((r) => r.id === run.id);
   if (existingIndex >= 0) {
@@ -1098,10 +1207,12 @@ export async function saveRunEntry(run: RunEntry): Promise<void> {
 }
 
 export async function saveRunHistory(runs: RunEntry[]): Promise<void> {
+  invalidateCache("runs");
   await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
 }
 
 export async function deleteRunEntry(id: string): Promise<void> {
+  invalidateCache("runs");
   const runs = await getRunHistoryLocal();
   const filtered = runs.filter((r) => r.id !== id);
   await AsyncStorage.setItem(
@@ -1116,6 +1227,7 @@ export async function deleteRunEntry(id: string): Promise<void> {
 
 // Clear all data (for logout)
 export async function clearAllData(): Promise<void> {
+  invalidateCache();
   await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
   // The pending-write queue lives under its own key in syncService. It
   // MUST go too: left behind, the next account to sign in on this device

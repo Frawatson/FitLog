@@ -39,6 +39,10 @@ import {
   getFollowing,
   createPost,
   getPost,
+  getPostImage,
+  getUserAvatar,
+  canViewUserContent,
+  avatarPath,
   deletePost,
   getFeedPosts,
   getUserPosts,
@@ -104,6 +108,17 @@ const MUSCLE_SEARCH_TERMS: Record<string, string[]> = {
   calves: ["calves", "lower legs"],
 };
 
+// One OpenAI client per process instead of per request — construction
+// isn't free and the config never changes at runtime.
+let openaiClient: import("openai").default | null = null;
+async function getOpenAIClient(apiKey: string, baseURL: string) {
+  if (!openaiClient) {
+    const OpenAI = (await import("openai")).default;
+    openaiClient = new OpenAI({ apiKey, baseURL });
+  }
+  return openaiClient;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Per-user OpenAI cost guards. These are deliberately stricter than the
   // global /api 100-req-per-minute limit because each call spends real money.
@@ -150,11 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
 
-        const OpenAI = (await import("openai")).default;
-        const openai = new OpenAI({
-          apiKey: openaiApiKey,
-          baseURL: openaiBaseUrl,
-        });
+        const openai = await getOpenAIClient(openaiApiKey, openaiBaseUrl);
 
         const wrappedQuery = delimitUserContent("user_query", query.trim());
         const completion = await openai.chat.completions.create({
@@ -253,11 +264,7 @@ Return JSON array only:
           });
         }
 
-        const OpenAI = (await import("openai")).default;
-        const openai = new OpenAI({
-          apiKey: openaiApiKey,
-          baseURL: openaiBaseUrl,
-        });
+        const openai = await getOpenAIClient(openaiApiKey, openaiBaseUrl);
 
         // Enhance image brightness and sharpness for better AI recognition
         let enhancedBase64 = imageBase64;
@@ -595,21 +602,36 @@ Return JSON only:
   );
 
   // Exercise library - returns all exercises from cache with GIF status
+  // The ExerciseDB catalog (~1,300 rows) changes only when the admin
+  // seed endpoints run, but two screens refetch it on every open. Cache
+  // it in-process for an hour per worker and let clients cache it too.
+  let exerciseLibraryCache: { at: number; data: any[] } | null = null;
+  const EXERCISE_LIBRARY_TTL_MS = 60 * 60 * 1000;
+
   app.get("/api/exercises/library", async (_req: Request, res: Response) => {
     try {
-      const result = await pool.query(
-        `SELECT exercise_name, body_part, equipment, target_muscle, gif_data IS NOT NULL AS has_gif
-         FROM exercise_gif_cache
-         ORDER BY exercise_name ASC`,
-      );
-      const exercises = result.rows.map((row) => ({
-        name: row.exercise_name,
-        bodyPart: row.body_part,
-        equipment: row.equipment,
-        targetMuscle: row.target_muscle,
-        hasGif: row.has_gif,
-      }));
-      res.json(exercises);
+      if (
+        !exerciseLibraryCache ||
+        Date.now() - exerciseLibraryCache.at > EXERCISE_LIBRARY_TTL_MS
+      ) {
+        const result = await pool.query(
+          `SELECT exercise_name, body_part, equipment, target_muscle, gif_data IS NOT NULL AS has_gif
+           FROM exercise_gif_cache
+           ORDER BY exercise_name ASC`,
+        );
+        exerciseLibraryCache = {
+          at: Date.now(),
+          data: result.rows.map((row) => ({
+            name: row.exercise_name,
+            bodyPart: row.body_part,
+            equipment: row.equipment,
+            targetMuscle: row.target_muscle,
+            hasGif: row.has_gif,
+          })),
+        };
+      }
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.json(exerciseLibraryCache.data);
     } catch (error) {
       console.error("Error fetching exercise library:", error);
       res.status(500).json({ error: "Failed to fetch exercise library" });
@@ -2104,10 +2126,67 @@ Return JSON only:
           return res.status(400).json({ error: "Invalid post ID" });
         const post = await getPost(postId, req.userId);
         if (!post) return res.status(404).json({ error: "Post not found" });
+        // Visibility check — without it any logged-in user could read
+        // followers-only posts by enumerating ids. 404 (not 403) so the
+        // response doesn't confirm the post exists.
+        const canView = await canViewUserContent(
+          req.userId,
+          post.userId,
+          post.visibility,
+        );
+        if (!canView) return res.status(404).json({ error: "Post not found" });
         res.json({ ...post, serverTime: new Date().toISOString() });
       } catch (error) {
         console.error("Error getting post:", error);
         res.status(500).json({ error: "Failed to get post" });
+      }
+    },
+  );
+
+  // Post photo, decoded from the base64 column. Lists return this URL
+  // instead of inlining the blob (a 20-post feed page used to weigh up
+  // to ~14 MB). private: the response depends on the viewer's access.
+  app.get(
+    "/api/social/posts/:postId/image",
+    requireAuth,
+    async (req: any, res: Response) => {
+      try {
+        const postId = parseInt(req.params.postId);
+        if (isNaN(postId))
+          return res.status(400).json({ error: "Invalid post ID" });
+        const image = await getPostImage(postId, req.userId);
+        if (image === "forbidden" || image === null) {
+          return res.status(404).json({ error: "Image not found" });
+        }
+        res.setHeader("Content-Type", "image/jpeg");
+        res.setHeader("Cache-Control", "private, max-age=86400");
+        res.send(image);
+      } catch (error) {
+        console.error("Error getting post image:", error);
+        res.status(500).json({ error: "Failed to get image" });
+      }
+    },
+  );
+
+  // Avatar bytes, decoded from users.avatar_url (a stored data URI).
+  // Short cache: avatars change rarely, and an hour of staleness after
+  // an avatar swap is an acceptable trade for not refetching per screen.
+  app.get(
+    "/api/social/users/:userId/avatar",
+    requireAuth,
+    async (req: any, res: Response) => {
+      try {
+        const targetId = parseInt(req.params.userId);
+        if (isNaN(targetId))
+          return res.status(400).json({ error: "Invalid user ID" });
+        const avatar = await getUserAvatar(targetId, req.userId);
+        if (!avatar) return res.status(404).json({ error: "No avatar" });
+        res.setHeader("Content-Type", avatar.mime);
+        res.setHeader("Cache-Control", "private, max-age=3600");
+        res.send(avatar.data);
+      } catch (error) {
+        console.error("Error getting avatar:", error);
+        res.status(500).json({ error: "Failed to get avatar" });
       }
     },
   );
@@ -2415,7 +2494,13 @@ Return JSON only:
           req.userId,
         ]);
 
-        res.json({ success: true, avatarUrl: dataUri });
+        // Return the serve-path (like every list row does now), not the
+        // multi-KB data URI. The ?v= buster skips the browser's cached
+        // copy of the previous avatar at the same path.
+        res.json({
+          success: true,
+          avatarUrl: `${avatarPath(req.userId)}?v=${Date.now()}`,
+        });
       } catch (error) {
         console.error("Avatar upload error:", error);
         res.status(500).json({ error: "Failed to upload avatar" });

@@ -2,7 +2,12 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import ProfileScreen from "@/screens/ProfileScreen";
-import ProgressChartsScreen from "@/screens/ProgressChartsScreen";
+import { lazyScreen } from "@/components/LazyScreen";
+
+// Chart-kit is heavy and only this screen needs it — load on first open.
+const ProgressChartsScreen = lazyScreen(
+  () => import("@/screens/ProgressChartsScreen"),
+);
 import AchievementsScreen from "@/screens/AchievementsScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";

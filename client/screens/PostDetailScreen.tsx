@@ -26,6 +26,7 @@ import { Button } from "@/components/Button";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
+import { apiImageSource } from "@/lib/mediaSource";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { MapDisplay } from "@/components/MapDisplay";
@@ -549,9 +550,9 @@ export default function PostDetailScreen() {
                 </ThemedText>
               ) : null}
 
-              {post.imageData ? (
+              {post.imageUrl ? (
                 <Image
-                  source={{ uri: `data:image/jpeg;base64,${post.imageData}` }}
+                  source={apiImageSource(post.imageUrl)}
                   style={styles.postImage}
                   resizeMode="cover"
                 />

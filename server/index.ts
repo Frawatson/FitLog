@@ -276,11 +276,14 @@ async function startServer() {
     // routes MUST be defined before the SPA fallback below; otherwise
     // /privacy and /terms get caught by the catch-all regex and the
     // user is silently rerouted to the app shell.
+    // Rendered once per process — these are static strings.
+    const privacyPage = privacyHtml();
+    const termsPage = termsHtml();
     app.get("/privacy", (_req: Request, res: Response) => {
-      res.type("html").send(privacyHtml());
+      res.type("html").send(privacyPage);
     });
     app.get("/terms", (_req: Request, res: Response) => {
-      res.type("html").send(termsHtml());
+      res.type("html").send(termsPage);
     });
     // static-build/ holds native OTA bundles (manifests served above);
     // dist/ holds the Expo web export (built by `npm run web:build`).
@@ -419,12 +422,32 @@ async function startServer() {
         // Register the no-op SW so Chrome's install-banner heuristic
         // activates. Errors are swallowed — install is a nice-to-have.
         `<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}</script>`,
+        // Boot splash styling. The page used to be a bare white rectangle
+        // for the entire JS download+parse; now it shows the brand mark
+        // on a theme-aware background. React replaces #root's children
+        // on mount, which removes the splash automatically.
+        `<style>
+      body{background:#F6F8F7}
+      @media (prefers-color-scheme:dark){body{background:#0D1117}}
+      #boot-splash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+      #boot-splash .brand{font:700 28px/1 system-ui,-apple-system,sans-serif;color:#1B3A27;letter-spacing:1px}
+      @media (prefers-color-scheme:dark){#boot-splash .brand{color:#9CC5A9}}
+      #boot-splash .ring{width:36px;height:36px;border-radius:50%;border:3px solid rgba(27,58,39,.25);border-top-color:#1B3A27;animation:bootspin .8s linear infinite}
+      @media (prefers-color-scheme:dark){#boot-splash .ring{border-color:rgba(156,197,169,.25);border-top-color:#9CC5A9}}
+      @keyframes bootspin{to{transform:rotate(360deg)}}
+    </style>`,
       ].join("\n    ");
+      const splash =
+        `<div id="root"><div id="boot-splash">` +
+        `<div class="brand">GBOLO</div>` +
+        `<div class="ring" aria-label="Loading"></div>` +
+        `</div></div>`;
       // Strip any default <title> from the bundle, then inject our block
-      // just before </head>.
+      // just before </head>, and seed #root with the splash.
       return html
         .replace(/<title>[^<]*<\/title>/i, "")
-        .replace(/<\/head>/i, `    ${tags}\n  </head>`);
+        .replace(/<\/head>/i, `    ${tags}\n  </head>`)
+        .replace(/<div id="root">\s*<\/div>/i, splash);
     }
 
     app.get(

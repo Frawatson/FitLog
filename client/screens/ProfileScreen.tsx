@@ -49,6 +49,7 @@ import {
   uploadAvatarApi,
 } from "@/lib/socialStorage";
 import { webSafeAlert } from "@/lib/webSafeAlert";
+import { apiImageSource } from "@/lib/mediaSource";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
 import { formatWeight, parseWeightInput } from "@/lib/units";
@@ -427,7 +428,7 @@ export default function ProfileScreen() {
                   >
                     {socialProfile?.avatarUrl ? (
                       <Image
-                        source={{ uri: socialProfile.avatarUrl }}
+                        source={apiImageSource(socialProfile.avatarUrl)}
                         style={styles.avatarImage}
                       />
                     ) : (

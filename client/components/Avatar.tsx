@@ -9,6 +9,7 @@ import {
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
+import { apiImageSource } from "@/lib/mediaSource";
 
 // One place to render a user avatar across the social surface. Either
 // displays the uploaded image (`uri` set, typically a data: URI from
@@ -59,7 +60,10 @@ export function Avatar({
     >
       {uri ? (
         <Image
-          source={{ uri }}
+          // apiImageSource resolves the server-relative avatar path
+          // (/api/social/users/:id/avatar) and attaches the Bearer
+          // header on native; web rides the session cookie.
+          source={apiImageSource(uri)}
           style={StyleSheet.absoluteFillObject}
           accessibilityIgnoresInvertColors
         />

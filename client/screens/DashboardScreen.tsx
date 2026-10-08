@@ -40,6 +40,7 @@ import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 import { getApiUrl } from "@/lib/query-client";
+import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import { checkAchievements, type Achievement } from "@/lib/achievements";
 import { getUnreadCountApi } from "@/lib/socialStorage";
 import { timeAgo } from "@/lib/timeAgo";
@@ -188,10 +189,27 @@ export default function DashboardScreen() {
       setIsLoading(false);
     }
 
-    // Background loads
+    // Today's macros, computed from the food log already in hand — this
+    // used to be a second food-log request via getDailyTotals. Rounded:
+    // float sums were rendering as "16.400000000000002g".
     const today = getLocalDateString();
-    const todayTotals = await storage.getDailyTotals(today);
-    setTodayMacros(todayTotals);
+    const todayTotals = foodLogData
+      .filter((entry: any) => entry.date === today)
+      .reduce(
+        (acc: MacroTargets, entry: any) => ({
+          calories: acc.calories + (entry.food?.calories || 0),
+          protein: acc.protein + (entry.food?.protein || 0),
+          carbs: acc.carbs + (entry.food?.carbs || 0),
+          fat: acc.fat + (entry.food?.fat || 0),
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 },
+      );
+    setTodayMacros({
+      calories: Math.round(todayTotals.calories),
+      protein: Math.round(todayTotals.protein),
+      carbs: Math.round(todayTotals.carbs),
+      fat: Math.round(todayTotals.fat),
+    });
 
     try {
       const count = await getUnreadCountApi();
@@ -199,11 +217,12 @@ export default function DashboardScreen() {
     } catch {}
 
     try {
-      const token = await AsyncStorage.getItem("@merge_auth_token");
+      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
-        const response = await fetch(`${getApiUrl()}api/streak`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch(
+          new URL("/api/streak", getApiUrl()).toString(),
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
         if (response.ok) {
           const streakData = await response.json();
           setStreak(streakData);

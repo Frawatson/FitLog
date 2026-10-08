@@ -10,12 +10,41 @@ import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
 import { initSyncService } from "@/lib/storage";
 import { flushSyncQueue } from "@/lib/syncService";
-import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
+import { AUTH_TOKEN_KEY, setCachedAuthToken } from "@/lib/authStorage";
 
 // Last server-confirmed user object, kept so an app start WITHOUT network
 // (subway, airplane mode) restores the signed-in state instead of bouncing
 // a token-holding user to the Login screen.
 const AUTH_USER_CACHE_KEY = "@merge_auth_user";
+
+// Startup probe fired at module import time. The provider can't mount
+// until fonts finish loading (App returns null until then), so starting
+// the /api/auth/me round-trip here lets it run concurrently with the
+// font download instead of after it — shaving that latency off every
+// cold start. Consumed exactly once by the provider's first check.
+let initialAuthProbe: Promise<{
+  token: string | null;
+  response: Response | null;
+}> | null = (async () => {
+  let token: string | null = null;
+  try {
+    token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    // Storage unreadable — proceed unauthenticated.
+  }
+  try {
+    const headers: HeadersInit = token
+      ? { Authorization: `Bearer ${token}` }
+      : {};
+    const response = await fetch(
+      new URL("/api/auth/me", getApiUrl()).toString(),
+      { credentials: "include", headers },
+    );
+    return { token, response };
+  } catch {
+    return { token, response: null };
+  }
+})();
 
 export interface User {
   id: number;
@@ -59,13 +88,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadTokenAndCheckAuth = async () => {
     try {
-      // Load stored token
-      const storedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      // First mount reuses the module-load probe (already in flight or
+      // done); later calls fall back to a fresh fetch.
+      const probe = initialAuthProbe;
+      initialAuthProbe = null;
+      let storedToken: string | null;
+      let probeResponse: Response | null | undefined;
+      if (probe) {
+        const result = await probe;
+        storedToken = result.token;
+        probeResponse = result.response;
+      } else {
+        storedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      }
       if (storedToken) {
         setAuthToken(storedToken);
+        setCachedAuthToken(storedToken);
       }
-      // Check auth using token or session
-      await checkAuth(storedToken);
+      if (probeResponse !== undefined) {
+        await handleAuthResponse(probeResponse, storedToken);
+      } else {
+        await checkAuth(storedToken);
+      }
     } catch (error) {
       console.log("Error loading auth:", error);
     } finally {
@@ -86,6 +130,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           headers,
         },
       );
+      await handleAuthResponse(response, token);
+    } catch (error) {
+      // Network failure. With a stored token, restore the cached user so
+      // the app opens into the (locally cached) data instead of Login.
+      console.log("[AuthContext] Auth check unreachable:", error);
+      await restoreCachedUser(token);
+    }
+  };
+
+  const handleAuthResponse = async (
+    response: Response | null,
+    token?: string | null,
+  ) => {
+    try {
+      if (!response) {
+        await restoreCachedUser(token);
+        return;
+      }
       if (response.ok) {
         // NOTE: never log the user object — it carries health PII.
         const userData = await response.json();
@@ -105,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (token) {
           await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
           setAuthToken(null);
+          setCachedAuthToken(null);
         }
         await AsyncStorage.removeItem(AUTH_USER_CACHE_KEY);
       } else {
@@ -113,9 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await restoreCachedUser(token);
       }
     } catch (error) {
-      // Network failure. With a stored token, restore the cached user so
-      // the app opens into the (locally cached) data instead of Login.
-      console.log("[AuthContext] Auth check unreachable:", error);
+      console.log("[AuthContext] Auth response handling failed:", error);
       await restoreCachedUser(token);
     }
   };
@@ -167,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (userData.token) {
       await AsyncStorage.setItem(AUTH_TOKEN_KEY, userData.token);
       setAuthToken(userData.token);
+      setCachedAuthToken(userData.token);
     }
     setUser(userData);
     await AsyncStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(userData));
@@ -232,6 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Clear stored token
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthToken(null);
+    setCachedAuthToken(null);
     setUser(null);
   };
 
@@ -308,6 +371,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.removeItem(AUTH_USER_CACHE_KEY);
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthToken(null);
+    setCachedAuthToken(null);
     setUser(null);
   };
 

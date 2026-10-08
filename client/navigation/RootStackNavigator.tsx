@@ -24,9 +24,18 @@ import EditProfileScreen from "@/screens/EditProfileScreen";
 import ForgotPasswordScreen from "@/screens/ForgotPasswordScreen";
 import ResetPasswordScreen from "@/screens/ResetPasswordScreen";
 import PhotoReviewScreen from "@/screens/PhotoReviewScreen";
-import ExerciseHistoryScreen from "@/screens/ExerciseHistoryScreen";
 import ExerciseLibraryScreen from "@/screens/ExerciseLibraryScreen";
-import BarcodeScannerScreen from "@/screens/BarcodeScannerScreen";
+import { lazyScreen } from "@/components/LazyScreen";
+
+// Split out of the main bundle: ExerciseHistory drags react-native-
+// chart-kit, BarcodeScanner drags expo-camera's web scanner. Neither is
+// on the critical path of a typical session.
+const ExerciseHistoryScreen = lazyScreen(
+  () => import("@/screens/ExerciseHistoryScreen"),
+);
+const BarcodeScannerScreen = lazyScreen(
+  () => import("@/screens/BarcodeScannerScreen"),
+);
 import SocialFeedScreen from "@/screens/SocialFeedScreen";
 import CreatePostScreen from "@/screens/CreatePostScreen";
 import PostDetailScreen from "@/screens/PostDetailScreen";
