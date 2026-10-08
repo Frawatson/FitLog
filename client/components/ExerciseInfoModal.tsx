@@ -35,7 +35,11 @@ interface ExerciseInfo {
 const clientCache = new Map<string, ExerciseInfo>();
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseInfoModalProps) {
+export function ExerciseInfoModal({
+  visible,
+  exerciseName,
+  onClose,
+}: ExerciseInfoModalProps) {
   const { theme } = useTheme();
   const [info, setInfo] = useState<ExerciseInfo | null>(null);
   const [loading, setLoading] = useState(false);
@@ -66,7 +70,7 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
     try {
       const result = await syncToServer<ExerciseInfo>(
         `/api/exercises/gif?name=${encodeURIComponent(exerciseName)}`,
-        "GET"
+        "GET",
       );
       if (result.success && result.data) {
         const data = result.data;
@@ -89,7 +93,9 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
   const chips = [
     info?.bodyPart,
     info?.equipment,
-    info?.targetMuscle && info.targetMuscle !== info.bodyPart ? info.targetMuscle : null,
+    info?.targetMuscle && info.targetMuscle !== info.bodyPart
+      ? info.targetMuscle
+      : null,
   ].filter(Boolean) as string[];
 
   const instructionLines = info?.instructions
@@ -97,7 +103,12 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
     : [];
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable
           style={[styles.sheet, { backgroundColor: theme.backgroundCard }]}
@@ -115,14 +126,35 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
           >
             {/* GIF Area */}
             {loading ? (
-              <View style={[styles.gifPlaceholder, { backgroundColor: theme.backgroundDefault }]}>
+              <View
+                style={[
+                  styles.gifPlaceholder,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
                 <ActivityIndicator size="large" color={Colors.light.primary} />
               </View>
             ) : info?.gifUrl && !imageError ? (
-              <View style={[styles.gifContainer, { backgroundColor: theme.backgroundDefault }]}>
+              <View
+                style={[
+                  styles.gifContainer,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
                 {!imageLoaded && (
-                  <View style={[styles.gifPlaceholder, { backgroundColor: theme.backgroundDefault, position: "absolute" }]}>
-                    <ActivityIndicator size="large" color={Colors.light.primary} />
+                  <View
+                    style={[
+                      styles.gifPlaceholder,
+                      {
+                        backgroundColor: theme.backgroundDefault,
+                        position: "absolute",
+                      },
+                    ]}
+                  >
+                    <ActivityIndicator
+                      size="large"
+                      color={Colors.light.primary}
+                    />
                   </View>
                 )}
                 <Image
@@ -134,9 +166,22 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
                 />
               </View>
             ) : (
-              <View style={[styles.gifPlaceholder, { backgroundColor: theme.backgroundDefault }]}>
-                <Feather name="play-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4 }} />
-                <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+              <View
+                style={[
+                  styles.gifPlaceholder,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
+                <Feather
+                  name="play-circle"
+                  size={48}
+                  color={theme.textSecondary}
+                  style={{ opacity: 0.4 }}
+                />
+                <ThemedText
+                  type="small"
+                  style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+                >
                   No demo available
                 </ThemedText>
               </View>
@@ -151,8 +196,20 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
             {chips.length > 0 && (
               <View style={styles.chipRow}>
                 {chips.map((chip) => (
-                  <View key={chip} style={[styles.chip, { backgroundColor: Colors.light.primary + "15" }]}>
-                    <ThemedText type="caption" style={{ color: Colors.light.primary, textTransform: "capitalize" }}>
+                  <View
+                    key={chip}
+                    style={[
+                      styles.chip,
+                      { backgroundColor: Colors.light.primary + "15" },
+                    ]}
+                  >
+                    <ThemedText
+                      type="caption"
+                      style={{
+                        color: Colors.light.primary,
+                        textTransform: "capitalize",
+                      }}
+                    >
                       {chip}
                     </ThemedText>
                   </View>
@@ -168,8 +225,19 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
                 </ThemedText>
                 {instructionLines.map((line, i) => (
                   <View key={i} style={styles.stepRow}>
-                    <View style={[styles.stepNumber, { backgroundColor: Colors.light.primary + "20" }]}>
-                      <ThemedText type="caption" style={{ color: Colors.light.primary, fontWeight: "700" }}>
+                    <View
+                      style={[
+                        styles.stepNumber,
+                        { backgroundColor: Colors.light.primary + "20" },
+                      ]}
+                    >
+                      <ThemedText
+                        type="caption"
+                        style={{
+                          color: Colors.light.primary,
+                          fontWeight: "700",
+                        }}
+                      >
                         {i + 1}
                       </ThemedText>
                     </View>
@@ -185,7 +253,10 @@ export function ExerciseInfoModal({ visible, exerciseName, onClose }: ExerciseIn
           {/* Close button */}
           <Pressable
             onPress={onClose}
-            style={[styles.closeButton, { backgroundColor: theme.backgroundDefault }]}
+            style={[
+              styles.closeButton,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
           >
             <ThemedText type="body" style={{ fontWeight: "600" }}>
               Close

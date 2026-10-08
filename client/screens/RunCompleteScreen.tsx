@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -54,7 +60,9 @@ export default function RunCompleteScreen() {
   // typos like 9999, and the silent-undefined trap from `parseInt("0") || undefined`.
   const HR_MIN = 30;
   const HR_MAX = 250;
-  const parseHR = (raw: string): { value: number | undefined; invalid: boolean } => {
+  const parseHR = (
+    raw: string,
+  ): { value: number | undefined; invalid: boolean } => {
     const trimmed = raw.trim();
     if (!trimmed) return { value: undefined, invalid: false };
     const parsed = parseInt(trimmed, 10);
@@ -97,7 +105,11 @@ export default function RunCompleteScreen() {
       setHrError(`Enter a value between ${HR_MIN} and ${HR_MAX} bpm.`);
       return;
     }
-    if (maxParsed.value !== undefined && avgParsed.value !== undefined && maxParsed.value < avgParsed.value) {
+    if (
+      maxParsed.value !== undefined &&
+      avgParsed.value !== undefined &&
+      maxParsed.value < avgParsed.value
+    ) {
       setHrError("Max HR must be greater than or equal to average HR.");
       return;
     }
@@ -176,15 +188,23 @@ export default function RunCompleteScreen() {
 
   if (!run) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing.xl }]}>
-        <ThemedText type="body" style={{ textAlign: "center", marginTop: Spacing.xl }}>
+      <ThemedView
+        style={[styles.container, { paddingTop: insets.top + Spacing.xl }]}
+      >
+        <ThemedText
+          type="body"
+          style={{ textAlign: "center", marginTop: Spacing.xl }}
+        >
           Loading run...
         </ThemedText>
       </ThemedView>
     );
   }
 
-  const distanceDisplay = formatDistanceValue(run.distanceKm, unitSystem).toFixed(2);
+  const distanceDisplay = formatDistanceValue(
+    run.distanceKm,
+    unitSystem,
+  ).toFixed(2);
   const distUnit = formatDistanceUnit(unitSystem);
   const paceDisplay = formatPace(run.paceMinPerKm, unitSystem);
   const paceUnit = formatPaceUnit(unitSystem);
@@ -193,12 +213,15 @@ export default function RunCompleteScreen() {
   // Only preview a zone for an in-range avg HR. Out-of-range / non-numeric
   // input shows no preview rather than the spurious "Zone 1" for 0 bpm.
   const previewParsed = parseHR(avgHRInput);
-  const zoneInfo = previewParsed.value !== undefined
-    ? getZoneForHeartRate(previewParsed.value, userAge)
-    : null;
+  const zoneInfo =
+    previewParsed.value !== undefined
+      ? getZoneForHeartRate(previewParsed.value, userAge)
+      : null;
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing.xl }]}>
+    <ThemedView
+      style={[styles.container, { paddingTop: insets.top + Spacing.xl }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -207,7 +230,12 @@ export default function RunCompleteScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.checkmarkContainer, checkmarkStyle]}>
-          <View style={[styles.checkmark, { backgroundColor: Colors.light.success }]}>
+          <View
+            style={[
+              styles.checkmark,
+              { backgroundColor: Colors.light.success },
+            ]}
+          >
             <Feather name="check" size={48} color="#FFFFFF" />
           </View>
         </Animated.View>
@@ -235,32 +263,55 @@ export default function RunCompleteScreen() {
           <Card style={styles.statsCard}>
             <View style={styles.statsRow}>
               <View style={styles.stat}>
-                <ThemedText style={[styles.statValue, { color: Colors.light.primary }]}>
+                <ThemedText
+                  style={[styles.statValue, { color: Colors.light.primary }]}
+                >
                   {distanceDisplay}
                 </ThemedText>
-                <ThemedText type="small" style={{ opacity: 0.6 }}>{distUnit}</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.6 }}>
+                  {distUnit}
+                </ThemedText>
               </View>
-              <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+              <View
+                style={[styles.statDivider, { backgroundColor: theme.border }]}
+              />
               <View style={styles.stat}>
                 <ThemedText style={[styles.statValue, { color: theme.text }]}>
                   {formatDuration(run.durationSeconds)}
                 </ThemedText>
-                <ThemedText type="small" style={{ opacity: 0.6 }}>duration</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.6 }}>
+                  duration
+                </ThemedText>
               </View>
             </View>
-            <View style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}>
+            <View
+              style={[
+                styles.secondaryStatsRow,
+                { borderTopColor: theme.border },
+              ]}
+            >
               <View style={styles.stat}>
-                <ThemedText style={[styles.secondaryValue, { color: theme.text }]}>
+                <ThemedText
+                  style={[styles.secondaryValue, { color: theme.text }]}
+                >
                   {paceDisplay}
                 </ThemedText>
-                <ThemedText type="small" style={{ opacity: 0.6 }}>pace {paceUnit}</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.6 }}>
+                  pace {paceUnit}
+                </ThemedText>
               </View>
-              <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+              <View
+                style={[styles.statDivider, { backgroundColor: theme.border }]}
+              />
               <View style={styles.stat}>
-                <ThemedText style={[styles.secondaryValue, { color: theme.text }]}>
+                <ThemedText
+                  style={[styles.secondaryValue, { color: theme.text }]}
+                >
                   {calories}
                 </ThemedText>
-                <ThemedText type="small" style={{ opacity: 0.6 }}>calories</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.6 }}>
+                  calories
+                </ThemedText>
               </View>
             </View>
           </Card>
@@ -271,27 +322,66 @@ export default function RunCompleteScreen() {
               {!showHR ? (
                 <AnimatedPress
                   onPress={() => setShowHR(true)}
-                  style={[styles.hrToggle, { backgroundColor: theme.backgroundDefault }]}
+                  style={[
+                    styles.hrToggle,
+                    { backgroundColor: theme.backgroundDefault },
+                  ]}
                 >
-                  <Feather name="heart" size={18} color={Colors.light.primary} />
-                  <ThemedText type="body" style={{ color: Colors.light.primary, marginLeft: Spacing.sm }}>
+                  <Feather
+                    name="heart"
+                    size={18}
+                    color={Colors.light.primary}
+                  />
+                  <ThemedText
+                    type="body"
+                    style={{
+                      color: Colors.light.primary,
+                      marginLeft: Spacing.sm,
+                    }}
+                  >
                     Add Heart Rate
                   </ThemedText>
                 </AnimatedPress>
               ) : (
                 <Card style={styles.hrCard}>
-                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.lg }}>
-                    <Feather name="heart" size={20} color={Colors.light.primary} />
-                    <ThemedText type="h4" style={{ marginLeft: Spacing.sm }}>Heart Rate</ThemedText>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginBottom: Spacing.lg,
+                    }}
+                  >
+                    <Feather
+                      name="heart"
+                      size={20}
+                      color={Colors.light.primary}
+                    />
+                    <ThemedText type="h4" style={{ marginLeft: Spacing.sm }}>
+                      Heart Rate
+                    </ThemedText>
                   </View>
 
                   <View style={styles.hrInputRow}>
                     <View style={styles.hrInputGroup}>
-                      <ThemedText type="small" style={{ marginBottom: Spacing.xs }}>Avg HR (bpm)</ThemedText>
+                      <ThemedText
+                        type="small"
+                        style={{ marginBottom: Spacing.xs }}
+                      >
+                        Avg HR (bpm)
+                      </ThemedText>
                       <TextInput
-                        style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+                        style={[
+                          styles.hrInput,
+                          {
+                            backgroundColor: theme.backgroundSecondary,
+                            color: theme.text,
+                          },
+                        ]}
                         value={avgHRInput}
-                        onChangeText={(t) => { setAvgHRInput(t); if (hrError) setHrError(null); }}
+                        onChangeText={(t) => {
+                          setAvgHRInput(t);
+                          if (hrError) setHrError(null);
+                        }}
                         keyboardType="number-pad"
                         placeholder="145"
                         placeholderTextColor={theme.textSecondary}
@@ -299,11 +389,25 @@ export default function RunCompleteScreen() {
                       />
                     </View>
                     <View style={styles.hrInputGroup}>
-                      <ThemedText type="small" style={{ marginBottom: Spacing.xs }}>Max HR (bpm)</ThemedText>
+                      <ThemedText
+                        type="small"
+                        style={{ marginBottom: Spacing.xs }}
+                      >
+                        Max HR (bpm)
+                      </ThemedText>
                       <TextInput
-                        style={[styles.hrInput, { backgroundColor: theme.backgroundSecondary, color: theme.text }]}
+                        style={[
+                          styles.hrInput,
+                          {
+                            backgroundColor: theme.backgroundSecondary,
+                            color: theme.text,
+                          },
+                        ]}
                         value={maxHRInput}
-                        onChangeText={(t) => { setMaxHRInput(t); if (hrError) setHrError(null); }}
+                        onChangeText={(t) => {
+                          setMaxHRInput(t);
+                          if (hrError) setHrError(null);
+                        }}
                         keyboardType="number-pad"
                         placeholder="175"
                         placeholderTextColor={theme.textSecondary}
@@ -313,8 +417,18 @@ export default function RunCompleteScreen() {
                   </View>
 
                   {zoneInfo && (
-                    <View style={[styles.zoneBadge, { backgroundColor: zoneInfo.color + "20" }]}>
-                      <View style={[styles.zoneDot, { backgroundColor: zoneInfo.color }]} />
+                    <View
+                      style={[
+                        styles.zoneBadge,
+                        { backgroundColor: zoneInfo.color + "20" },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.zoneDot,
+                          { backgroundColor: zoneInfo.color },
+                        ]}
+                      />
                       <ThemedText type="body" style={{ color: zoneInfo.color }}>
                         {zoneInfo.name} Zone
                       </ThemedText>
@@ -322,7 +436,14 @@ export default function RunCompleteScreen() {
                   )}
 
                   {hrError ? (
-                    <ThemedText type="small" style={{ color: Colors.light.error, textAlign: "center", marginBottom: Spacing.sm }}>
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: Colors.light.error,
+                        textAlign: "center",
+                        marginBottom: Spacing.sm,
+                      }}
+                    >
                       {hrError}
                     </ThemedText>
                   ) : null}
@@ -330,15 +451,23 @@ export default function RunCompleteScreen() {
                   <View style={styles.hrButtons}>
                     <AnimatedPress
                       onPress={() => setShowHR(false)}
-                      style={[styles.hrButton, { borderColor: theme.border, borderWidth: 1 }]}
+                      style={[
+                        styles.hrButton,
+                        { borderColor: theme.border, borderWidth: 1 },
+                      ]}
                     >
                       <ThemedText type="body">Cancel</ThemedText>
                     </AnimatedPress>
                     <AnimatedPress
                       onPress={handleSaveHeartRate}
-                      style={[styles.hrButton, { backgroundColor: Colors.light.primary }]}
+                      style={[
+                        styles.hrButton,
+                        { backgroundColor: Colors.light.primary },
+                      ]}
                     >
-                      <ThemedText type="body" style={{ color: "#fff" }}>Save</ThemedText>
+                      <ThemedText type="body" style={{ color: "#fff" }}>
+                        Save
+                      </ThemedText>
                     </AnimatedPress>
                   </View>
                 </Card>
@@ -348,12 +477,35 @@ export default function RunCompleteScreen() {
         </Animated.View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundDefault, borderTopWidth: 1, borderTopColor: theme.border }]}>
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: insets.bottom + Spacing.lg,
+            backgroundColor: theme.backgroundDefault,
+            borderTopWidth: 1,
+            borderTopColor: theme.border,
+          },
+        ]}
+      >
         <View style={styles.footerButtons}>
-          <Button onPress={handlePost} variant="outline" style={styles.postButton}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+          <Button
+            onPress={handlePost}
+            variant="outline"
+            style={styles.postButton}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: Spacing.sm,
+              }}
+            >
               <Feather name="users" size={18} color={Colors.light.primary} />
-              <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
+              <ThemedText
+                type="body"
+                style={{ color: Colors.light.primary, fontWeight: "600" }}
+              >
                 Post
               </ThemedText>
             </View>

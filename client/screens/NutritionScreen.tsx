@@ -1,5 +1,13 @@
 import React, { useState, useCallback, useRef, useMemo } from "react";
-import { View, StyleSheet, Pressable, Image, Platform, Linking, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Image,
+  Platform,
+  Linking,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -18,7 +26,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { RetractableHeader } from "@/components/RetractableHeader";
-import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
+import {
+  useRetractableHeader,
+  RETRACTABLE_HEADER_HEIGHT,
+} from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { MacroTargets, FoodLogEntry } from "@/types";
@@ -30,7 +41,10 @@ import { getLocalDateString, parseLocalDate } from "@/lib/dateUtils";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type PeriodMode = "day" | "week" | "month";
 
-function getDateRange(date: string, mode: PeriodMode): { start: string; end: string; days: number } {
+function getDateRange(
+  date: string,
+  mode: PeriodMode,
+): { start: string; end: string; days: number } {
   // parseLocalDate so `d.getDay()` and `setDate()` operate in the same
   // local-tz frame as the YYYY-MM-DD input — `new Date(ymd)` parses as
   // UTC midnight and shifts the week start by a day in negative-UTC
@@ -48,7 +62,8 @@ function getDateRange(date: string, mode: PeriodMode): { start: string; end: str
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const actualEnd = end > today ? today : end;
-    const dayCount = Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
+    const dayCount =
+      Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
     return {
       start: getLocalDateString(start),
       end: getLocalDateString(actualEnd),
@@ -61,7 +76,8 @@ function getDateRange(date: string, mode: PeriodMode): { start: string; end: str
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const actualEnd = endOfMonth > today ? today : endOfMonth;
-  const dayCount = Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
+  const dayCount =
+    Math.floor((actualEnd.getTime() - start.getTime()) / 86400000) + 1;
   return {
     start: getLocalDateString(start),
     end: getLocalDateString(actualEnd),
@@ -77,7 +93,11 @@ function formatPeriodLabel(date: string, mode: PeriodMode): string {
     yesterday.setDate(yesterday.getDate() - 1);
     if (date === getLocalDateString(today)) return "Today";
     if (date === getLocalDateString(yesterday)) return "Yesterday";
-    return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
   }
   if (mode === "week") {
     const range = getDateRange(date, "week");
@@ -109,7 +129,8 @@ export default function NutritionScreen() {
   // a later faster one.
   const loadRequestIdRef = useRef(0);
 
-  const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] =
+    ImagePicker.useCameraPermissions();
 
   const loadData = async () => {
     const requestId = ++loadRequestIdRef.current;
@@ -161,7 +182,12 @@ export default function NutritionScreen() {
     }
     const dailyMap = new Map<string, MacroTargets>();
     for (const entry of foodLog) {
-      const existing = dailyMap.get(entry.date) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+      const existing = dailyMap.get(entry.date) || {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      };
       existing.calories += entry.food.calories;
       existing.protein += entry.food.protein;
       existing.carbs += entry.food.carbs;
@@ -192,7 +218,7 @@ export default function NutritionScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [selectedDate, periodMode])
+    }, [selectedDate, periodMode]),
   );
 
   const openDetail = (entry: FoodLogEntry) => {
@@ -243,13 +269,15 @@ export default function NutritionScreen() {
       const result = await requestCameraPermission();
       if (!result.granted) {
         if (!result.canAskAgain && Platform.OS !== "web") {
-          try { await Linking.openSettings(); } catch {}
+          try {
+            await Linking.openSettings();
+          } catch {}
         }
         return;
       }
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: false,
       quality: 1,
       base64: false,
@@ -257,13 +285,18 @@ export default function NutritionScreen() {
     });
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
-      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      if (Platform.OS !== "web")
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setIsAnalyzing(true);
       try {
         const manipulated = await ImageManipulator.manipulateAsync(
           asset.uri,
           [{ resize: { width: 1536 } }],
-          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          {
+            compress: 0.85,
+            format: ImageManipulator.SaveFormat.JPEG,
+            base64: true,
+          },
         );
         const base64 = manipulated.base64 || null;
         const url = new URL("/api/foods/analyze-photo", getApiUrl());
@@ -280,7 +313,10 @@ export default function NutritionScreen() {
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.foods && data.foods.length > 0) {
-            if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            if (Platform.OS !== "web")
+              Haptics.notificationAsync(
+                Haptics.NotificationFeedbackType.Success,
+              );
             navigation.navigate("PhotoReview", {
               foods: data.foods,
               imageUri: asset.uri,
@@ -300,7 +336,7 @@ export default function NutritionScreen() {
       }
     }
   };
-  
+
   return (
     <>
       <RetractableHeader
@@ -325,8 +361,15 @@ export default function NutritionScreen() {
       >
         {isLoading ? (
           <View style={{ gap: Spacing.xl }}>
-            <SkeletonLoader variant="line" width="50%" height={32} style={{ alignSelf: "center" }} />
-            <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
+            <SkeletonLoader
+              variant="line"
+              width="50%"
+              height={32}
+              style={{ alignSelf: "center" }}
+            />
+            <View
+              style={{ flexDirection: "row", justifyContent: "space-around" }}
+            >
               <SkeletonLoader variant="circle" height={90} />
               <SkeletonLoader variant="circle" height={90} />
               <SkeletonLoader variant="circle" height={90} />
@@ -336,233 +379,334 @@ export default function NutritionScreen() {
             <SkeletonLoader variant="card" />
           </View>
         ) : (
-        <>
-        {/* Period Toggle */}
-        <View style={styles.periodToggle}>
-          {(["day", "week", "month"] as PeriodMode[]).map((mode) => (
-            <Pressable
-              key={mode}
-              onPress={() => {
-                // Keep the currently-viewed date when switching modes so
-                // toggling day→week→day doesn't snap the user back to today
-                // and lose context. week/month pick the range containing
-                // the same date via getDateRange().
-                setPeriodMode(mode);
-              }}
-              style={[
-                styles.periodButton,
-                {
-                  backgroundColor:
-                    periodMode === mode ? Colors.light.primary : theme.backgroundSecondary,
-                },
-              ]}
-            >
-              <ThemedText
-                type="small"
-                style={{
-                  fontWeight: "600",
-                  color: periodMode === mode ? "#FFFFFF" : theme.textSecondary,
-                }}
-              >
-                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+          <>
+            {/* Period Toggle */}
+            <View style={styles.periodToggle}>
+              {(["day", "week", "month"] as PeriodMode[]).map((mode) => (
+                <Pressable
+                  key={mode}
+                  onPress={() => {
+                    // Keep the currently-viewed date when switching modes so
+                    // toggling day→week→day doesn't snap the user back to today
+                    // and lose context. week/month pick the range containing
+                    // the same date via getDateRange().
+                    setPeriodMode(mode);
+                  }}
+                  style={[
+                    styles.periodButton,
+                    {
+                      backgroundColor:
+                        periodMode === mode
+                          ? Colors.light.primary
+                          : theme.backgroundSecondary,
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    type="small"
+                    style={{
+                      fontWeight: "600",
+                      color:
+                        periodMode === mode ? "#FFFFFF" : theme.textSecondary,
+                    }}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </View>
+
+            <View style={styles.dateSelector}>
+              <Pressable onPress={() => navigateDate(-1)} hitSlop={8}>
+                <Feather name="chevron-left" size={24} color={theme.text} />
+              </Pressable>
+              <ThemedText type="h3">
+                {formatPeriodLabel(selectedDate, periodMode)}
               </ThemedText>
-            </Pressable>
-          ))}
-        </View>
+              <Pressable
+                onPress={() => navigateDate(1)}
+                hitSlop={8}
+                disabled={isAtToday}
+              >
+                <Feather
+                  name="chevron-right"
+                  size={24}
+                  color={isAtToday ? theme.textSecondary : theme.text}
+                />
+              </Pressable>
+            </View>
 
-        <View style={styles.dateSelector}>
-          <Pressable onPress={() => navigateDate(-1)} hitSlop={8}>
-            <Feather name="chevron-left" size={24} color={theme.text} />
-          </Pressable>
-          <ThemedText type="h3">{formatPeriodLabel(selectedDate, periodMode)}</ThemedText>
-          <Pressable
-            onPress={() => navigateDate(1)}
-            hitSlop={8}
-            disabled={isAtToday}
-          >
-            <Feather
-              name="chevron-right"
-              size={24}
-              color={isAtToday ? theme.textSecondary : theme.text}
-            />
-          </Pressable>
-        </View>
-
-        {macroTargets && aggregates.mode === "day" ? (
-          <View style={styles.macroRings}>
-            {/* safeRatio: protein/carbs/fat targets can legitimately be 0
+            {macroTargets && aggregates.mode === "day" ? (
+              <View style={styles.macroRings}>
+                {/* safeRatio: protein/carbs/fat targets can legitimately be 0
                 (EditMacrosScreen allows >= 0 for macros). Dividing by 0
                 produces NaN/Infinity which ProgressRing animates to via
                 withTiming(Math.min(NaN, 1)) — the arc fails to render.
                 Returning 0 paints an empty ring, an honest "0 of 0". */}
-            <ProgressRing
-              progress={safeRatio(aggregates.totals.calories, macroTargets.calories)}
-              size={90}
-              label="Calories"
-              value={`${aggregates.totals.calories}`}
-              color={Colors.light.primary}
-            />
-            <ProgressRing
-              progress={safeRatio(aggregates.totals.protein, macroTargets.protein)}
-              size={90}
-              label="Protein"
-              value={`${aggregates.totals.protein}g`}
-              color={Colors.light.success}
-            />
-            <ProgressRing
-              progress={safeRatio(aggregates.totals.carbs, macroTargets.carbs)}
-              size={90}
-              label="Carbs"
-              value={`${aggregates.totals.carbs}g`}
-              color={Colors.light.macroCarbs}
-            />
-            <ProgressRing
-              progress={safeRatio(aggregates.totals.fat, macroTargets.fat)}
-              size={90}
-              label="Fat"
-              value={`${aggregates.totals.fat}g`}
-              color={Colors.light.macroFat}
-            />
-          </View>
-        ) : null}
+                <ProgressRing
+                  progress={safeRatio(
+                    aggregates.totals.calories,
+                    macroTargets.calories,
+                  )}
+                  size={90}
+                  label="Calories"
+                  value={`${aggregates.totals.calories}`}
+                  color={Colors.light.primary}
+                />
+                <ProgressRing
+                  progress={safeRatio(
+                    aggregates.totals.protein,
+                    macroTargets.protein,
+                  )}
+                  size={90}
+                  label="Protein"
+                  value={`${aggregates.totals.protein}g`}
+                  color={Colors.light.success}
+                />
+                <ProgressRing
+                  progress={safeRatio(
+                    aggregates.totals.carbs,
+                    macroTargets.carbs,
+                  )}
+                  size={90}
+                  label="Carbs"
+                  value={`${aggregates.totals.carbs}g`}
+                  color={Colors.light.macroCarbs}
+                />
+                <ProgressRing
+                  progress={safeRatio(aggregates.totals.fat, macroTargets.fat)}
+                  size={90}
+                  label="Fat"
+                  value={`${aggregates.totals.fat}g`}
+                  color={Colors.light.macroFat}
+                />
+              </View>
+            ) : null}
 
-        {macroTargets && aggregates.mode === "period" ? (
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              {/* "Average per logged day" — used to read just "Daily
+            {macroTargets && aggregates.mode === "period" ? (
+              <Card style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  {/* "Average per logged day" — used to read just "Daily
                   Averages", which was easy to misread as
                   sum-over-days-in-period. The divisor is logged days
                   only so an unlogged day doesn't drag the average to 0. */}
-              <ThemedText type="h4">Average per logged day</ThemedText>
-              <ThemedText type="caption" style={{ opacity: 0.5 }}>
-                {aggregates.daysLogged} day{aggregates.daysLogged !== 1 ? "s" : ""} logged
-              </ThemedText>
-            </View>
-            <View style={styles.summaryGrid}>
-              <View style={styles.summaryItem}>
-                <ThemedText type="caption" style={{ opacity: 0.6 }}>Calories</ThemedText>
-                <ThemedText
-                  type="h3"
-                  style={{ color: macroColor(aggregates.averages.calories, macroTargets.calories) }}
-                >
-                  {aggregates.averages.calories}
-                </ThemedText>
-                <ThemedText type="caption" style={{ opacity: 0.4 }}>
-                  / {macroTargets.calories}
-                </ThemedText>
-              </View>
-              <View style={styles.summaryItem}>
-                <ThemedText type="caption" style={{ opacity: 0.6 }}>Protein</ThemedText>
-                <ThemedText
-                  type="h3"
-                  style={{ color: macroColor(aggregates.averages.protein, macroTargets.protein) }}
-                >
-                  {aggregates.averages.protein}g
-                </ThemedText>
-                <ThemedText type="caption" style={{ opacity: 0.4 }}>
-                  / {macroTargets.protein}g
-                </ThemedText>
-              </View>
-              <View style={styles.summaryItem}>
-                <ThemedText type="caption" style={{ opacity: 0.6 }}>Carbs</ThemedText>
-                <ThemedText
-                  type="h3"
-                  style={{ color: macroColor(aggregates.averages.carbs, macroTargets.carbs) }}
-                >
-                  {aggregates.averages.carbs}g
-                </ThemedText>
-                <ThemedText type="caption" style={{ opacity: 0.4 }}>
-                  / {macroTargets.carbs}g
-                </ThemedText>
-              </View>
-              <View style={styles.summaryItem}>
-                <ThemedText type="caption" style={{ opacity: 0.6 }}>Fat</ThemedText>
-                <ThemedText
-                  type="h3"
-                  style={{ color: macroColor(aggregates.averages.fat, macroTargets.fat) }}
-                >
-                  {aggregates.averages.fat}g
-                </ThemedText>
-                <ThemedText type="caption" style={{ opacity: 0.4 }}>
-                  / {macroTargets.fat}g
-                </ThemedText>
-              </View>
-            </View>
-          </Card>
-        ) : null}
-
-        <View style={styles.sectionHeader}>
-          <ThemedText type="h4">
-            {periodMode === "day" ? "Food Log" : "All Foods This Period"}
-          </ThemedText>
-        </View>
-        
-        {foodLog.length > 0 ? (
-          <View style={styles.foodList}>
-            {foodLog.map((entry) => (
-              <Card
-                key={entry.id}
-                onPress={() => openDetail(entry)}
-                style={styles.foodCard}
-              >
-                <View style={styles.foodRow}>
-                  {(entry.imageUri || entry.food.imageUri) ? (
-                    <Image
-                      source={{ uri: entry.imageUri || entry.food.imageUri }}
-                      style={styles.foodThumbnail}
-                    />
-                  ) : (
-                    <View style={[styles.foodIconPlaceholder, { backgroundColor: theme.backgroundSecondary }]}>
-                      <Feather name="coffee" size={20} color={theme.textSecondary} />
-                    </View>
-                  )}
-                  <View style={styles.foodInfo}>
-                    <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={1}>
-                      {entry.food.name}
+                  <ThemedText type="h4">Average per logged day</ThemedText>
+                  <ThemedText type="caption" style={{ opacity: 0.5 }}>
+                    {aggregates.daysLogged} day
+                    {aggregates.daysLogged !== 1 ? "s" : ""} logged
+                  </ThemedText>
+                </View>
+                <View style={styles.summaryGrid}>
+                  <View style={styles.summaryItem}>
+                    <ThemedText type="caption" style={{ opacity: 0.6 }}>
+                      Calories
                     </ThemedText>
-                    <View style={styles.macroRow}>
-                      <ThemedText type="small" style={{ fontWeight: "700", color: Colors.light.primary }}>
-                        {entry.food.calories}
-                      </ThemedText>
-                      <ThemedText type="small" style={{ opacity: 0.5 }}> cal</ThemedText>
-                      <View style={styles.macroDot} />
-                      <ThemedText type="small" style={{ color: Colors.light.success, fontWeight: "600" }}>
-                        P {entry.food.protein}g
-                      </ThemedText>
-                      <View style={styles.macroDot} />
-                      <ThemedText type="small" style={{ color: Colors.light.macroCarbs, fontWeight: "600" }}>
-                        C {entry.food.carbs}g
-                      </ThemedText>
-                      <View style={styles.macroDot} />
-                      <ThemedText type="small" style={{ color: Colors.light.macroFat, fontWeight: "600" }}>
-                        F {entry.food.fat}g
-                      </ThemedText>
-                    </View>
+                    <ThemedText
+                      type="h3"
+                      style={{
+                        color: macroColor(
+                          aggregates.averages.calories,
+                          macroTargets.calories,
+                        ),
+                      }}
+                    >
+                      {aggregates.averages.calories}
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                      / {macroTargets.calories}
+                    </ThemedText>
                   </View>
-                  <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+                  <View style={styles.summaryItem}>
+                    <ThemedText type="caption" style={{ opacity: 0.6 }}>
+                      Protein
+                    </ThemedText>
+                    <ThemedText
+                      type="h3"
+                      style={{
+                        color: macroColor(
+                          aggregates.averages.protein,
+                          macroTargets.protein,
+                        ),
+                      }}
+                    >
+                      {aggregates.averages.protein}g
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                      / {macroTargets.protein}g
+                    </ThemedText>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <ThemedText type="caption" style={{ opacity: 0.6 }}>
+                      Carbs
+                    </ThemedText>
+                    <ThemedText
+                      type="h3"
+                      style={{
+                        color: macroColor(
+                          aggregates.averages.carbs,
+                          macroTargets.carbs,
+                        ),
+                      }}
+                    >
+                      {aggregates.averages.carbs}g
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                      / {macroTargets.carbs}g
+                    </ThemedText>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <ThemedText type="caption" style={{ opacity: 0.6 }}>
+                      Fat
+                    </ThemedText>
+                    <ThemedText
+                      type="h3"
+                      style={{
+                        color: macroColor(
+                          aggregates.averages.fat,
+                          macroTargets.fat,
+                        ),
+                      }}
+                    >
+                      {aggregates.averages.fat}g
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ opacity: 0.4 }}>
+                      / {macroTargets.fat}g
+                    </ThemedText>
+                  </View>
                 </View>
               </Card>
-            ))}
-          </View>
-        ) : (
-          <EmptyState
-            image={require("../../assets/images/empty-foods.png")}
-            title={periodMode === "day" ? "No foods logged" : "No foods this period"}
-            message={periodMode === "day" ? "Track your meals to hit your macro targets" : "Log meals daily to see your averages here"}
-            actionLabel={periodMode === "day" ? "Add Food" : undefined}
-            onAction={periodMode === "day" ? () => navigation.navigate("AddFood") : undefined}
-          />
-        )}
+            ) : null}
 
-        {foodLog.length > 0 && periodMode === "day" ? (
-          <Button
-            onPress={() => navigation.navigate("AddFood")}
-            style={styles.addButton}
-          >
-            Add Food
-          </Button>
-        ) : null}
-        </>
+            <View style={styles.sectionHeader}>
+              <ThemedText type="h4">
+                {periodMode === "day" ? "Food Log" : "All Foods This Period"}
+              </ThemedText>
+            </View>
+
+            {foodLog.length > 0 ? (
+              <View style={styles.foodList}>
+                {foodLog.map((entry) => (
+                  <Card
+                    key={entry.id}
+                    onPress={() => openDetail(entry)}
+                    style={styles.foodCard}
+                  >
+                    <View style={styles.foodRow}>
+                      {entry.imageUri || entry.food.imageUri ? (
+                        <Image
+                          source={{
+                            uri: entry.imageUri || entry.food.imageUri,
+                          }}
+                          style={styles.foodThumbnail}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.foodIconPlaceholder,
+                            { backgroundColor: theme.backgroundSecondary },
+                          ]}
+                        >
+                          <Feather
+                            name="coffee"
+                            size={20}
+                            color={theme.textSecondary}
+                          />
+                        </View>
+                      )}
+                      <View style={styles.foodInfo}>
+                        <ThemedText
+                          type="body"
+                          style={{ fontWeight: "600" }}
+                          numberOfLines={1}
+                        >
+                          {entry.food.name}
+                        </ThemedText>
+                        <View style={styles.macroRow}>
+                          <ThemedText
+                            type="small"
+                            style={{
+                              fontWeight: "700",
+                              color: Colors.light.primary,
+                            }}
+                          >
+                            {entry.food.calories}
+                          </ThemedText>
+                          <ThemedText type="small" style={{ opacity: 0.5 }}>
+                            {" "}
+                            cal
+                          </ThemedText>
+                          <View style={styles.macroDot} />
+                          <ThemedText
+                            type="small"
+                            style={{
+                              color: Colors.light.success,
+                              fontWeight: "600",
+                            }}
+                          >
+                            P {entry.food.protein}g
+                          </ThemedText>
+                          <View style={styles.macroDot} />
+                          <ThemedText
+                            type="small"
+                            style={{
+                              color: Colors.light.macroCarbs,
+                              fontWeight: "600",
+                            }}
+                          >
+                            C {entry.food.carbs}g
+                          </ThemedText>
+                          <View style={styles.macroDot} />
+                          <ThemedText
+                            type="small"
+                            style={{
+                              color: Colors.light.macroFat,
+                              fontWeight: "600",
+                            }}
+                          >
+                            F {entry.food.fat}g
+                          </ThemedText>
+                        </View>
+                      </View>
+                      <Feather
+                        name="chevron-right"
+                        size={18}
+                        color={theme.textSecondary}
+                      />
+                    </View>
+                  </Card>
+                ))}
+              </View>
+            ) : (
+              <EmptyState
+                image={require("../../assets/images/empty-foods.png")}
+                title={
+                  periodMode === "day"
+                    ? "No foods logged"
+                    : "No foods this period"
+                }
+                message={
+                  periodMode === "day"
+                    ? "Track your meals to hit your macro targets"
+                    : "Log meals daily to see your averages here"
+                }
+                actionLabel={periodMode === "day" ? "Add Food" : undefined}
+                onAction={
+                  periodMode === "day"
+                    ? () => navigation.navigate("AddFood")
+                    : undefined
+                }
+              />
+            )}
+
+            {foodLog.length > 0 && periodMode === "day" ? (
+              <Button
+                onPress={() => navigation.navigate("AddFood")}
+                style={styles.addButton}
+              >
+                Add Food
+              </Button>
+            ) : null}
+          </>
         )}
       </Animated.ScrollView>
 
@@ -570,12 +714,11 @@ export default function NutritionScreen() {
         onPress={handleCameraFAB}
         disabled={isAnalyzing}
         accessibilityRole="button"
-        accessibilityLabel={isAnalyzing ? "Analyzing food photo" : "Take a photo of food"}
+        accessibilityLabel={
+          isAnalyzing ? "Analyzing food photo" : "Take a photo of food"
+        }
         accessibilityState={{ disabled: isAnalyzing, busy: isAnalyzing }}
-        style={[
-          styles.fab,
-          { bottom: tabBarHeight + Spacing.lg },
-        ]}
+        style={[styles.fab, { bottom: tabBarHeight + Spacing.lg }]}
         testID="button-camera-fab"
       >
         {isAnalyzing ? (
@@ -586,10 +729,22 @@ export default function NutritionScreen() {
       </Pressable>
 
       {isAnalyzing ? (
-        <View style={[styles.analyzingBanner, { bottom: tabBarHeight + Spacing.lg + 68 }]}>
-          <View style={[styles.analyzingBannerInner, { backgroundColor: theme.backgroundSecondary }]}>
+        <View
+          style={[
+            styles.analyzingBanner,
+            { bottom: tabBarHeight + Spacing.lg + 68 },
+          ]}
+        >
+          <View
+            style={[
+              styles.analyzingBannerInner,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
+          >
             <ActivityIndicator size="small" color={Colors.light.primary} />
-            <ThemedText type="small" style={{ fontWeight: "600" }}>Analyzing photo...</ThemedText>
+            <ThemedText type="small" style={{ fontWeight: "600" }}>
+              Analyzing photo...
+            </ThemedText>
           </View>
         </View>
       ) : null}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { View, StyleSheet } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import Animated, {
@@ -7,7 +7,6 @@ import Animated, {
   withTiming,
   Easing,
 } from "react-native-reanimated";
-import { useEffect } from "react";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -34,23 +33,23 @@ export function ProgressRing({
 }: ProgressRingProps) {
   const { theme, isDark } = useTheme();
   const progressValue = useSharedValue(0);
-  
+
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const ringColor = color || Colors.light.primary;
   const bgColor = isDark ? theme.backgroundSecondary : theme.backgroundDefault;
-  
+
   useEffect(() => {
     progressValue.value = withTiming(Math.min(progress, 1), {
       duration: 800,
       easing: Easing.out(Easing.cubic),
     });
   }, [progress]);
-  
+
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - progressValue.value),
   }));
-  
+
   return (
     <View style={styles.container}>
       <View style={[styles.ringContainer, { width: size, height: size }]}>

@@ -1,20 +1,44 @@
 import { syncToServer } from "@/lib/syncService";
-import type { Post, PostComment, SocialProfile, FollowUser, PostType, PostVisibility, Notification, BlockedUser } from "@/types";
+import type {
+  Post,
+  PostComment,
+  SocialProfile,
+  FollowUser,
+  PostType,
+  PostVisibility,
+  Notification,
+  BlockedUser,
+} from "@/types";
 
 // ========== Feed ==========
 
-export async function getFeed(cursor?: string): Promise<{ posts: Post[]; nextCursor?: string; serverTime?: string }> {
-  const endpoint = cursor ? `/api/social/feed?cursor=${encodeURIComponent(cursor)}` : "/api/social/feed";
-  const result = await syncToServer<{ posts: Post[]; nextCursor?: string; serverTime?: string }>(endpoint, "GET");
+export async function getFeed(
+  cursor?: string,
+): Promise<{ posts: Post[]; nextCursor?: string; serverTime?: string }> {
+  const endpoint = cursor
+    ? `/api/social/feed?cursor=${encodeURIComponent(cursor)}`
+    : "/api/social/feed";
+  const result = await syncToServer<{
+    posts: Post[];
+    nextCursor?: string;
+    serverTime?: string;
+  }>(endpoint, "GET");
   if (result.success && result.data) return result.data;
   return { posts: [] };
 }
 
-export async function getUserPostsFeed(userId: number, cursor?: string): Promise<{ posts: Post[]; nextCursor?: string; serverTime?: string }> {
+export async function getUserPostsFeed(
+  userId: number,
+  cursor?: string,
+): Promise<{ posts: Post[]; nextCursor?: string; serverTime?: string }> {
   const endpoint = cursor
     ? `/api/social/posts/user/${userId}?cursor=${encodeURIComponent(cursor)}`
     : `/api/social/posts/user/${userId}`;
-  const result = await syncToServer<{ posts: Post[]; nextCursor?: string; serverTime?: string }>(endpoint, "GET");
+  const result = await syncToServer<{
+    posts: Post[];
+    nextCursor?: string;
+    serverTime?: string;
+  }>(endpoint, "GET");
   if (result.success && result.data) return result.data;
   return { posts: [] };
 }
@@ -30,73 +54,126 @@ export async function createSocialPost(post: {
   imageData?: string;
   visibility?: PostVisibility;
 }): Promise<{ success: boolean; postId?: number }> {
-  const result = await syncToServer<{ success: boolean; postId: number }>("/api/social/posts", "POST", post);
+  const result = await syncToServer<{ success: boolean; postId: number }>(
+    "/api/social/posts",
+    "POST",
+    post,
+  );
   if (result.success && result.data) return result.data;
   return { success: false };
 }
 
-export async function getPostById(postId: number): Promise<(Post & { serverTime?: string }) | null> {
-  const result = await syncToServer<Post & { serverTime?: string }>(`/api/social/posts/${postId}`, "GET");
+export async function getPostById(
+  postId: number,
+): Promise<(Post & { serverTime?: string }) | null> {
+  const result = await syncToServer<Post & { serverTime?: string }>(
+    `/api/social/posts/${postId}`,
+    "GET",
+  );
   if (result.success && result.data) return result.data;
   return null;
 }
 
 export async function deleteSocialPost(postId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/posts/${postId}`, "DELETE");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/posts/${postId}`,
+    "DELETE",
+  );
   return result.success && !!result.data?.success;
 }
 
 // ========== Likes ==========
 
 export async function likePostApi(postId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/posts/${postId}/like`, "POST");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/posts/${postId}/like`,
+    "POST",
+  );
   return result.success && !!result.data?.success;
 }
 
 export async function unlikePostApi(postId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/posts/${postId}/like`, "DELETE");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/posts/${postId}/like`,
+    "DELETE",
+  );
   return result.success && !!result.data?.success;
 }
 
 // ========== Comments ==========
 
-export async function getComments(postId: number, page = 0): Promise<{ comments: PostComment[]; serverTime?: string }> {
-  const result = await syncToServer<{ comments: PostComment[]; serverTime?: string }>(`/api/social/posts/${postId}/comments?page=${page}`, "GET");
+export async function getComments(
+  postId: number,
+  page = 0,
+): Promise<{ comments: PostComment[]; serverTime?: string }> {
+  const result = await syncToServer<{
+    comments: PostComment[];
+    serverTime?: string;
+  }>(`/api/social/posts/${postId}/comments?page=${page}`, "GET");
   if (result.success && result.data) return result.data;
   return { comments: [] };
 }
 
-export async function addCommentApi(postId: number, clientId: string, content: string): Promise<PostComment | null> {
-  const result = await syncToServer<PostComment>(`/api/social/posts/${postId}/comments`, "POST", { clientId, content });
+export async function addCommentApi(
+  postId: number,
+  clientId: string,
+  content: string,
+): Promise<PostComment | null> {
+  const result = await syncToServer<PostComment>(
+    `/api/social/posts/${postId}/comments`,
+    "POST",
+    { clientId, content },
+  );
   if (result.success && result.data) return result.data;
   return null;
 }
 
 export async function deleteCommentApi(commentId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/comments/${commentId}`, "DELETE");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/comments/${commentId}`,
+    "DELETE",
+  );
   return result.success && !!result.data?.success;
 }
 
 // ========== Follows ==========
 
 export async function followUserApi(userId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/follow/${userId}`, "POST");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/follow/${userId}`,
+    "POST",
+  );
   return result.success && !!result.data?.success;
 }
 
 export async function unfollowUserApi(userId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/follow/${userId}`, "DELETE");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/follow/${userId}`,
+    "DELETE",
+  );
   return result.success && !!result.data?.success;
 }
 
-export async function getFollowersList(userId: number, page = 0): Promise<FollowUser[]> {
-  const result = await syncToServer<FollowUser[]>(`/api/social/followers/${userId}?page=${page}`, "GET");
+export async function getFollowersList(
+  userId: number,
+  page = 0,
+): Promise<FollowUser[]> {
+  const result = await syncToServer<FollowUser[]>(
+    `/api/social/followers/${userId}?page=${page}`,
+    "GET",
+  );
   if (result.success && result.data) return result.data;
   return [];
 }
 
-export async function getFollowingList(userId: number, page = 0): Promise<FollowUser[]> {
-  const result = await syncToServer<FollowUser[]>(`/api/social/following/${userId}?page=${page}`, "GET");
+export async function getFollowingList(
+  userId: number,
+  page = 0,
+): Promise<FollowUser[]> {
+  const result = await syncToServer<FollowUser[]>(
+    `/api/social/following/${userId}?page=${page}`,
+    "GET",
+  );
   if (result.success && result.data) return result.data;
   return [];
 }
@@ -104,19 +181,35 @@ export async function getFollowingList(userId: number, page = 0): Promise<Follow
 // ========== User Discovery & Profile ==========
 
 export async function searchUsersApi(query: string): Promise<FollowUser[]> {
-  const result = await syncToServer<FollowUser[]>(`/api/social/users/search?q=${encodeURIComponent(query)}`, "GET");
+  const result = await syncToServer<FollowUser[]>(
+    `/api/social/users/search?q=${encodeURIComponent(query)}`,
+    "GET",
+  );
   if (result.success && result.data) return result.data;
   return [];
 }
 
-export async function getSocialProfileApi(userId: number): Promise<SocialProfile | null> {
-  const result = await syncToServer<SocialProfile>(`/api/social/users/${userId}/profile`, "GET");
+export async function getSocialProfileApi(
+  userId: number,
+): Promise<SocialProfile | null> {
+  const result = await syncToServer<SocialProfile>(
+    `/api/social/users/${userId}/profile`,
+    "GET",
+  );
   if (result.success && result.data) return result.data;
   return null;
 }
 
-export async function updateSocialProfileApi(data: { bio?: string; avatarUrl?: string; isPublic?: boolean }): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>("/api/social/profile", "PUT", data);
+export async function updateSocialProfileApi(data: {
+  bio?: string;
+  avatarUrl?: string;
+  isPublic?: boolean;
+}): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(
+    "/api/social/profile",
+    "PUT",
+    data,
+  );
   return result.success && !!result.data?.success;
 }
 
@@ -124,7 +217,9 @@ export async function updateSocialProfileApi(data: { bio?: string; avatarUrl?: s
 // on failure. Caller is responsible for compressing the image before
 // sending; the server resizes again as a safety net but smaller input
 // means faster upload + lower memory pressure.
-export async function uploadAvatarApi(imageBase64: string): Promise<string | null> {
+export async function uploadAvatarApi(
+  imageBase64: string,
+): Promise<string | null> {
   const result = await syncToServer<{ success: boolean; avatarUrl: string }>(
     "/api/social/avatar",
     "POST",
@@ -139,53 +234,96 @@ export async function uploadAvatarApi(imageBase64: string): Promise<string | nul
 // ========== Block & Report ==========
 
 export async function blockUserApi(userId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/block/${userId}`, "POST");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/block/${userId}`,
+    "POST",
+  );
   return result.success && !!result.data?.success;
 }
 
 export async function unblockUserApi(userId: number): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/block/${userId}`, "DELETE");
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/block/${userId}`,
+    "DELETE",
+  );
   return result.success && !!result.data?.success;
 }
 
 export async function getBlockedUsersApi(): Promise<BlockedUser[]> {
-  const result = await syncToServer<BlockedUser[]>("/api/social/blocked", "GET");
+  const result = await syncToServer<BlockedUser[]>(
+    "/api/social/blocked",
+    "GET",
+  );
   if (result.success && result.data) return result.data;
   return [];
 }
 
-export async function reportContentApi(reportType: "post" | "comment" | "user", targetId: number, reason: string, details?: string): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>("/api/social/report", "POST", { reportType, targetId, reason, details });
+export async function reportContentApi(
+  reportType: "post" | "comment" | "user",
+  targetId: number,
+  reason: string,
+  details?: string,
+): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(
+    "/api/social/report",
+    "POST",
+    { reportType, targetId, reason, details },
+  );
   return result.success && !!result.data?.success;
 }
 
 // ========== Notifications ==========
 
-export async function getNotificationsApi(page = 0): Promise<{ notifications: Notification[] }> {
-  const result = await syncToServer<{ notifications: Notification[] }>(`/api/notifications?page=${page}`, "GET");
+export async function getNotificationsApi(
+  page = 0,
+): Promise<{ notifications: Notification[] }> {
+  const result = await syncToServer<{ notifications: Notification[] }>(
+    `/api/notifications?page=${page}`,
+    "GET",
+  );
   if (result.success && result.data) return result.data;
   return { notifications: [] };
 }
 
 export async function markNotificationsReadApi(): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>("/api/notifications/read", "POST");
+  const result = await syncToServer<{ success: boolean }>(
+    "/api/notifications/read",
+    "POST",
+  );
   return result.success && !!result.data?.success;
 }
 
 export async function getUnreadCountApi(): Promise<number> {
-  const result = await syncToServer<{ count: number }>("/api/notifications/unread-count", "GET");
+  const result = await syncToServer<{ count: number }>(
+    "/api/notifications/unread-count",
+    "GET",
+  );
   if (result.success && result.data) return result.data.count;
   return 0;
 }
 
 // ========== Edit Post & Comment ==========
 
-export async function editPostApi(postId: number, content: string): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/posts/${postId}`, "PUT", { content });
+export async function editPostApi(
+  postId: number,
+  content: string,
+): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/posts/${postId}`,
+    "PUT",
+    { content },
+  );
   return result.success && !!result.data?.success;
 }
 
-export async function editCommentApi(commentId: number, content: string): Promise<boolean> {
-  const result = await syncToServer<{ success: boolean }>(`/api/social/comments/${commentId}`, "PUT", { content });
+export async function editCommentApi(
+  commentId: number,
+  content: string,
+): Promise<boolean> {
+  const result = await syncToServer<{ success: boolean }>(
+    `/api/social/comments/${commentId}`,
+    "PUT",
+    { content },
+  );
   return result.success && !!result.data?.success;
 }

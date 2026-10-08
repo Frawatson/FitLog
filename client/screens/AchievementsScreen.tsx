@@ -68,7 +68,7 @@ export default function AchievementsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData])
+    }, [loadData]),
   );
 
   const unlocked = achievements.filter((a) => a.unlocked);
@@ -88,11 +88,29 @@ export default function AchievementsScreen() {
           },
         ]}
       >
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg, textAlign: "center" }}>
+        <Feather
+          name="alert-circle"
+          size={48}
+          color={theme.textSecondary}
+          style={{ opacity: 0.4, marginBottom: Spacing.lg }}
+        />
+        <ThemedText
+          type="body"
+          style={{
+            color: theme.textSecondary,
+            marginBottom: Spacing.lg,
+            textAlign: "center",
+          }}
+        >
           Could not load achievements.
         </ThemedText>
-        <Button onPress={() => { setError(false); loadData(); }} variant="outline">
+        <Button
+          onPress={() => {
+            setError(false);
+            loadData();
+          }}
+          variant="outline"
+        >
           Retry
         </Button>
       </View>
@@ -155,7 +173,13 @@ export default function AchievementsScreen() {
   );
 }
 
-function AchievementCard({ achievement, theme }: { achievement: Achievement; theme: any }) {
+function AchievementCard({
+  achievement,
+  theme,
+}: {
+  achievement: Achievement;
+  theme: any;
+}) {
   const progress = Math.min(achievement.progress / achievement.threshold, 1);
 
   return (
@@ -181,7 +205,10 @@ function AchievementCard({ achievement, theme }: { achievement: Achievement; the
           color={achievement.unlocked ? "#FFB300" : theme.textSecondary}
         />
       </View>
-      <ThemedText type="body" style={{ fontWeight: "600", textAlign: "center" }}>
+      <ThemedText
+        type="body"
+        style={{ fontWeight: "600", textAlign: "center" }}
+      >
         {achievement.title}
       </ThemedText>
       <ThemedText
@@ -193,7 +220,10 @@ function AchievementCard({ achievement, theme }: { achievement: Achievement; the
       {!achievement.unlocked ? (
         <View style={styles.progressContainer}>
           <View
-            style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}
+            style={[
+              styles.progressBar,
+              { backgroundColor: theme.backgroundSecondary },
+            ]}
           >
             <View
               style={[

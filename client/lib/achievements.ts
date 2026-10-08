@@ -21,14 +21,27 @@ interface AchievementData {
 
 export function checkAchievements(data: AchievementData): Achievement[] {
   const completedWorkouts = data.workouts.filter((w) => w.completedAt);
-  const totalVolume = completedWorkouts.reduce((acc, w) =>
-    acc + w.exercises.reduce((ea, ex) =>
-      ea + ex.sets.reduce((sa, s) => sa + (s.completed ? s.weight * s.reps : 0), 0), 0), 0);
+  const totalVolume = completedWorkouts.reduce(
+    (acc, w) =>
+      acc +
+      w.exercises.reduce(
+        (ea, ex) =>
+          ea +
+          ex.sets.reduce(
+            (sa, s) => sa + (s.completed ? s.weight * s.reps : 0),
+            0,
+          ),
+        0,
+      ),
+    0,
+  );
   const totalRuns = data.runs.length;
   const totalRunKm = data.runs.reduce((acc, r) => acc + r.distanceKm, 0);
 
   // Calculate workout streak
-  const workoutStreak = calculateStreak(completedWorkouts.map((w) => w.completedAt!));
+  const workoutStreak = calculateStreak(
+    completedWorkouts.map((w) => w.completedAt!),
+  );
 
   return [
     // Workout milestones

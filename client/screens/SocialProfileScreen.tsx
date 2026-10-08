@@ -1,7 +1,18 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Pressable,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+  RouteProp,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 
@@ -15,7 +26,14 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { SocialProfile, Post } from "@/types";
-import { getSocialProfileApi, followUserApi, unfollowUserApi, getUserPostsFeed, blockUserApi, unblockUserApi } from "@/lib/socialStorage";
+import {
+  getSocialProfileApi,
+  followUserApi,
+  unfollowUserApi,
+  getUserPostsFeed,
+  blockUserApi,
+  unblockUserApi,
+} from "@/lib/socialStorage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -58,22 +76,38 @@ export default function SocialProfileScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => { loadData(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, []),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    try { await loadData(); } finally { setRefreshing(false); }
+    try {
+      await loadData();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleFollow = async () => {
     if (!profile) return;
     const previous = profile;
     if (profile.isFollowedByMe) {
-      setProfile({ ...profile, isFollowedByMe: false, followersCount: profile.followersCount - 1 });
+      setProfile({
+        ...profile,
+        isFollowedByMe: false,
+        followersCount: profile.followersCount - 1,
+      });
       const ok = await unfollowUserApi(targetUserId);
       if (!ok) setProfile(previous);
     } else {
-      setProfile({ ...profile, isFollowedByMe: true, followersCount: profile.followersCount + 1 });
+      setProfile({
+        ...profile,
+        isFollowedByMe: true,
+        followersCount: profile.followersCount + 1,
+      });
       const ok = await followUserApi(targetUserId);
       if (!ok) setProfile(previous);
     }
@@ -89,10 +123,12 @@ export default function SocialProfileScreen() {
     const doAction = async () => {
       if (profile.isBlockedByMe) {
         await unblockUserApi(targetUserId);
-        setProfile(prev => prev ? { ...prev, isBlockedByMe: false } : prev);
+        setProfile((prev) => (prev ? { ...prev, isBlockedByMe: false } : prev));
       } else {
         await blockUserApi(targetUserId);
-        setProfile(prev => prev ? { ...prev, isBlockedByMe: true, isFollowedByMe: false } : prev);
+        setProfile((prev) =>
+          prev ? { ...prev, isBlockedByMe: true, isFollowedByMe: false } : prev,
+        );
       }
     };
     // Cross-platform confirm — was previously Platform.OS branching
@@ -103,7 +139,11 @@ export default function SocialProfileScreen() {
       title: `${action} ${profile.name}?`,
       message,
       options: [
-        { label: action, destructive: !profile.isBlockedByMe, onPress: doAction },
+        {
+          label: action,
+          destructive: !profile.isBlockedByMe,
+          onPress: doAction,
+        },
         { label: "Cancel", cancel: true },
       ],
     });
@@ -111,7 +151,12 @@ export default function SocialProfileScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight },
+        ]}
+      >
         <SkeletonLoader variant="card" count={2} />
       </View>
     );
@@ -119,12 +164,37 @@ export default function SocialProfileScreen() {
 
   if (error || !profile) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center", justifyContent: "center" }]}>
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <Feather
+          name="alert-circle"
+          size={48}
+          color={theme.textSecondary}
+          style={{ opacity: 0.4, marginBottom: Spacing.lg }}
+        />
+        <ThemedText
+          type="body"
+          style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}
+        >
           Could not load profile.
         </ThemedText>
-        <Button onPress={() => { setError(false); hasLoadedRef.current = false; loadData(); }} variant="outline">
+        <Button
+          onPress={() => {
+            setError(false);
+            hasLoadedRef.current = false;
+            loadData();
+          }}
+          variant="outline"
+        >
           Retry
         </Button>
       </View>
@@ -136,9 +206,18 @@ export default function SocialProfileScreen() {
       {/* Avatar + Name */}
       <View style={styles.profileTop}>
         <Avatar uri={profile.avatarUrl} name={profile.name} size={80} />
-        <ThemedText type="h1" style={{ marginTop: Spacing.md }}>{profile.name}</ThemedText>
+        <ThemedText type="h1" style={{ marginTop: Spacing.md }}>
+          {profile.name}
+        </ThemedText>
         {profile.bio ? (
-          <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.xs }}>
+          <ThemedText
+            type="body"
+            style={{
+              color: theme.textSecondary,
+              textAlign: "center",
+              marginTop: Spacing.xs,
+            }}
+          >
             {profile.bio}
           </ThemedText>
         ) : null}
@@ -146,21 +225,45 @@ export default function SocialProfileScreen() {
 
       {/* Stats Row */}
       <View style={styles.statsRow}>
-        <Pressable style={styles.statItem} onPress={() => navigation.navigate("FollowList", { userId: targetUserId, mode: "followers" })}>
+        <Pressable
+          style={styles.statItem}
+          onPress={() =>
+            navigation.navigate("FollowList", {
+              userId: targetUserId,
+              mode: "followers",
+            })
+          }
+        >
           <ThemedText type="h3">{profile.followersCount}</ThemedText>
-          <ThemedText type="caption" style={{ color: theme.textSecondary }}>Followers</ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            Followers
+          </ThemedText>
         </Pressable>
-        <Pressable style={styles.statItem} onPress={() => navigation.navigate("FollowList", { userId: targetUserId, mode: "following" })}>
+        <Pressable
+          style={styles.statItem}
+          onPress={() =>
+            navigation.navigate("FollowList", {
+              userId: targetUserId,
+              mode: "following",
+            })
+          }
+        >
           <ThemedText type="h3">{profile.followingCount}</ThemedText>
-          <ThemedText type="caption" style={{ color: theme.textSecondary }}>Following</ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            Following
+          </ThemedText>
         </Pressable>
         <View style={styles.statItem}>
           <ThemedText type="h3">{profile.totalWorkouts}</ThemedText>
-          <ThemedText type="caption" style={{ color: theme.textSecondary }}>Workouts</ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            Workouts
+          </ThemedText>
         </View>
         <View style={styles.statItem}>
           <ThemedText type="h3">{profile.currentStreak}</ThemedText>
-          <ThemedText type="caption" style={{ color: theme.textSecondary }}>Streak</ThemedText>
+          <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+            Streak
+          </ThemedText>
         </View>
       </View>
 
@@ -170,32 +273,61 @@ export default function SocialProfileScreen() {
           the follow/block controls. */}
       {!isOwnProfile ? (
         <View style={styles.actionRow}>
-          <Button onPress={handleFollow} variant={profile.isFollowedByMe ? "outline" : "filled"} style={{ flex: 1 }}>
+          <Button
+            onPress={handleFollow}
+            variant={profile.isFollowedByMe ? "outline" : "filled"}
+            style={{ flex: 1 }}
+          >
             {profile.isFollowedByMe ? "Following" : "Follow"}
           </Button>
-          <AnimatedPress onPress={handleBlock} style={[styles.blockBtn, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name={profile.isBlockedByMe ? "user-check" : "slash"} size={18} color={profile.isBlockedByMe ? theme.text : Colors.light.error} />
+          <AnimatedPress
+            onPress={handleBlock}
+            style={[
+              styles.blockBtn,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
+            <Feather
+              name={profile.isBlockedByMe ? "user-check" : "slash"}
+              size={18}
+              color={profile.isBlockedByMe ? theme.text : Colors.light.error}
+            />
           </AnimatedPress>
         </View>
       ) : null}
 
       {/* Fitness Stats */}
-      <View style={[styles.fitnessStats, { backgroundColor: theme.backgroundDefault }]}>
+      <View
+        style={[
+          styles.fitnessStats,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
+      >
         <View style={styles.fitnessStatItem}>
           <Feather name="activity" size={16} color={Colors.light.primary} />
           <ThemedText type="small">{profile.totalWorkouts} workouts</ThemedText>
         </View>
         <View style={styles.fitnessStatItem}>
           <Feather name="map-pin" size={16} color={Colors.light.success} />
-          <ThemedText type="small">{profile.totalRuns} runs ({profile.totalDistanceKm.toFixed(1)} km)</ThemedText>
+          <ThemedText type="small">
+            {profile.totalRuns} runs ({profile.totalDistanceKm.toFixed(1)} km)
+          </ThemedText>
         </View>
         <View style={styles.fitnessStatItem}>
           <Feather name="calendar" size={16} color={theme.textSecondary} />
-          <ThemedText type="small" style={{ color: theme.textSecondary }}>Member since {new Date(profile.memberSince).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</ThemedText>
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            Member since{" "}
+            {new Date(profile.memberSince).toLocaleDateString("en-US", {
+              month: "short",
+              year: "numeric",
+            })}
+          </ThemedText>
         </View>
       </View>
 
-      <ThemedText type="h3" style={{ marginTop: Spacing.xl }}>Posts</ThemedText>
+      <ThemedText type="h3" style={{ marginTop: Spacing.xl }}>
+        Posts
+      </ThemedText>
     </View>
   );
 
@@ -205,16 +337,45 @@ export default function SocialProfileScreen() {
         data={posts}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"], width: "100%", maxWidth: 720, alignSelf: "center" }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingHorizontal: Spacing.lg,
+          paddingBottom: Spacing["5xl"],
+          width: "100%",
+          maxWidth: 720,
+          alignSelf: "center",
+        }}
         ListHeaderComponent={headerElement}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.textSecondary}
+          />
+        }
         renderItem={({ item }) => (
           <AnimatedPress
-            onPress={() => navigation.navigate("PostDetail", { postId: item.id })}
-            style={[styles.postCard, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}
+            onPress={() =>
+              navigation.navigate("PostDetail", { postId: item.id })
+            }
+            style={[
+              styles.postCard,
+              {
+                backgroundColor: theme.backgroundCard,
+                borderColor: theme.cardBorder,
+              },
+            ]}
           >
-            <ThemedText type="body" numberOfLines={2}>{item.content || `Shared a ${item.postType}`}</ThemedText>
-            <View style={{ flexDirection: "row", gap: Spacing.lg, marginTop: Spacing.sm }}>
+            <ThemedText type="body" numberOfLines={2}>
+              {item.content || `Shared a ${item.postType}`}
+            </ThemedText>
+            <View
+              style={{
+                flexDirection: "row",
+                gap: Spacing.lg,
+                marginTop: Spacing.sm,
+              }}
+            >
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                 <Feather name="heart" size={12} /> {item.likesCount}
               </ThemedText>
@@ -225,7 +386,14 @@ export default function SocialProfileScreen() {
           </AnimatedPress>
         )}
         ListEmptyComponent={
-          <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center", paddingTop: Spacing.xl }}>
+          <ThemedText
+            type="small"
+            style={{
+              color: theme.textSecondary,
+              textAlign: "center",
+              paddingTop: Spacing.xl,
+            }}
+          >
             No posts yet.
           </ThemedText>
         }
@@ -237,11 +405,38 @@ export default function SocialProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   profileTop: { alignItems: "center", marginBottom: Spacing.xl },
-  statsRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: Spacing.xl },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: Spacing.xl,
+  },
   statItem: { alignItems: "center" },
-  actionRow: { flexDirection: "row", gap: Spacing.md, marginBottom: Spacing.xl },
-  fitnessStats: { padding: Spacing.lg, borderRadius: BorderRadius.md, gap: Spacing.md },
-  fitnessStatItem: { flexDirection: "row", alignItems: "center", gap: Spacing.sm },
-  postCard: { padding: Spacing.lg, borderRadius: BorderRadius.md, borderWidth: 1, marginBottom: Spacing.md },
-  blockBtn: { width: 44, height: 44, borderRadius: BorderRadius.sm, alignItems: "center", justifyContent: "center" },
+  actionRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+  },
+  fitnessStats: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    gap: Spacing.md,
+  },
+  fitnessStatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  postCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  blockBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: BorderRadius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 });

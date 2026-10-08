@@ -9,7 +9,13 @@ interface CallAItem {
   fried_breaded: boolean;
   pan_seared: boolean;
   oil_present: boolean;
-  sauce_type: "none" | "bbq" | "mayo_ranch" | "ketchup" | "hot_sauce" | "unknown";
+  sauce_type:
+    | "none"
+    | "bbq"
+    | "mayo_ranch"
+    | "ketchup"
+    | "hot_sauce"
+    | "unknown";
   sauce_tbsp: MinMedianMax;
 }
 
@@ -238,21 +244,67 @@ const MACRO_TABLE: Record<string, MacroEntry> = {
 
 const OIL_PER_TBSP: MacroEntry = { kcal: 120, p: 0, c: 0, f: 14, per: "1tbsp" };
 
-const DEFAULT_PROTEIN: MacroEntry = { kcal: 200, p: 25, c: 0, f: 10, per: "100g" };
+const DEFAULT_PROTEIN: MacroEntry = {
+  kcal: 200,
+  p: 25,
+  c: 0,
+  f: 10,
+  per: "100g",
+};
 const DEFAULT_CARB: MacroEntry = { kcal: 130, p: 3, c: 28, f: 1, per: "100g" };
 const DEFAULT_VEG: MacroEntry = { kcal: 35, p: 2, c: 7, f: 0.3, per: "100g" };
 
 const PROTEIN_CATEGORIES = new Set([
-  "chicken_breast_grilled", "chicken_breast_pan_seared", "chicken_thigh", "chicken_fried_breaded",
-  "ground_beef_lean", "ground_beef_regular", "steak_lean", "steak_moderate", "steak_fatty",
-  "pork_chop_lean", "pork_chop_moderate", "pork_chop_fatty", "salmon", "white_fish", "tilapia",
-  "tuna", "turkey_breast", "ground_turkey_lean", "ground_turkey_regular", "shrimp",
-  "egg_whole", "egg_whites", "tofu", "tempeh", "greek_yogurt_plain", "greek_yogurt_flavored",
-  "cottage_cheese", "beef_jerky", "protein_bar", "protein_powder",
-  "ham", "bacon", "sausage", "lamb", "venison", "crab", "lobster", "sardines", "mackerel",
-  "whey_shake_ready_to_drink", "casein_shake", "edamame", "beans_chili",
-  "chicken_sausage", "turkey_bacon", "deli_chicken", "deli_turkey",
-  "ground_bison", "bison_steak", "pork_tenderloin",
+  "chicken_breast_grilled",
+  "chicken_breast_pan_seared",
+  "chicken_thigh",
+  "chicken_fried_breaded",
+  "ground_beef_lean",
+  "ground_beef_regular",
+  "steak_lean",
+  "steak_moderate",
+  "steak_fatty",
+  "pork_chop_lean",
+  "pork_chop_moderate",
+  "pork_chop_fatty",
+  "salmon",
+  "white_fish",
+  "tilapia",
+  "tuna",
+  "turkey_breast",
+  "ground_turkey_lean",
+  "ground_turkey_regular",
+  "shrimp",
+  "egg_whole",
+  "egg_whites",
+  "tofu",
+  "tempeh",
+  "greek_yogurt_plain",
+  "greek_yogurt_flavored",
+  "cottage_cheese",
+  "beef_jerky",
+  "protein_bar",
+  "protein_powder",
+  "ham",
+  "bacon",
+  "sausage",
+  "lamb",
+  "venison",
+  "crab",
+  "lobster",
+  "sardines",
+  "mackerel",
+  "whey_shake_ready_to_drink",
+  "casein_shake",
+  "edamame",
+  "beans_chili",
+  "chicken_sausage",
+  "turkey_bacon",
+  "deli_chicken",
+  "deli_turkey",
+  "ground_bison",
+  "bison_steak",
+  "pork_tenderloin",
 ]);
 
 const LEANNESS_SHIFT: Record<string, Record<string, string>> = {
@@ -282,43 +334,71 @@ const PAN_SEARED_OIL_TBSP: Record<Mode, MinMedianMax> = {
 
 const PORTION_BIAS: Record<Mode, number> = {
   lean: 0.95,
-  maintenance: 1.00,
+  maintenance: 1.0,
   bulk: 1.05,
 };
 
 const SAUCE_BIAS: Record<Mode, number> = {
-  lean: 0.80,
-  maintenance: 1.00,
-  bulk: 1.20,
+  lean: 0.8,
+  maintenance: 1.0,
+  bulk: 1.2,
 };
 
-function getCategoryGroup(category: string): "protein" | "carb" | "vegetable" | "fat" {
+function getCategoryGroup(
+  category: string,
+): "protein" | "carb" | "vegetable" | "fat" {
   if (PROTEIN_CATEGORIES.has(category)) return "protein";
   if (MACRO_TABLE[category]?.per === "1tbsp") return "fat";
-  if (category.includes("coleslaw") || category.includes("pickle") ||
-      category.includes("broccoli") || category.includes("green_bean") ||
-      category.includes("spinach") || category.includes("kale") ||
-      category.includes("salad") || category.includes("carrot") ||
-      category.includes("veggie") || category.includes("lettuce") ||
-      category.includes("tomato") || category.includes("cucumber") ||
-      category.includes("mushroom") || category.includes("pepper") ||
-      category.includes("onion") || category.includes("squash") ||
-      category.includes("cauliflower") || category.includes("cabbage") ||
-      category.includes("asparagus") || category.includes("celery") ||
-      category.includes("corn") || category.includes("pea") ||
-      category.includes("eggplant") || category.includes("okra") ||
-      category.includes("beet") || category.includes("radish") ||
-      category.includes("kimchi") || category.includes("seaweed") ||
-      category.includes("edamame_side") || category.includes("artichoke") ||
-      category.includes("leek") || category.includes("turnip") ||
-      category.includes("parsnip") || category.includes("pumpkin") ||
-      category.includes("garlic") || category.includes("ginger") ||
-      category.includes("jalapeno") || category.includes("sauerkraut") ||
-      category.includes("salsa") || category.includes("pico") ||
-      category.includes("spring_mix") || category.includes("arugula") ||
-      category.includes("bok_choy") || category.includes("broccolini") ||
-      category.includes("fajita") || category.includes("stir_fry") ||
-      category.includes("zucchini") || category.includes("brussels")) {
+  if (
+    category.includes("coleslaw") ||
+    category.includes("pickle") ||
+    category.includes("broccoli") ||
+    category.includes("green_bean") ||
+    category.includes("spinach") ||
+    category.includes("kale") ||
+    category.includes("salad") ||
+    category.includes("carrot") ||
+    category.includes("veggie") ||
+    category.includes("lettuce") ||
+    category.includes("tomato") ||
+    category.includes("cucumber") ||
+    category.includes("mushroom") ||
+    category.includes("pepper") ||
+    category.includes("onion") ||
+    category.includes("squash") ||
+    category.includes("cauliflower") ||
+    category.includes("cabbage") ||
+    category.includes("asparagus") ||
+    category.includes("celery") ||
+    category.includes("corn") ||
+    category.includes("pea") ||
+    category.includes("eggplant") ||
+    category.includes("okra") ||
+    category.includes("beet") ||
+    category.includes("radish") ||
+    category.includes("kimchi") ||
+    category.includes("seaweed") ||
+    category.includes("edamame_side") ||
+    category.includes("artichoke") ||
+    category.includes("leek") ||
+    category.includes("turnip") ||
+    category.includes("parsnip") ||
+    category.includes("pumpkin") ||
+    category.includes("garlic") ||
+    category.includes("ginger") ||
+    category.includes("jalapeno") ||
+    category.includes("sauerkraut") ||
+    category.includes("salsa") ||
+    category.includes("pico") ||
+    category.includes("spring_mix") ||
+    category.includes("arugula") ||
+    category.includes("bok_choy") ||
+    category.includes("broccolini") ||
+    category.includes("fajita") ||
+    category.includes("stir_fry") ||
+    category.includes("zucchini") ||
+    category.includes("brussels")
+  ) {
     return "vegetable";
   }
   return "carb";
@@ -361,15 +441,23 @@ export function calculateMacros(items: CallAItem[], mode: Mode) {
     let gramsMax = item.grams.max;
 
     if (item.bone_in) {
-      gramsMin *= 0.70;
-      gramsMedian *= 0.70;
-      gramsMax *= 0.70;
+      gramsMin *= 0.7;
+      gramsMedian *= 0.7;
+      gramsMax *= 0.7;
     }
 
-    let pMin = 0, pMedian = 0, pMax = 0;
-    let cMin = 0, cMedian = 0, cMax = 0;
-    let fMin = 0, fMedian = 0, fMax = 0;
-    let kcalMin = 0, kcalMedian = 0, kcalMax = 0;
+    let pMin = 0,
+      pMedian = 0,
+      pMax = 0;
+    let cMin = 0,
+      cMedian = 0,
+      cMax = 0;
+    let fMin = 0,
+      fMedian = 0,
+      fMax = 0;
+    let kcalMin = 0,
+      kcalMedian = 0,
+      kcalMax = 0;
 
     const scale = (g: number) => g / 100;
     pMin = macro.p * scale(gramsMin);
@@ -396,7 +484,11 @@ export function calculateMacros(items: CallAItem[], mode: Mode) {
     results.push({
       name: item.name,
       category_used: item.category,
-      kcal: { min: round(kcalMin), median: round(kcalMedian), max: round(kcalMax) },
+      kcal: {
+        min: round(kcalMin),
+        median: round(kcalMedian),
+        max: round(kcalMax),
+      },
       p: { min: round(pMin), median: round(pMedian), max: round(pMax) },
       c: { min: round(cMin), median: round(cMedian), max: round(cMax) },
       f: { min: round(fMin), median: round(fMedian), max: round(fMax) },

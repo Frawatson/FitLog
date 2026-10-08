@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  View,
-  StyleSheet,
-  Platform,
-  Pressable,
-} from "react-native";
+import { View, StyleSheet, Platform, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
-import { useNavigation, useRoute, RouteProp, useFocusEffect, CommonActions } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  useFocusEffect,
+  CommonActions,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
@@ -21,12 +22,20 @@ import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { MapDisplay } from "@/components/MapDisplay";
 import { RetractableHeader } from "@/components/RetractableHeader";
-import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
+import {
+  useRetractableHeader,
+  RETRACTABLE_HEADER_HEIGHT,
+} from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
-import { formatDistanceValue, formatDistanceUnit, formatSpeedValue, formatSpeedUnit } from "@/lib/units";
+import {
+  formatDistanceValue,
+  formatDistanceUnit,
+  formatSpeedValue,
+  formatSpeedUnit,
+} from "@/lib/units";
 import { RunStackParamList, RunGoal } from "@/navigation/RunStackNavigator";
 import { getZoneColor } from "@/lib/heartRateZones";
 
@@ -42,22 +51,30 @@ export default function RunTrackerScreen() {
   const { theme } = useTheme();
   const { scrollHandler, headerAnimStyle } = useRetractableHeader();
   const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
-  
+
   const goal = route_.params?.goal;
-  
-  const [permission, setPermission] = useState<Location.PermissionStatus | null>(null);
+
+  const [permission, setPermission] =
+    useState<Location.PermissionStatus | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [distance, setDistance] = useState(0);
-  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>([]);
+  const [route, setRoute] = useState<{ latitude: number; longitude: number }[]>(
+    [],
+  );
   const [runHistory, setRunHistory] = useState<RunEntry[]>([]);
-  const [currentLocation, setCurrentLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [splits, setSplits] = useState<number[]>([]);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [audioMuted, setAudioMuted] = useState(false);
 
-  const locationSubscription = useRef<Location.LocationSubscription | null>(null);
+  const locationSubscription = useRef<Location.LocationSubscription | null>(
+    null,
+  );
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastLocation = useRef<Location.LocationObject | null>(null);
   const startTimeRef = useRef<string>("");
@@ -97,7 +114,7 @@ export default function RunTrackerScreen() {
     audioMutedRef.current = newVal;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-  
+
   useEffect(() => {
     checkPermission();
     loadUnitPreference();
@@ -126,7 +143,7 @@ export default function RunTrackerScreen() {
       unitSystemRef.current = profile.unitSystem;
     }
   };
-  
+
   // Reload run history and reset state when screen gains focus
   useFocusEffect(
     React.useCallback(() => {
@@ -141,9 +158,9 @@ export default function RunTrackerScreen() {
         distanceRef.current = 0;
         isCompletingRef.current = false;
       }
-    }, [isRunning])
+    }, [isRunning]),
   );
-  
+
   const checkPermission = async () => {
     const { status } = await Location.getForegroundPermissionsAsync();
     setPermission(status);
@@ -151,7 +168,7 @@ export default function RunTrackerScreen() {
       getCurrentLocation();
     }
   };
-  
+
   const requestPermission = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     setPermission(status);
@@ -159,7 +176,7 @@ export default function RunTrackerScreen() {
       getCurrentLocation();
     }
   };
-  
+
   const getCurrentLocation = async () => {
     try {
       const location = await Location.getCurrentPositionAsync({
@@ -173,13 +190,13 @@ export default function RunTrackerScreen() {
       console.log("Could not get current location");
     }
   };
-  
+
   const loadRunHistory = async () => {
     const runs = await storage.getRunHistory();
     console.log("[RunTracker] Loaded run history:", runs.length, "runs");
     setRunHistory(runs);
   };
-  
+
   // Per-tick duration update. Mirrors the count into durationRef so
   // the location-watcher callback can read the current value (state
   // wouldn't reach it — see ref declarations above).
@@ -218,12 +235,12 @@ export default function RunTrackerScreen() {
       setDistance(newDistance);
 
       const userUnit = unitSystemRef.current;
-      const distanceInUserUnit = userUnit === "imperial"
-        ? newDistance * 0.621371
-        : newDistance;
-      const lastInUserUnit = userUnit === "imperial"
-        ? lastSplitDistance.current * 0.621371
-        : lastSplitDistance.current;
+      const distanceInUserUnit =
+        userUnit === "imperial" ? newDistance * 0.621371 : newDistance;
+      const lastInUserUnit =
+        userUnit === "imperial"
+          ? lastSplitDistance.current * 0.621371
+          : lastSplitDistance.current;
       const currentMilestone = Math.floor(distanceInUserUnit);
       const lastMilestone = Math.floor(lastInUserUnit);
 
@@ -235,11 +252,19 @@ export default function RunTrackerScreen() {
         setSplits((prev) => [...prev, durationRef.current]);
         lastSplitDistance.current = newDistance;
       }
-      if (currentMilestone > lastAnnouncedMile.current && currentMilestone > 0) {
+      if (
+        currentMilestone > lastAnnouncedMile.current &&
+        currentMilestone > 0
+      ) {
         lastAnnouncedMile.current = currentMilestone;
-        const unitLabel = userUnit === "imperial"
-          ? (currentMilestone === 1 ? "mile" : "miles")
-          : (currentMilestone === 1 ? "kilometer" : "kilometers");
+        const unitLabel =
+          userUnit === "imperial"
+            ? currentMilestone === 1
+              ? "mile"
+              : "miles"
+            : currentMilestone === 1
+              ? "kilometer"
+              : "kilometers";
         speakCue(`${currentMilestone} ${unitLabel} completed`);
       }
     }
@@ -280,9 +305,10 @@ export default function RunTrackerScreen() {
     startTimeRef.current = new Date().toISOString();
 
     if (goal) {
-      const goalDesc = goal.type === "distance"
-        ? `${goal.value} ${goal.unit === "mi" ? (goal.value === 1 ? "mile" : "miles") : (goal.value === 1 ? "kilometer" : "kilometers")} goal`
-        : `${goal.value} minute goal`;
+      const goalDesc =
+        goal.type === "distance"
+          ? `${goal.value} ${goal.unit === "mi" ? (goal.value === 1 ? "mile" : "miles") : goal.value === 1 ? "kilometer" : "kilometers"} goal`
+          : `${goal.value} minute goal`;
       speakCue(`Run started. ${goalDesc}`);
     } else {
       speakCue("Run started");
@@ -319,17 +345,19 @@ export default function RunTrackerScreen() {
     startTimer();
     await startWatcher();
   };
-  
-  const checkGoalReached = (currentDistance: number, currentDuration: number) => {
+
+  const checkGoalReached = (
+    currentDistance: number,
+    currentDuration: number,
+  ) => {
     if (!goal || goalReachedRef.current) return;
 
     const durationMinutes = currentDuration / 60;
 
     if (goal.type === "distance") {
       // Convert tracked distance (always km) into the goal's declared unit.
-      const distanceInGoalUnit = goal.unit === "mi"
-        ? currentDistance * 0.621371
-        : currentDistance;
+      const distanceInGoalUnit =
+        goal.unit === "mi" ? currentDistance * 0.621371 : currentDistance;
       if (distanceInGoalUnit >= goal.value) {
         goalReachedRef.current = true;
         speakCue("Goal reached! Great job!");
@@ -341,13 +369,13 @@ export default function RunTrackerScreen() {
       completeRun(true);
     }
   };
-  
+
   useEffect(() => {
     if (isRunning && !isPaused) {
       checkGoalReached(distance, duration);
     }
   }, [distance, duration, isRunning, isPaused]);
-  
+
   const completeRun = async (goalReached: boolean) => {
     if (isCompletingRef.current) return;
     isCompletingRef.current = true;
@@ -365,27 +393,32 @@ export default function RunTrackerScreen() {
       }
       locationSubscription.current = null;
     }
-    
+
     const finalDistance = distance;
     const finalDuration = duration;
-    
+
     if (finalDuration > 0 && finalDistance >= 0.01) {
       const pace = finalDuration / 60 / finalDistance;
-      const distanceMiles = finalDistance * 0.621371;  // always in miles for calorie estimation
+      const distanceMiles = finalDistance * 0.621371; // always in miles for calorie estimation
       const runCalories = Math.round(distanceMiles * 100);
 
       // Voice announcement with run summary
-      const distValue = unitSystem === "imperial"
-        ? finalDistance * 0.621371
-        : finalDistance;
-      const distUnit = unitSystem === "imperial"
-        ? (distValue >= 2 ? "miles" : "mile")
-        : (distValue >= 2 ? "kilometers" : "kilometer");
+      const distValue =
+        unitSystem === "imperial" ? finalDistance * 0.621371 : finalDistance;
+      const distUnit =
+        unitSystem === "imperial"
+          ? distValue >= 2
+            ? "miles"
+            : "mile"
+          : distValue >= 2
+            ? "kilometers"
+            : "kilometer";
 
       const totalMins = Math.floor(finalDuration / 60);
       const totalSecs = finalDuration % 60;
       let timeStr = "";
-      if (totalMins > 0) timeStr += `${totalMins} minute${totalMins !== 1 ? "s" : ""}`;
+      if (totalMins > 0)
+        timeStr += `${totalMins} minute${totalMins !== 1 ? "s" : ""}`;
       if (totalSecs > 0) {
         if (totalMins > 0) timeStr += " ";
         timeStr += `${totalSecs} second${totalSecs !== 1 ? "s" : ""}`;
@@ -396,10 +429,11 @@ export default function RunTrackerScreen() {
       const paceSecs = Math.round((paceInUnit - paceMins) * 60);
       const paceUnitLabel = unitSystem === "imperial" ? "mile" : "kilometer";
       let paceStr = `${paceMins} minute${paceMins !== 1 ? "s" : ""}`;
-      if (paceSecs > 0) paceStr += ` ${paceSecs} second${paceSecs !== 1 ? "s" : ""}`;
+      if (paceSecs > 0)
+        paceStr += ` ${paceSecs} second${paceSecs !== 1 ? "s" : ""}`;
 
       speakCue(
-        `Run complete. ${distValue.toFixed(1)} ${distUnit} in ${timeStr}. Average pace: ${paceStr} per ${paceUnitLabel}.`
+        `Run complete. ${distValue.toFixed(1)} ${distUnit} in ${timeStr}. Average pace: ${paceStr} per ${paceUnitLabel}.`,
       );
 
       const runId = uuidv4();
@@ -413,9 +447,14 @@ export default function RunTrackerScreen() {
         completedAt: new Date().toISOString(),
         route,
         splits: splits.length > 0 ? [...splits] : undefined,
-        splitsUnit: splits.length > 0 ? (unitSystemRef.current === "imperial" ? "mi" : "km") : undefined,
+        splitsUnit:
+          splits.length > 0
+            ? unitSystemRef.current === "imperial"
+              ? "mi"
+              : "km"
+            : undefined,
       };
-      
+
       await storage.saveRunEntry(runEntry);
 
       setIsRunning(false);
@@ -423,7 +462,7 @@ export default function RunTrackerScreen() {
 
       // Navigate to dedicated completion screen
       navigation.dispatch(
-        CommonActions.navigate({ name: "RunComplete", params: { runId } })
+        CommonActions.navigate({ name: "RunComplete", params: { runId } }),
       );
       return;
     }
@@ -443,19 +482,19 @@ export default function RunTrackerScreen() {
   };
 
   const stopRun = async () => {
-    const goalReached = goal ? (
-      goal.type === "distance"
+    const goalReached = goal
+      ? goal.type === "distance"
         ? (goal.unit === "mi" ? distance * 0.621371 : distance) >= goal.value
         : duration / 60 >= goal.value
-    ) : false;
+      : false;
     completeRun(goalReached);
   };
-  
+
   const calculateDistance = (
     lat1: number,
     lon1: number,
     lat2: number,
-    lon2: number
+    lon2: number,
   ): number => {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -469,26 +508,31 @@ export default function RunTrackerScreen() {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
-  
+
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  
-  
+
   const displayDistance = formatDistanceValue(distance, unitSystem);
   const distanceUnit = formatDistanceUnit(unitSystem);
-  const currentPace = duration > 0 && distance > 0 ? duration / 60 / distance : 0;
+  const currentPace =
+    duration > 0 && distance > 0 ? duration / 60 / distance : 0;
   const speed = formatSpeedValue(distance, duration, unitSystem);
   const speedUnit = formatSpeedUnit(unitSystem);
   const calories = Math.round(formatDistanceValue(distance, "imperial") * 100);
-  
+
   if (permission === null && Platform.OS !== "web") {
     return (
       <>
         <RetractableHeader title="Run" />
-        <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight },
+          ]}
+        >
           <View style={styles.centered}>
             <ThemedText type="body">Checking location access...</ThemedText>
           </View>
@@ -501,7 +545,12 @@ export default function RunTrackerScreen() {
     return (
       <>
         <RetractableHeader title="Run" />
-        <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight },
+          ]}
+        >
           <View style={styles.centered}>
             <Feather name="map-pin" size={48} color={Colors.light.primary} />
             <ThemedText type="h3" style={styles.permissionTitle}>
@@ -518,13 +567,14 @@ export default function RunTrackerScreen() {
       </>
     );
   }
-  
-  const goalProgress = goal ? (
-    goal.type === "distance"
-      ? ((goal.unit === "mi" ? distance * 0.621371 : distance) / goal.value) * 100
-      : ((duration / 60) / goal.value) * 100
-  ) : 0;
-  
+
+  const goalProgress = goal
+    ? goal.type === "distance"
+      ? ((goal.unit === "mi" ? distance * 0.621371 : distance) / goal.value) *
+        100
+      : (duration / 60 / goal.value) * 100
+    : 0;
+
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <RetractableHeader title="Run" animatedStyle={headerAnimStyle} />
@@ -546,89 +596,180 @@ export default function RunTrackerScreen() {
           />
           <View style={styles.mapOverlay}>
             <ThemedText type="small" style={styles.dateText}>
-              {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} at {new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+              {new Date().toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}{" "}
+              at{" "}
+              {new Date().toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </ThemedText>
           </View>
           <Pressable onPress={toggleMute} style={styles.muteButton}>
-            <Feather name={audioMuted ? "volume-x" : "volume-2"} size={18} color="#FFFFFF" />
+            <Feather
+              name={audioMuted ? "volume-x" : "volume-2"}
+              size={18}
+              color="#FFFFFF"
+            />
           </Pressable>
           {goal && isRunning ? (
             <View style={styles.goalBadge}>
               <ThemedText style={styles.goalBadgeText}>
-                {goal.type === "distance" ? `${goal.value} ${goal.unit} goal` : `${goal.value} min goal`}
+                {goal.type === "distance"
+                  ? `${goal.value} ${goal.unit} goal`
+                  : `${goal.value} min goal`}
               </ThemedText>
             </View>
           ) : null}
         </View>
-        
+
         {goal && isRunning ? (
           <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { backgroundColor: theme.backgroundSecondary }]}>
-              <View 
+            <View
+              style={[
+                styles.progressBar,
+                { backgroundColor: theme.backgroundSecondary },
+              ]}
+            >
+              <View
                 style={[
-                  styles.progressFill, 
-                  { width: `${Math.min(goalProgress, 100)}%` }
-                ]} 
+                  styles.progressFill,
+                  { width: `${Math.min(goalProgress, 100)}%` },
+                ]}
               />
             </View>
-            <ThemedText type="small" style={[styles.progressText, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="small"
+              style={[styles.progressText, { color: theme.textSecondary }]}
+            >
               {Math.min(Math.round(goalProgress), 100)}% complete
             </ThemedText>
           </View>
         ) : null}
-        
-        <View style={[styles.statsContainer, { borderBottomColor: theme.border }]}>
+
+        <View
+          style={[styles.statsContainer, { borderBottomColor: theme.border }]}
+        >
           <View style={styles.mainStatsRow}>
             <View style={styles.mainStat}>
-              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>{distanceUnit.toUpperCase()}</ThemedText>
-              <ThemedText type="display" style={{ fontWeight: "700" }}>{displayDistance.toFixed(2)}</ThemedText>
+              <ThemedText
+                type="small"
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                {distanceUnit.toUpperCase()}
+              </ThemedText>
+              <ThemedText type="display" style={{ fontWeight: "700" }}>
+                {displayDistance.toFixed(2)}
+              </ThemedText>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+            <View
+              style={[styles.statDivider, { backgroundColor: theme.border }]}
+            />
             <View style={styles.mainStat}>
-              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Min : Sec</ThemedText>
-              <ThemedText type="display" style={{ fontWeight: "700" }}>{formatDuration(duration)}</ThemedText>
+              <ThemedText
+                type="small"
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                Min : Sec
+              </ThemedText>
+              <ThemedText type="display" style={{ fontWeight: "700" }}>
+                {formatDuration(duration)}
+              </ThemedText>
             </View>
           </View>
-          
-          <View style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}>
+
+          <View
+            style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}
+          >
             <View style={styles.secondaryStat}>
-              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Speed ({speedUnit})</ThemedText>
-              <ThemedText type="h1" style={{ fontWeight: "600" }}>{speed.toFixed(2)}</ThemedText>
+              <ThemedText
+                type="small"
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                Speed ({speedUnit})
+              </ThemedText>
+              <ThemedText type="h1" style={{ fontWeight: "600" }}>
+                {speed.toFixed(2)}
+              </ThemedText>
             </View>
-            <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
+            <View
+              style={[styles.statDivider, { backgroundColor: theme.border }]}
+            />
             <View style={styles.secondaryStat}>
-              <ThemedText type="small" style={[styles.statLabel, { color: theme.textSecondary }]}>Calories</ThemedText>
-              <ThemedText type="h1" style={{ fontWeight: "600" }}>{calories}</ThemedText>
+              <ThemedText
+                type="small"
+                style={[styles.statLabel, { color: theme.textSecondary }]}
+              >
+                Calories
+              </ThemedText>
+              <ThemedText type="h1" style={{ fontWeight: "600" }}>
+                {calories}
+              </ThemedText>
             </View>
           </View>
-          
+
           {splits.length > 0 ? (
-            <View style={[styles.splitsContainer, { borderTopColor: theme.border }]}>
-              <ThemedText type="small" style={[styles.splitsLabel, { color: theme.textSecondary }]}>Splits:</ThemedText>
+            <View
+              style={[styles.splitsContainer, { borderTopColor: theme.border }]}
+            >
+              <ThemedText
+                type="small"
+                style={[styles.splitsLabel, { color: theme.textSecondary }]}
+              >
+                Splits:
+              </ThemedText>
               <View style={styles.splitsRow}>
                 {splits.map((splitTime, index) => (
-                  <View key={index} style={[styles.splitItem, { backgroundColor: theme.backgroundSecondary }]}>
-                    <ThemedText style={styles.splitMile}>{index + 1} {distanceUnit.charAt(0).toUpperCase() + distanceUnit.slice(1)}</ThemedText>
-                    <ThemedText style={[styles.splitTime, { color: theme.text }]}>{formatDuration(splitTime)}</ThemedText>
+                  <View
+                    key={index}
+                    style={[
+                      styles.splitItem,
+                      { backgroundColor: theme.backgroundSecondary },
+                    ]}
+                  >
+                    <ThemedText style={styles.splitMile}>
+                      {index + 1}{" "}
+                      {distanceUnit.charAt(0).toUpperCase() +
+                        distanceUnit.slice(1)}
+                    </ThemedText>
+                    <ThemedText
+                      style={[styles.splitTime, { color: theme.text }]}
+                    >
+                      {formatDuration(splitTime)}
+                    </ThemedText>
                   </View>
                 ))}
               </View>
             </View>
           ) : null}
         </View>
-        
+
         <View style={styles.controlsContainer}>
           {!isRunning ? (
             <View style={styles.startControls}>
-              <AnimatedPress onPress={() => navigation.navigate("RunGoal")} style={[styles.goalButton, { backgroundColor: theme.backgroundSecondary }]}>
+              <AnimatedPress
+                onPress={() => navigation.navigate("RunGoal")}
+                style={[
+                  styles.goalButton,
+                  { backgroundColor: theme.backgroundSecondary },
+                ]}
+              >
                 <Feather name="target" size={20} color={Colors.light.primary} />
-                <ThemedText style={[styles.goalButtonText, { color: theme.text }]}>Set Goal</ThemedText>
+                <ThemedText
+                  style={[styles.goalButtonText, { color: theme.text }]}
+                >
+                  Set Goal
+                </ThemedText>
               </AnimatedPress>
               <Button onPress={startRun} style={styles.startButton}>
                 <View style={styles.startButtonContent}>
                   <Feather name="play" size={28} color="#fff" />
                   <ThemedText type="body" style={styles.startButtonText}>
-                    {goal ? `START ${goal.type === "distance" ? `${goal.value} ${goal.unit.toUpperCase()}` : `${goal.value} MIN`} RUN` : "FREE RUN"}
+                    {goal
+                      ? `START ${goal.type === "distance" ? `${goal.value} ${goal.unit.toUpperCase()}` : `${goal.value} MIN`} RUN`
+                      : "FREE RUN"}
                   </ThemedText>
                 </View>
               </Button>
@@ -636,27 +777,39 @@ export default function RunTrackerScreen() {
           ) : (
             <View style={styles.activeControls}>
               {isPaused ? (
-                <AnimatedPress onPress={resumeRun} style={[styles.controlButton, styles.resumeButton]}>
+                <AnimatedPress
+                  onPress={resumeRun}
+                  style={[styles.controlButton, styles.resumeButton]}
+                >
                   <Feather name="play" size={28} color="#FFFFFF" />
                 </AnimatedPress>
               ) : (
-                <AnimatedPress onPress={pauseRun} style={[styles.controlButton, styles.pauseButton]}>
+                <AnimatedPress
+                  onPress={pauseRun}
+                  style={[styles.controlButton, styles.pauseButton]}
+                >
                   <Feather name="pause" size={28} color="#FFFFFF" />
                 </AnimatedPress>
               )}
-              <AnimatedPress onPress={stopRun} style={[styles.controlButton, styles.stopButton]}>
+              <AnimatedPress
+                onPress={stopRun}
+                style={[styles.controlButton, styles.stopButton]}
+              >
                 <Feather name="square" size={28} color="#FFFFFF" />
               </AnimatedPress>
             </View>
           )}
         </View>
-        
+
         <View style={styles.historySection}>
           <View style={styles.historyHeaderRow}>
             <ThemedText type="h3">Run History</ThemedText>
             {runHistory.length > 5 ? (
               <AnimatedPress onPress={() => navigation.navigate("RunHistory")}>
-                <ThemedText type="small" style={{ color: Colors.light.primary, fontWeight: "600" }}>
+                <ThemedText
+                  type="small"
+                  style={{ color: Colors.light.primary, fontWeight: "600" }}
+                >
                   See all
                 </ThemedText>
               </AnimatedPress>
@@ -673,7 +826,10 @@ export default function RunTrackerScreen() {
                   <ThemedText type="body" style={{ fontWeight: "600" }}>
                     {new Date(run.completedAt).toLocaleDateString()}
                   </ThemedText>
-                  <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                  <ThemedText
+                    type="caption"
+                    style={{ color: theme.textSecondary }}
+                  >
                     {new Date(run.completedAt).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -682,32 +838,93 @@ export default function RunTrackerScreen() {
                 </View>
                 <View style={styles.historyStats}>
                   <View style={styles.historyStat}>
-                    <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
-                      {formatDistanceValue(run.distanceKm, unitSystem).toFixed(2)}
+                    <ThemedText
+                      type="body"
+                      style={[
+                        styles.historyValue,
+                        { color: Colors.light.primary },
+                      ]}
+                    >
+                      {formatDistanceValue(run.distanceKm, unitSystem).toFixed(
+                        2,
+                      )}
                     </ThemedText>
-                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>{distanceUnit}</ThemedText>
+                    <ThemedText
+                      type="caption"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      {distanceUnit}
+                    </ThemedText>
                   </View>
                   <View style={styles.historyStat}>
-                    <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
+                    <ThemedText
+                      type="body"
+                      style={[
+                        styles.historyValue,
+                        { color: Colors.light.primary },
+                      ]}
+                    >
                       {formatDuration(run.durationSeconds)}
                     </ThemedText>
-                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>time</ThemedText>
+                    <ThemedText
+                      type="caption"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      time
+                    </ThemedText>
                   </View>
                   <View style={styles.historyStat}>
-                    <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
+                    <ThemedText
+                      type="body"
+                      style={[
+                        styles.historyValue,
+                        { color: Colors.light.primary },
+                      ]}
+                    >
                       {run.calories || Math.round(run.distanceKm * 60)}
                     </ThemedText>
-                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>kcal</ThemedText>
+                    <ThemedText
+                      type="caption"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      kcal
+                    </ThemedText>
                   </View>
                   {run.avgHeartRate ? (
                     <View style={styles.historyStat}>
-                      <View style={{ flexDirection: "row", alignItems: "center" }}>
-                        <Feather name="heart" size={12} color={run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary} style={{ marginRight: 4 }} />
-                        <ThemedText type="body" style={[styles.historyValue, { color: run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary }]}>
+                      <View
+                        style={{ flexDirection: "row", alignItems: "center" }}
+                      >
+                        <Feather
+                          name="heart"
+                          size={12}
+                          color={
+                            run.heartRateZone
+                              ? getZoneColor(run.heartRateZone)
+                              : Colors.light.primary
+                          }
+                          style={{ marginRight: 4 }}
+                        />
+                        <ThemedText
+                          type="body"
+                          style={[
+                            styles.historyValue,
+                            {
+                              color: run.heartRateZone
+                                ? getZoneColor(run.heartRateZone)
+                                : Colors.light.primary,
+                            },
+                          ]}
+                        >
                           {run.avgHeartRate}
                         </ThemedText>
                       </View>
-                      <ThemedText type="caption" style={{ color: theme.textSecondary }}>bpm</ThemedText>
+                      <ThemedText
+                        type="caption"
+                        style={{ color: theme.textSecondary }}
+                      >
+                        bpm
+                      </ThemedText>
                     </View>
                   ) : null}
                 </View>
@@ -716,7 +933,10 @@ export default function RunTrackerScreen() {
           ) : (
             <Card style={styles.emptyHistoryCard}>
               <Feather name="map-pin" size={32} color={theme.textSecondary} />
-              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+              <ThemedText
+                type="body"
+                style={{ color: theme.textSecondary, textAlign: "center" }}
+              >
                 No runs yet. Start your first run!
               </ThemedText>
             </Card>

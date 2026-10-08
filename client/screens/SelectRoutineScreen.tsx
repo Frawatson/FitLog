@@ -22,39 +22,42 @@ export default function SelectRoutineScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  
+
   const [routines, setRoutines] = useState<Routine[]>([]);
-  
+
   useEffect(() => {
     loadRoutines();
   }, []);
-  
+
   const loadRoutines = async () => {
     const data = await storage.getRoutines();
     setRoutines(data);
   };
-  
+
   const handleSelect = (routine: Routine) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.replace("ActiveWorkout", { routineId: routine.id });
   };
-  
+
   const renderRoutine = ({ item }: { item: Routine }) => (
     <Card style={styles.routineCard} onPress={() => handleSelect(item)}>
       <View style={styles.routineContent}>
         <View style={styles.routineInfo}>
           <ThemedText type="h3">{item.name}</ThemedText>
           <ThemedText type="small" style={styles.exerciseCount}>
-            {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
+            {item.exercises.length} exercise
+            {item.exercises.length !== 1 ? "s" : ""}
           </ThemedText>
         </View>
-        <View style={[styles.playIcon, { backgroundColor: Colors.light.primary }]}>
+        <View
+          style={[styles.playIcon, { backgroundColor: Colors.light.primary }]}
+        >
           <Feather name="play" size={20} color="#FFFFFF" />
         </View>
       </View>
     </Card>
   );
-  
+
   return (
     <FlatList
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}

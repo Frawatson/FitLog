@@ -1,5 +1,14 @@
 import React, { useState } from "react";
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, ActivityIndicator, Image } from "react-native";
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  Image,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -54,27 +63,42 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingTop: insets.top + Spacing["2xl"], paddingBottom: insets.bottom + Spacing.xl },
+            {
+              paddingTop: insets.top + Spacing["2xl"],
+              paddingBottom: insets.bottom + Spacing.xl,
+            },
           ]}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: Colors.light.primary }]}>
+            <View
+              style={[
+                styles.iconContainer,
+                { backgroundColor: Colors.light.primary },
+              ]}
+            >
               <Image
                 source={require("../../assets/images/icon.png")}
                 style={styles.brandIcon}
                 resizeMode="cover"
               />
             </View>
-            <ThemedText type="h1" style={styles.title}>Gbolo</ThemedText>
+            <ThemedText type="h1" style={styles.title}>
+              Gbolo
+            </ThemedText>
             <ThemedText type="body" style={styles.subtitle}>
-              The only fitness app you'll need.
+              The only fitness app you&apos;ll need.
             </ThemedText>
           </View>
 
           <View style={styles.form}>
             {error ? (
-              <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+              <View
+                style={[
+                  styles.errorBox,
+                  { backgroundColor: Colors.light.error + "20" },
+                ]}
+              >
                 <ThemedText type="small" style={{ color: Colors.light.error }}>
                   {error}
                 </ThemedText>
@@ -100,7 +124,10 @@ export default function LoginScreen() {
               autoComplete="password"
             />
 
-            <Pressable onPress={() => navigation.navigate("ForgotPassword")} style={styles.forgotPassword}>
+            <Pressable
+              onPress={() => navigation.navigate("ForgotPassword")}
+              style={styles.forgotPassword}
+            >
               <ThemedText type="small" style={{ color: Colors.light.primary }}>
                 Forgot password?
               </ThemedText>
@@ -111,20 +138,20 @@ export default function LoginScreen() {
               disabled={loading}
               style={styles.loginButton}
             >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                "Log In"
-              )}
+              {loading ? <ActivityIndicator color="#FFFFFF" /> : "Log In"}
             </Button>
 
             <View style={styles.footer}>
               <ThemedText type="body" style={{ opacity: 0.7 }}>
-                Don't have an account?
+                Don&apos;t have an account?
               </ThemedText>
               <Pressable onPress={() => navigation.navigate("Onboarding")}>
-                <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
-                  {" "}Sign Up
+                <ThemedText
+                  type="body"
+                  style={{ color: Colors.light.primary, fontWeight: "600" }}
+                >
+                  {" "}
+                  Sign Up
                 </ThemedText>
               </Pressable>
             </View>

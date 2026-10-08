@@ -26,11 +26,7 @@ function SkeletonPulse({ style }: { style?: ViewStyle }) {
   const opacity = useSharedValue(0);
 
   useEffect(() => {
-    opacity.value = withRepeat(
-      withTiming(1, { duration: 150 }),
-      -1,
-      true,
-    );
+    opacity.value = withRepeat(withTiming(1, { duration: 150 }), -1, true);
   }, []);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -76,8 +72,12 @@ export function SkeletonLoader({
         <>
           {Array.from({ length: count }).map((_, i) => (
             <View key={i} style={[styles.card, style]}>
-              <SkeletonPulse style={{ width: "60%", height: 16, marginBottom: Spacing.md }} />
-              <SkeletonPulse style={{ width: "100%", height: 12, marginBottom: Spacing.sm }} />
+              <SkeletonPulse
+                style={{ width: "60%", height: 16, marginBottom: Spacing.md }}
+              />
+              <SkeletonPulse
+                style={{ width: "100%", height: 12, marginBottom: Spacing.sm }}
+              />
               <SkeletonPulse style={{ width: "80%", height: 12 }} />
             </View>
           ))}
@@ -89,9 +89,13 @@ export function SkeletonLoader({
         <View style={[styles.list, style]}>
           {Array.from({ length: lines }).map((_, i) => (
             <View key={i} style={styles.listItem}>
-              <SkeletonPulse style={{ width: 40, height: 40, borderRadius: 20 }} />
+              <SkeletonPulse
+                style={{ width: 40, height: 40, borderRadius: 20 }}
+              />
               <View style={styles.listContent}>
-                <SkeletonPulse style={{ width: "70%", height: 14, marginBottom: Spacing.xs }} />
+                <SkeletonPulse
+                  style={{ width: "70%", height: 14, marginBottom: Spacing.xs }}
+                />
                 <SkeletonPulse style={{ width: "50%", height: 12 }} />
               </View>
             </View>

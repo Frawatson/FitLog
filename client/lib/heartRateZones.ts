@@ -6,7 +6,7 @@ export function calculateMaxHeartRate(age: number): number {
 
 export function getHeartRateZones(age: number): HeartRateZoneInfo[] {
   const maxHR = calculateMaxHeartRate(age);
-  
+
   return [
     {
       zone: "zone1",
@@ -51,23 +51,26 @@ export function getHeartRateZones(age: number): HeartRateZoneInfo[] {
   ];
 }
 
-export function getZoneForHeartRate(heartRate: number, age: number): HeartRateZoneInfo | null {
+export function getZoneForHeartRate(
+  heartRate: number,
+  age: number,
+): HeartRateZoneInfo | null {
   const zones = getHeartRateZones(age);
-  
+
   for (const zone of zones) {
     if (heartRate >= zone.minBpm && heartRate <= zone.maxBpm) {
       return zone;
     }
   }
-  
+
   if (heartRate < zones[0].minBpm) {
     return zones[0];
   }
-  
+
   if (heartRate > zones[4].maxBpm) {
     return zones[4];
   }
-  
+
   return null;
 }
 

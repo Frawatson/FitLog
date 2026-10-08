@@ -63,7 +63,7 @@ export default function WorkoutHistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData])
+    }, [loadData]),
   );
 
   const formatSelectedDate = (dateStr: string) => {
@@ -121,11 +121,26 @@ export default function WorkoutHistoryScreen() {
           },
         ]}
       >
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+        <Feather
+          name="alert-circle"
+          size={48}
+          color={theme.textSecondary}
+          style={{ opacity: 0.4, marginBottom: Spacing.lg }}
+        />
+        <ThemedText
+          type="body"
+          style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}
+        >
           Could not load history.
         </ThemedText>
-        <Button onPress={() => { setError(false); setIsLoading(true); loadData(); }} variant="outline">
+        <Button
+          onPress={() => {
+            setError(false);
+            setIsLoading(true);
+            loadData();
+          }}
+          variant="outline"
+        >
           Retry
         </Button>
       </View>
@@ -154,9 +169,17 @@ export default function WorkoutHistoryScreen() {
           </ThemedText>
 
           {dayWorkouts.length === 0 && dayRuns.length === 0 ? (
-            <View style={[styles.emptyDay, { backgroundColor: theme.backgroundDefault }]}>
+            <View
+              style={[
+                styles.emptyDay,
+                { backgroundColor: theme.backgroundDefault },
+              ]}
+            >
               <Feather name="calendar" size={24} color={theme.textSecondary} />
-              <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+              <ThemedText
+                type="small"
+                style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+              >
                 No activity on this day
               </ThemedText>
             </View>
@@ -165,25 +188,51 @@ export default function WorkoutHistoryScreen() {
               {dayWorkouts.map((w) => {
                 const totalSets = w.exercises.reduce(
                   (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
-                  0
+                  0,
                 );
                 return (
                   <AnimatedPress
                     key={w.id}
-                    onPress={() => navigation.navigate("WorkoutDetail", { workoutId: w.id })}
-                    style={[styles.activityItem, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}
+                    onPress={() =>
+                      navigation.navigate("WorkoutDetail", { workoutId: w.id })
+                    }
+                    style={[
+                      styles.activityItem,
+                      {
+                        backgroundColor: theme.backgroundCard,
+                        borderColor: theme.cardBorder,
+                      },
+                    ]}
                   >
-                    <View style={[styles.activityIcon, { backgroundColor: `${Colors.light.primary}15` }]}>
-                      <Feather name="activity" size={18} color={Colors.light.primary} />
+                    <View
+                      style={[
+                        styles.activityIcon,
+                        { backgroundColor: `${Colors.light.primary}15` },
+                      ]}
+                    >
+                      <Feather
+                        name="activity"
+                        size={18}
+                        color={Colors.light.primary}
+                      />
                     </View>
                     <View style={styles.activityInfo}>
-                      <ThemedText type="body" style={{ fontWeight: "600" }}>{w.routineName}</ThemedText>
-                      <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                      <ThemedText type="body" style={{ fontWeight: "600" }}>
+                        {w.routineName}
+                      </ThemedText>
+                      <ThemedText
+                        type="caption"
+                        style={{ color: theme.textSecondary }}
+                      >
                         {w.exercises.length} exercises · {totalSets} sets
                         {w.durationMinutes ? ` · ${w.durationMinutes}m` : ""}
                       </ThemedText>
                     </View>
-                    <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                    <Feather
+                      name="chevron-right"
+                      size={16}
+                      color={theme.textSecondary}
+                    />
                   </AnimatedPress>
                 );
               })}
@@ -192,21 +241,45 @@ export default function WorkoutHistoryScreen() {
                 <AnimatedPress
                   key={r.id}
                   onPress={() => navigation.navigate("RunDetail", { run: r })}
-                  style={[styles.activityItem, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}
+                  style={[
+                    styles.activityItem,
+                    {
+                      backgroundColor: theme.backgroundCard,
+                      borderColor: theme.cardBorder,
+                    },
+                  ]}
                 >
-                  <View style={[styles.activityIcon, { backgroundColor: `${Colors.light.success}15` }]}>
-                    <Feather name="map-pin" size={18} color={Colors.light.success} />
+                  <View
+                    style={[
+                      styles.activityIcon,
+                      { backgroundColor: `${Colors.light.success}15` },
+                    ]}
+                  >
+                    <Feather
+                      name="map-pin"
+                      size={18}
+                      color={Colors.light.success}
+                    />
                   </View>
                   <View style={styles.activityInfo}>
                     <ThemedText type="body" style={{ fontWeight: "600" }}>
                       {formatDistance(r.distanceKm, unitSystem)} Run
                     </ThemedText>
-                    <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                      {r.durationSeconds ? `${Math.round(r.durationSeconds / 60)} min` : ""}
+                    <ThemedText
+                      type="caption"
+                      style={{ color: theme.textSecondary }}
+                    >
+                      {r.durationSeconds
+                        ? `${Math.round(r.durationSeconds / 60)} min`
+                        : ""}
                       {r.calories ? ` · ${r.calories} cal` : ""}
                     </ThemedText>
                   </View>
-                  <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                  <Feather
+                    name="chevron-right"
+                    size={16}
+                    color={theme.textSecondary}
+                  />
                 </AnimatedPress>
               ))}
             </View>
@@ -215,9 +288,17 @@ export default function WorkoutHistoryScreen() {
       )}
 
       {!selectedDate && (
-        <View style={[styles.emptyDay, { backgroundColor: theme.backgroundDefault, marginTop: Spacing.xl }]}>
+        <View
+          style={[
+            styles.emptyDay,
+            { backgroundColor: theme.backgroundDefault, marginTop: Spacing.xl },
+          ]}
+        >
           <Feather name="calendar" size={24} color={theme.textSecondary} />
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+          <ThemedText
+            type="small"
+            style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+          >
             Tap a day to see your activities
           </ThemedText>
         </View>

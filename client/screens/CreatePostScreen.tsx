@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Pressable, Image, Platform, Linking, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  Pressable,
+  Image,
+  Platform,
+  Linking,
+  ActivityIndicator,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -24,12 +34,22 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type CreatePostRoute = RouteProp<RootStackParamList, "CreatePost">;
 
-const POST_TYPES: { type: PostType; icon: keyof typeof Feather.glyphMap; label: string; color: string }[] = [
+const POST_TYPES: {
+  type: PostType;
+  icon: keyof typeof Feather.glyphMap;
+  label: string;
+  color: string;
+}[] = [
   { type: "text", icon: "edit-3", label: "Text", color: "#9BA1A6" },
   { type: "workout", icon: "activity", label: "Workout", color: "#1B3A27" },
   { type: "run", icon: "map-pin", label: "Run", color: "#00D084" },
   { type: "meal", icon: "pie-chart", label: "Meal", color: "#818cf8" },
-  { type: "achievement", icon: "award", label: "Achievement", color: "#facc15" },
+  {
+    type: "achievement",
+    icon: "award",
+    label: "Achievement",
+    color: "#facc15",
+  },
 ];
 
 export default function CreatePostScreen() {
@@ -41,11 +61,17 @@ export default function CreatePostScreen() {
   const prefill = route.params?.prefill;
   const hasPrefill = !!(prefill?.referenceId && prefill?.referenceData);
 
-  const [postType, setPostType] = useState<PostType>(prefill?.postType || "text");
+  const [postType, setPostType] = useState<PostType>(
+    prefill?.postType || "text",
+  );
   const [content, setContent] = useState("");
   const [visibility, setVisibility] = useState<PostVisibility>("followers");
-  const [referenceData, setReferenceData] = useState<any>(prefill?.referenceData || null);
-  const [referenceId, setReferenceId] = useState<string | undefined>(prefill?.referenceId);
+  const [referenceData, setReferenceData] = useState<any>(
+    prefill?.referenceData || null,
+  );
+  const [referenceId, setReferenceId] = useState<string | undefined>(
+    prefill?.referenceId,
+  );
   const [recentWorkouts, setRecentWorkouts] = useState<Workout[]>([]);
   const [recentRuns, setRecentRuns] = useState<RunEntry[]>([]);
   // selectedRefIndex was previously `prefill ? 0 : null`, but the
@@ -61,8 +87,10 @@ export default function CreatePostScreen() {
   // throw — previously the catch only logged to the console.
   const [recentLoadError, setRecentLoadError] = useState(false);
 
-  const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
-  const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
+  const [cameraPermission, requestCameraPermission] =
+    ImagePicker.useCameraPermissions();
+  const [mediaPermission, requestMediaPermission] =
+    ImagePicker.useMediaLibraryPermissions();
 
   useEffect(() => {
     if (!hasPrefill) {
@@ -112,7 +140,11 @@ export default function CreatePostScreen() {
       const manipulated = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: 1536 } }],
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        {
+          compress: 0.85,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
       );
       return manipulated.base64 || null;
     } catch (error) {
@@ -126,13 +158,15 @@ export default function CreatePostScreen() {
       const result = await requestCameraPermission();
       if (!result.granted) {
         if (!result.canAskAgain && Platform.OS !== "web") {
-          try { await Linking.openSettings(); } catch {}
+          try {
+            await Linking.openSettings();
+          } catch {}
         }
         return;
       }
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       quality: 1,
       base64: false,
@@ -150,13 +184,15 @@ export default function CreatePostScreen() {
       const result = await requestMediaPermission();
       if (!result.granted) {
         if (!result.canAskAgain && Platform.OS !== "web") {
-          try { await Linking.openSettings(); } catch {}
+          try {
+            await Linking.openSettings();
+          } catch {}
         }
         return;
       }
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: true,
       quality: 1,
       base64: false,
@@ -194,9 +230,13 @@ export default function CreatePostScreen() {
       totalSets: w.exercises.reduce((acc, e) => acc + e.sets.length, 0),
       exerciseCount: w.exercises.length,
       totalVolumeKg: w.totalVolumeKg,
-      exercises: w.exercises.map(e => ({
+      exercises: w.exercises.map((e) => ({
         name: e.exerciseName,
-        sets: e.sets.map(s => ({ weight: s.weight, reps: s.reps, completed: s.completed })),
+        sets: e.sets.map((s) => ({
+          weight: s.weight,
+          reps: s.reps,
+          completed: s.completed,
+        })),
       })),
     });
   };
@@ -222,7 +262,10 @@ export default function CreatePostScreen() {
     if (!content.trim() && !referenceData && !imageBase64) {
       // webSafeAlert (not Alert.alert) — the latter is a no-op on web,
       // which left web users without any "must add content" feedback.
-      webSafeAlert("Add content", "Write something, select an activity, or add a photo.");
+      webSafeAlert(
+        "Add content",
+        "Write something, select an activity, or add a photo.",
+      );
       return;
     }
     setPosting(true);
@@ -257,7 +300,11 @@ export default function CreatePostScreen() {
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"] }}
+      contentContainerStyle={{
+        paddingTop: headerHeight + Spacing.lg,
+        paddingHorizontal: Spacing.lg,
+        paddingBottom: Spacing["5xl"],
+      }}
       keyboardShouldPersistTaps="handled"
     >
       {/* Post Type Selector */}
@@ -267,26 +314,50 @@ export default function CreatePostScreen() {
             key={pt.type}
             onPress={() => {
               if (hasPrefill) return;
-              setPostType(pt.type); setSelectedRefIndex(null); setReferenceData(null); setReferenceId(undefined);
+              setPostType(pt.type);
+              setSelectedRefIndex(null);
+              setReferenceData(null);
+              setReferenceId(undefined);
             }}
             style={[
               styles.typeChip,
               {
-                backgroundColor: postType === pt.type ? pt.color + "20" : theme.backgroundDefault,
+                backgroundColor:
+                  postType === pt.type
+                    ? pt.color + "20"
+                    : theme.backgroundDefault,
                 borderColor: postType === pt.type ? pt.color : theme.border,
                 opacity: hasPrefill && postType !== pt.type ? 0.4 : 1,
               },
             ]}
           >
-            <Feather name={pt.icon} size={14} color={postType === pt.type ? pt.color : theme.textSecondary} />
-            <ThemedText type="caption" style={{ color: postType === pt.type ? pt.color : theme.textSecondary }}>{pt.label}</ThemedText>
+            <Feather
+              name={pt.icon}
+              size={14}
+              color={postType === pt.type ? pt.color : theme.textSecondary}
+            />
+            <ThemedText
+              type="caption"
+              style={{
+                color: postType === pt.type ? pt.color : theme.textSecondary,
+              }}
+            >
+              {pt.label}
+            </ThemedText>
           </AnimatedPress>
         ))}
       </View>
 
       {/* Caption */}
       <TextInput
-        style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderColor: theme.border }]}
+        style={[
+          styles.input,
+          {
+            backgroundColor: theme.backgroundDefault,
+            color: theme.text,
+            borderColor: theme.border,
+          },
+        ]}
         placeholder="What's on your mind?"
         placeholderTextColor={theme.textSecondary}
         value={content}
@@ -299,7 +370,10 @@ export default function CreatePostScreen() {
         type="caption"
         style={[
           styles.charCount,
-          { color: content.length > 450 ? Colors.light.error : theme.textSecondary },
+          {
+            color:
+              content.length > 450 ? Colors.light.error : theme.textSecondary,
+          },
         ]}
       >
         {content.length} / 500
@@ -308,29 +382,69 @@ export default function CreatePostScreen() {
       {/* Photo Attachment */}
       {imageUri ? (
         <View style={{ marginBottom: Spacing.xl }}>
-          <Image source={{ uri: imageUri }} style={styles.imagePreview} resizeMode="cover" />
+          <Image
+            source={{ uri: imageUri }}
+            style={styles.imagePreview}
+            resizeMode="cover"
+          />
           <Pressable
-            onPress={() => { setImageUri(null); setImageBase64(null); }}
-            style={[styles.removeImageBtn, { backgroundColor: theme.backgroundDefault }]}
+            onPress={() => {
+              setImageUri(null);
+              setImageBase64(null);
+            }}
+            style={[
+              styles.removeImageBtn,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
             hitSlop={8}
           >
             <Feather name="x" size={16} color={theme.text} />
           </Pressable>
         </View>
       ) : (
-        <Pressable onPress={handleAddPhoto} style={[styles.addPhotoBtn, { borderColor: theme.border }]}>
+        <Pressable
+          onPress={handleAddPhoto}
+          style={[styles.addPhotoBtn, { borderColor: theme.border }]}
+        >
           <Feather name="image" size={20} color={theme.textSecondary} />
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>Add Photo</ThemedText>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>
+            Add Photo
+          </ThemedText>
         </Pressable>
       )}
 
       {/* Prefilled Activity Preview */}
       {hasPrefill && referenceData && (
-        <View style={[styles.refItem, { backgroundColor: Colors.light.primary + "15", borderColor: Colors.light.primary, marginBottom: Spacing.xl }]}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: 4 }}>
-            <Feather name="check-circle" size={14} color={Colors.light.primary} />
-            <ThemedText type="body" style={{ fontWeight: "600", color: Colors.light.primary }}>
-              {postType === "workout" ? (referenceData.routineName || "Workout") : `${referenceData.distanceKm?.toFixed(2)} km Run`}
+        <View
+          style={[
+            styles.refItem,
+            {
+              backgroundColor: Colors.light.primary + "15",
+              borderColor: Colors.light.primary,
+              marginBottom: Spacing.xl,
+            },
+          ]}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: Spacing.sm,
+              marginBottom: 4,
+            }}
+          >
+            <Feather
+              name="check-circle"
+              size={14}
+              color={Colors.light.primary}
+            />
+            <ThemedText
+              type="body"
+              style={{ fontWeight: "600", color: Colors.light.primary }}
+            >
+              {postType === "workout"
+                ? referenceData.routineName || "Workout"
+                : `${referenceData.distanceKm?.toFixed(2)} km Run`}
             </ThemedText>
           </View>
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
@@ -343,26 +457,54 @@ export default function CreatePostScreen() {
 
       {/* Reference Picker error — only shown if the recent loader
           threw and the user has selected a type that needs a picker. */}
-      {!hasPrefill && recentLoadError && (postType === "workout" || postType === "run") && (
-        <View style={[styles.refLoadError, { backgroundColor: Colors.light.error + "15" }]}>
-          <Feather name="alert-circle" size={16} color={Colors.light.error} />
-          <ThemedText type="small" style={{ color: Colors.light.error, flex: 1 }}>
-            Couldn't load recent {postType === "workout" ? "workouts" : "runs"}. You can still write a caption.
-          </ThemedText>
-        </View>
-      )}
+      {!hasPrefill &&
+        recentLoadError &&
+        (postType === "workout" || postType === "run") && (
+          <View
+            style={[
+              styles.refLoadError,
+              { backgroundColor: Colors.light.error + "15" },
+            ]}
+          >
+            <Feather name="alert-circle" size={16} color={Colors.light.error} />
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.error, flex: 1 }}
+            >
+              Couldn&apos;t load recent{" "}
+              {postType === "workout" ? "workouts" : "runs"}. You can still
+              write a caption.
+            </ThemedText>
+          </View>
+        )}
 
       {/* Reference Picker (only when not prefilled) */}
       {!hasPrefill && postType === "workout" && recentWorkouts.length > 0 && (
         <View style={{ marginBottom: Spacing.xl }}>
-          <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Select Workout</ThemedText>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>
+            Select Workout
+          </ThemedText>
           {recentWorkouts.map((w, i) => (
             <AnimatedPress
               key={w.id}
               onPress={() => selectWorkout(w, i)}
-              style={[styles.refItem, { backgroundColor: selectedRefIndex === i ? Colors.light.primary + "15" : theme.backgroundDefault, borderColor: selectedRefIndex === i ? Colors.light.primary : theme.border }]}
+              style={[
+                styles.refItem,
+                {
+                  backgroundColor:
+                    selectedRefIndex === i
+                      ? Colors.light.primary + "15"
+                      : theme.backgroundDefault,
+                  borderColor:
+                    selectedRefIndex === i
+                      ? Colors.light.primary
+                      : theme.border,
+                },
+              ]}
             >
-              <ThemedText type="body" style={{ fontWeight: "600" }}>{w.routineName}</ThemedText>
+              <ThemedText type="body" style={{ fontWeight: "600" }}>
+                {w.routineName}
+              </ThemedText>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                 {w.durationMinutes}min {"\u00B7"} {w.exercises.length} exercises
               </ThemedText>
@@ -373,14 +515,30 @@ export default function CreatePostScreen() {
 
       {!hasPrefill && postType === "run" && recentRuns.length > 0 && (
         <View style={{ marginBottom: Spacing.xl }}>
-          <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Select Run</ThemedText>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>
+            Select Run
+          </ThemedText>
           {recentRuns.map((r, i) => (
             <AnimatedPress
               key={r.id}
               onPress={() => selectRun(r, i)}
-              style={[styles.refItem, { backgroundColor: selectedRefIndex === i ? Colors.light.primary + "15" : theme.backgroundDefault, borderColor: selectedRefIndex === i ? Colors.light.primary : theme.border }]}
+              style={[
+                styles.refItem,
+                {
+                  backgroundColor:
+                    selectedRefIndex === i
+                      ? Colors.light.primary + "15"
+                      : theme.backgroundDefault,
+                  borderColor:
+                    selectedRefIndex === i
+                      ? Colors.light.primary
+                      : theme.border,
+                },
+              ]}
             >
-              <ThemedText type="body" style={{ fontWeight: "600" }}>{r.distanceKm.toFixed(2)} km</ThemedText>
+              <ThemedText type="body" style={{ fontWeight: "600" }}>
+                {r.distanceKm.toFixed(2)} km
+              </ThemedText>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                 {Math.round(r.durationSeconds / 60)}min
               </ThemedText>
@@ -390,12 +548,36 @@ export default function CreatePostScreen() {
       )}
 
       {/* Visibility */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.md, marginBottom: Spacing["2xl"] }}>
-        <ThemedText type="small" style={{ color: theme.textSecondary }}>Visible to:</ThemedText>
-        <Pressable onPress={() => setVisibility(visibility === "followers" ? "public" : "followers")}>
-          <View style={[styles.visChip, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name={visibility === "public" ? "globe" : "users"} size={14} color={theme.textSecondary} />
-            <ThemedText type="caption">{visibility === "public" ? "Everyone" : "Followers"}</ThemedText>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: Spacing.md,
+          marginBottom: Spacing["2xl"],
+        }}
+      >
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+          Visible to:
+        </ThemedText>
+        <Pressable
+          onPress={() =>
+            setVisibility(visibility === "followers" ? "public" : "followers")
+          }
+        >
+          <View
+            style={[
+              styles.visChip,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
+            <Feather
+              name={visibility === "public" ? "globe" : "users"}
+              size={14}
+              color={theme.textSecondary}
+            />
+            <ThemedText type="caption">
+              {visibility === "public" ? "Everyone" : "Followers"}
+            </ThemedText>
           </View>
         </Pressable>
       </View>
@@ -404,7 +586,10 @@ export default function CreatePostScreen() {
         {posting ? (
           <View style={styles.postBtnRow}>
             <ActivityIndicator size="small" color="#FFFFFF" />
-            <ThemedText type="body" style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>
+            <ThemedText
+              type="body"
+              style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}
+            >
               Posting...
             </ThemedText>
           </View>

@@ -28,7 +28,10 @@ export default function RunStackNavigator() {
   const screenOptions = useScreenOptions();
 
   return (
-    <Stack.Navigator screenOptions={screenOptions} initialRouteName="RunTracker">
+    <Stack.Navigator
+      screenOptions={screenOptions}
+      initialRouteName="RunTracker"
+    >
       <Stack.Screen
         name="RunTracker"
         component={RunTrackerScreen}

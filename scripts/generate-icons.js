@@ -27,7 +27,12 @@ const fs = require("fs");
 const path = require("path");
 const sharp = require("sharp");
 
-const DEFAULT_SOURCE = path.join(process.cwd(), "assets", "images", "source-logo.png");
+const DEFAULT_SOURCE = path.join(
+  process.cwd(),
+  "assets",
+  "images",
+  "source-logo.png",
+);
 const OUT_DIR = path.join(process.cwd(), "assets", "images");
 const BRAND_GREEN = "#1B3A27";
 
@@ -70,7 +75,7 @@ async function generate(sourcePath) {
     const top = Math.max(0, Math.round((srcHeight - cropSize) / 2));
     console.log(
       `  Wide source detected (${srcWidth}×${srcHeight}); extracting icon region ` +
-      `${cropSize}×${cropSize} from the left (LOCKUP_ICON_FRACTION=${LOCKUP_ICON_FRACTION}).`,
+        `${cropSize}×${cropSize} from the left (LOCKUP_ICON_FRACTION=${LOCKUP_ICON_FRACTION}).`,
     );
     sourceBuffer = await sharp(sourcePath)
       .extract({ left: 0, top, width: cropSize, height: cropSize })
@@ -89,13 +94,17 @@ async function generate(sourcePath) {
       pipeline = pipeline.flatten({ background: v.background });
     }
     await pipeline.png().toFile(out);
-    console.log(`✓ ${v.name} (${v.size}×${v.size}${v.background ? `, bg ${v.background}` : ", transparent"})`);
+    console.log(
+      `✓ ${v.name} (${v.size}×${v.size}${v.background ? `, bg ${v.background}` : ", transparent"})`,
+    );
   }
 
   console.log("\nDone. Next:");
   console.log("  1. git add assets/images/*.png");
   console.log("  2. git commit + git push");
-  console.log("  3. Railway rebuilds; hard-refresh the browser to see the new favicon");
+  console.log(
+    "  3. Railway rebuilds; hard-refresh the browser to see the new favicon",
+  );
 }
 
 const source = process.argv[2] || DEFAULT_SOURCE;

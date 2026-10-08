@@ -1,5 +1,11 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, FlatList, Pressable, RefreshControl } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  RefreshControl,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -13,13 +19,19 @@ import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Notification } from "@/types";
-import { getNotificationsApi, markNotificationsReadApi } from "@/lib/socialStorage";
+import {
+  getNotificationsApi,
+  markNotificationsReadApi,
+} from "@/lib/socialStorage";
 import { timeAgo } from "@/lib/timeAgo";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const ICON_MAP: Record<string, { icon: keyof typeof Feather.glyphMap; color: string }> = {
+const ICON_MAP: Record<
+  string,
+  { icon: keyof typeof Feather.glyphMap; color: string }
+> = {
   like: { icon: "heart", color: Colors.light.error },
   comment: { icon: "message-circle", color: Colors.light.primary },
   follow: { icon: "user-plus", color: "#22C55E" },
@@ -49,10 +61,12 @@ export default function NotificationsScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => {
-    loadData();
-    markNotificationsReadApi().catch(() => {});
-  }, []));
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+      markNotificationsReadApi().catch(() => {});
+    }, []),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -71,7 +85,12 @@ export default function NotificationsScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight },
+        ]}
+      >
         <SkeletonLoader variant="list" lines={5} height={60} />
       </View>
     );
@@ -79,12 +98,37 @@ export default function NotificationsScreen() {
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center", justifyContent: "center" }]}>
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <Feather
+          name="alert-circle"
+          size={48}
+          color={theme.textSecondary}
+          style={{ opacity: 0.4, marginBottom: Spacing.lg }}
+        />
+        <ThemedText
+          type="body"
+          style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}
+        >
           Could not load notifications.
         </ThemedText>
-        <Button onPress={() => { setError(false); setIsLoading(true); loadData(); }} variant="outline">
+        <Button
+          onPress={() => {
+            setError(false);
+            setIsLoading(true);
+            loadData();
+          }}
+          variant="outline"
+        >
           Retry
         </Button>
       </View>
@@ -104,7 +148,13 @@ export default function NotificationsScreen() {
       }}
       data={notifications}
       keyExtractor={(item) => item.id.toString()}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.textSecondary}
+        />
+      }
       renderItem={({ item }) => {
         const config = ICON_MAP[item.type] || ICON_MAP.like;
         return (
@@ -113,12 +163,21 @@ export default function NotificationsScreen() {
             style={[
               styles.row,
               {
-                backgroundColor: item.isRead ? theme.backgroundCard : Colors.light.primary + "08",
-                borderColor: item.isRead ? theme.cardBorder : Colors.light.primary + "20",
+                backgroundColor: item.isRead
+                  ? theme.backgroundCard
+                  : Colors.light.primary + "08",
+                borderColor: item.isRead
+                  ? theme.cardBorder
+                  : Colors.light.primary + "20",
               },
             ]}
           >
-            <View style={[styles.iconCircle, { backgroundColor: config.color + "15" }]}>
+            <View
+              style={[
+                styles.iconCircle,
+                { backgroundColor: config.color + "15" },
+              ]}
+            >
               <Feather name={config.icon} size={18} color={config.color} />
             </View>
             <View style={{ flex: 1 }}>
@@ -127,15 +186,29 @@ export default function NotificationsScreen() {
                 {timeAgo(item.createdAt)}
               </ThemedText>
             </View>
-            <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+            <Feather
+              name="chevron-right"
+              size={16}
+              color={theme.textSecondary}
+            />
           </AnimatedPress>
         );
       }}
       ListEmptyComponent={
         <View style={styles.empty}>
-          <Feather name="bell-off" size={48} color={theme.textSecondary} style={{ opacity: 0.3, marginBottom: Spacing.lg }} />
-          <ThemedText type="h3" style={{ marginBottom: Spacing.sm }}>No notifications</ThemedText>
-          <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+          <Feather
+            name="bell-off"
+            size={48}
+            color={theme.textSecondary}
+            style={{ opacity: 0.3, marginBottom: Spacing.lg }}
+          />
+          <ThemedText type="h3" style={{ marginBottom: Spacing.sm }}>
+            No notifications
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={{ color: theme.textSecondary, textAlign: "center" }}
+          >
             When someone likes, comments, or follows you, it will show up here.
           </ThemedText>
         </View>

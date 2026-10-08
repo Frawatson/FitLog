@@ -1,5 +1,14 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, ActivityIndicator, TextInput } from "react-native";
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+  TextInput,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -85,11 +94,14 @@ export default function ResetPasswordScreen() {
     setError("");
 
     try {
-      const response = await fetch(new URL("/api/auth/reset-password", getApiUrl()).toString(), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: fullCode, newPassword }),
-      });
+      const response = await fetch(
+        new URL("/api/auth/reset-password", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, code: fullCode, newPassword }),
+        },
+      );
 
       const data = await response.json();
 
@@ -113,15 +125,33 @@ export default function ResetPasswordScreen() {
           contentContainerStyle={[
             styles.content,
             styles.successContent,
-            { paddingTop: insets.top + Spacing["2xl"], paddingBottom: insets.bottom + Spacing.xl },
+            {
+              paddingTop: insets.top + Spacing["2xl"],
+              paddingBottom: insets.bottom + Spacing.xl,
+            },
           ]}
         >
-          <View style={[styles.successIcon, { backgroundColor: Colors.light.success + "20" }]}>
-            <Feather name="check-circle" size={48} color={Colors.light.success} />
+          <View
+            style={[
+              styles.successIcon,
+              { backgroundColor: Colors.light.success + "20" },
+            ]}
+          >
+            <Feather
+              name="check-circle"
+              size={48}
+              color={Colors.light.success}
+            />
           </View>
-          <ThemedText type="h1" style={styles.successTitle}>Password Reset</ThemedText>
-          <ThemedText type="body" style={[styles.successSubtitle, { color: theme.textSecondary }]}>
-            Your password has been updated. You can now log in with your new password.
+          <ThemedText type="h1" style={styles.successTitle}>
+            Password Reset
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.successSubtitle, { color: theme.textSecondary }]}
+          >
+            Your password has been updated. You can now log in with your new
+            password.
           </ThemedText>
           <Button
             onPress={() => navigation.navigate("Login")}
@@ -143,24 +173,41 @@ export default function ResetPasswordScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingTop: insets.top + Spacing["2xl"], paddingBottom: insets.bottom + Spacing.xl },
+            {
+              paddingTop: insets.top + Spacing["2xl"],
+              paddingBottom: insets.bottom + Spacing.xl,
+            },
           ]}
           keyboardShouldPersistTaps="handled"
         >
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton} testID="button-back">
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            testID="button-back"
+          >
             <Feather name="arrow-left" size={24} color={theme.text} />
           </Pressable>
 
           <View style={styles.header}>
-            <ThemedText type="h1" style={styles.title}>Enter Reset Code</ThemedText>
-            <ThemedText type="small" style={[styles.subtitle, { color: theme.textSecondary }]}>
+            <ThemedText type="h1" style={styles.title}>
+              Enter Reset Code
+            </ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.subtitle, { color: theme.textSecondary }]}
+            >
               Enter the 6-digit code sent to {email}
             </ThemedText>
           </View>
 
           <View style={styles.form}>
             {error ? (
-              <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+              <View
+                style={[
+                  styles.errorBox,
+                  { backgroundColor: Colors.light.error + "20" },
+                ]}
+              >
                 <ThemedText type="small" style={{ color: Colors.light.error }}>
                   {error}
                 </ThemedText>
@@ -168,22 +215,36 @@ export default function ResetPasswordScreen() {
             ) : null}
 
             <View>
-              <ThemedText type="small" style={[styles.label, { fontWeight: "600" }]}>Reset Code</ThemedText>
+              <ThemedText
+                type="small"
+                style={[styles.label, { fontWeight: "600" }]}
+              >
+                Reset Code
+              </ThemedText>
               <View style={styles.codeRow}>
                 {code.map((digit, index) => (
-                  <View key={index} style={[
-                    styles.codeBox,
-                    {
-                      backgroundColor: theme.backgroundDefault,
-                      borderColor: digit ? Colors.light.primary : "transparent",
-                    },
-                  ]}>
+                  <View
+                    key={index}
+                    style={[
+                      styles.codeBox,
+                      {
+                        backgroundColor: theme.backgroundDefault,
+                        borderColor: digit
+                          ? Colors.light.primary
+                          : "transparent",
+                      },
+                    ]}
+                  >
                     <TextInput
-                      ref={(ref) => { inputRefs.current[index] = ref; }}
+                      ref={(ref) => {
+                        inputRefs.current[index] = ref;
+                      }}
                       style={[styles.codeInput, { color: theme.text }]}
                       value={digit}
                       onChangeText={(val) => handleCodeChange(val, index)}
-                      onKeyPress={({ nativeEvent }) => handleCodeKeyPress(nativeEvent.key, index)}
+                      onKeyPress={({ nativeEvent }) =>
+                        handleCodeKeyPress(nativeEvent.key, index)
+                      }
                       keyboardType="number-pad"
                       maxLength={1}
                       testID={`input-code-${index}`}

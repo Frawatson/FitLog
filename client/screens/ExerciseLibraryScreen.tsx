@@ -52,7 +52,11 @@ export default function ExerciseLibraryScreen() {
   const [addedExercises, setAddedExercises] = useState<Set<string>>(new Set());
 
   const [showRoutineModal, setShowRoutineModal] = useState(false);
-  const [pendingExercise, setPendingExercise] = useState<{ id: string; name: string; muscleGroup: string } | null>(null);
+  const [pendingExercise, setPendingExercise] = useState<{
+    id: string;
+    name: string;
+    muscleGroup: string;
+  } | null>(null);
   const [routines, setRoutines] = useState<Routine[]>([]);
 
   useEffect(() => {
@@ -62,7 +66,7 @@ export default function ExerciseLibraryScreen() {
   const fetchLibrary = async () => {
     const result = await syncToServer<LibraryExercise[]>(
       "/api/exercises/library",
-      "GET"
+      "GET",
     );
     if (result.success && result.data) {
       setExercises(result.data);
@@ -75,7 +79,11 @@ export default function ExerciseLibraryScreen() {
     const exercise = await storage.addExercise(item.name, muscleGroup);
     setAddedExercises((prev) => new Set(prev).add(item.name));
 
-    setPendingExercise({ id: exercise.id, name: exercise.name, muscleGroup: exercise.muscleGroup });
+    setPendingExercise({
+      id: exercise.id,
+      name: exercise.name,
+      muscleGroup: exercise.muscleGroup,
+    });
     const data = await storage.getRoutines();
     setRoutines(data);
     setShowRoutineModal(true);
@@ -96,7 +104,7 @@ export default function ExerciseLibraryScreen() {
     if (!pendingExercise) return;
 
     const alreadyExists = routine.exercises.some(
-      (e) => e.exerciseName === pendingExercise.name
+      (e) => e.exerciseName === pendingExercise.name,
     );
 
     if (alreadyExists) {
@@ -139,7 +147,7 @@ export default function ExerciseLibraryScreen() {
       (ex) =>
         ex.name.toLowerCase().includes(q) ||
         ex.bodyPart?.toLowerCase().includes(q) ||
-        ex.equipment?.toLowerCase().includes(q)
+        ex.equipment?.toLowerCase().includes(q),
     );
   }, [exercises, search]);
 
@@ -191,7 +199,10 @@ export default function ExerciseLibraryScreen() {
             <View
               style={[
                 styles.searchBar,
-                { backgroundColor: theme.backgroundCard, borderColor: theme.border },
+                {
+                  backgroundColor: theme.backgroundCard,
+                  borderColor: theme.border,
+                },
               ]}
             >
               <Feather name="search" size={18} color={theme.textSecondary} />
@@ -209,7 +220,10 @@ export default function ExerciseLibraryScreen() {
                 </Pressable>
               )}
             </View>
-            <ThemedText type="small" style={{ opacity: 0.6, marginTop: Spacing.sm }}>
+            <ThemedText
+              type="small"
+              style={{ opacity: 0.6, marginTop: Spacing.sm }}
+            >
               {filtered.length} exercises — {gifCount} with GIF demos
             </ThemedText>
           </View>
@@ -256,7 +270,11 @@ export default function ExerciseLibraryScreen() {
               {(item.bodyPart || item.equipment) && (
                 <ThemedText
                   type="caption"
-                  style={{ opacity: 0.6, marginTop: 2, textTransform: "capitalize" }}
+                  style={{
+                    opacity: 0.6,
+                    marginTop: 2,
+                    textTransform: "capitalize",
+                  }}
                 >
                   {[item.bodyPart, item.equipment].filter(Boolean).join(" · ")}
                 </ThemedText>
@@ -272,16 +290,32 @@ export default function ExerciseLibraryScreen() {
                 hitSlop={8}
                 style={styles.addButton}
               >
-                <Feather name="plus-circle" size={22} color={Colors.light.primary} />
+                <Feather
+                  name="plus-circle"
+                  size={22}
+                  color={Colors.light.primary}
+                />
               </Pressable>
             )}
-            <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+            <Feather
+              name="chevron-right"
+              size={18}
+              color={theme.textSecondary}
+            />
           </Pressable>
         )}
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Feather name="search" size={48} color={theme.textSecondary} style={{ opacity: 0.3 }} />
-            <ThemedText type="body" style={{ opacity: 0.5, marginTop: Spacing.md }}>
+            <Feather
+              name="search"
+              size={48}
+              color={theme.textSecondary}
+              style={{ opacity: 0.3 }}
+            />
+            <ThemedText
+              type="body"
+              style={{ opacity: 0.5, marginTop: Spacing.md }}
+            >
               No exercises found
             </ThemedText>
           </View>
@@ -301,31 +335,55 @@ export default function ExerciseLibraryScreen() {
       >
         <Pressable style={styles.modalOverlay} onPress={dismissModal}>
           <Pressable
-            style={[styles.modalContent, { backgroundColor: theme.backgroundCard }]}
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.backgroundCard },
+            ]}
             onPress={(e) => e.stopPropagation()}
           >
             <ThemedText type="h3" style={{ marginBottom: Spacing.xs }}>
               Add to Routine
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6, marginBottom: Spacing.lg }}>
+            <ThemedText
+              type="small"
+              style={{ opacity: 0.6, marginBottom: Spacing.lg }}
+            >
               {pendingExercise?.name}
             </ThemedText>
 
             <Pressable
               onPress={handleNewRoutine}
-              style={[styles.routineOption, { backgroundColor: Colors.light.primary + "10" }]}
+              style={[
+                styles.routineOption,
+                { backgroundColor: Colors.light.primary + "10" },
+              ]}
             >
-              <View style={[styles.routineOptionIcon, { backgroundColor: Colors.light.primary }]}>
+              <View
+                style={[
+                  styles.routineOptionIcon,
+                  { backgroundColor: Colors.light.primary },
+                ]}
+              >
                 <Feather name="plus" size={16} color="#FFFFFF" />
               </View>
-              <ThemedText type="body" style={{ fontWeight: "600", color: Colors.light.primary }}>
+              <ThemedText
+                type="body"
+                style={{ fontWeight: "600", color: Colors.light.primary }}
+              >
                 New Routine
               </ThemedText>
             </Pressable>
 
             {routines.length > 0 && (
               <>
-                <ThemedText type="small" style={{ opacity: 0.5, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    opacity: 0.5,
+                    marginTop: Spacing.lg,
+                    marginBottom: Spacing.sm,
+                  }}
+                >
                   Existing Workouts
                 </ThemedText>
                 <ScrollView style={{ maxHeight: 240 }}>
@@ -333,20 +391,37 @@ export default function ExerciseLibraryScreen() {
                     <Pressable
                       key={routine.id}
                       onPress={() => handleAddToRoutine(routine)}
-                      style={[styles.routineOption, { backgroundColor: theme.backgroundElevated }]}
+                      style={[
+                        styles.routineOption,
+                        { backgroundColor: theme.backgroundElevated },
+                      ]}
                     >
-                      <View style={[styles.routineOptionIcon, { backgroundColor: theme.backgroundSecondary }]}>
-                        <Feather name="list" size={16} color={theme.textSecondary} />
+                      <View
+                        style={[
+                          styles.routineOptionIcon,
+                          { backgroundColor: theme.backgroundSecondary },
+                        ]}
+                      >
+                        <Feather
+                          name="list"
+                          size={16}
+                          color={theme.textSecondary}
+                        />
                       </View>
                       <View style={{ flex: 1 }}>
                         <ThemedText type="body" style={{ fontWeight: "500" }}>
                           {routine.name}
                         </ThemedText>
                         <ThemedText type="caption" style={{ opacity: 0.6 }}>
-                          {routine.exercises.length} exercise{routine.exercises.length !== 1 ? "s" : ""}
+                          {routine.exercises.length} exercise
+                          {routine.exercises.length !== 1 ? "s" : ""}
                         </ThemedText>
                       </View>
-                      <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+                      <Feather
+                        name="chevron-right"
+                        size={18}
+                        color={theme.textSecondary}
+                      />
                     </Pressable>
                   ))}
                 </ScrollView>

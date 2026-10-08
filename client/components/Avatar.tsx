@@ -1,5 +1,11 @@
 import React from "react";
-import { View, Image, StyleSheet, type StyleProp, type ViewStyle } from "react-native";
+import {
+  View,
+  Image,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -22,7 +28,13 @@ export interface AvatarProps {
   backgroundColor?: string;
 }
 
-export function Avatar({ uri, name, size, style, backgroundColor }: AvatarProps) {
+export function Avatar({
+  uri,
+  name,
+  size,
+  style,
+  backgroundColor,
+}: AvatarProps) {
   const { theme } = useTheme();
   const bg = backgroundColor ?? theme.backgroundSecondary;
   const initial = (name?.charAt(0) || "?").toUpperCase();
@@ -46,7 +58,11 @@ export function Avatar({ uri, name, size, style, backgroundColor }: AvatarProps)
       style={[containerStyle, style]}
     >
       {uri ? (
-        <Image source={{ uri }} style={StyleSheet.absoluteFillObject} accessibilityIgnoresInvertColors />
+        <Image
+          source={{ uri }}
+          style={StyleSheet.absoluteFillObject}
+          accessibilityIgnoresInvertColors
+        />
       ) : (
         <ThemedText
           style={{

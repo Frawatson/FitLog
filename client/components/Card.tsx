@@ -64,10 +64,7 @@ export function Card({
   const cardBackgroundColor = getBackgroundColorForElevation(elevation, theme);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
   }));
 
   const handlePressIn = () => {

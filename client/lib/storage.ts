@@ -12,7 +12,12 @@ import type {
   RunEntry,
 } from "@/types";
 import { getApiUrl } from "@/lib/query-client";
-import { syncToServer, syncWithRetry, isAuthenticated, initSyncService } from "@/lib/syncService";
+import {
+  syncToServer,
+  syncWithRetry,
+  isAuthenticated,
+  initSyncService,
+} from "@/lib/syncService";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import { getLocalDateString } from "@/lib/dateUtils";
 import { getZoneForHeartRate } from "@/lib/heartRateZones";
@@ -63,22 +68,82 @@ export async function clearPostDraft(): Promise<void> {
 // Default exercises — names match ExerciseDB for guaranteed GIF lookup
 const DEFAULT_EXERCISES: Exercise[] = [
   { id: "1", name: "barbell full squat", muscleGroup: "Legs", isCustom: false },
-  { id: "2", name: "barbell bench press", muscleGroup: "Chest", isCustom: false },
+  {
+    id: "2",
+    name: "barbell bench press",
+    muscleGroup: "Chest",
+    isCustom: false,
+  },
   { id: "3", name: "barbell deadlift", muscleGroup: "Back", isCustom: false },
-  { id: "4", name: "barbell bent over row", muscleGroup: "Back", isCustom: false },
-  { id: "5", name: "cable lat pulldown full range of motion", muscleGroup: "Back", isCustom: false },
-  { id: "6", name: "barbell seated overhead press", muscleGroup: "Shoulders", isCustom: false },
+  {
+    id: "4",
+    name: "barbell bent over row",
+    muscleGroup: "Back",
+    isCustom: false,
+  },
+  {
+    id: "5",
+    name: "cable lat pulldown full range of motion",
+    muscleGroup: "Back",
+    isCustom: false,
+  },
+  {
+    id: "6",
+    name: "barbell seated overhead press",
+    muscleGroup: "Shoulders",
+    isCustom: false,
+  },
   { id: "7", name: "barbell curl", muscleGroup: "Arms", isCustom: false },
   { id: "8", name: "cable pushdown", muscleGroup: "Arms", isCustom: false },
-  { id: "9", name: "sled 45 degrees leg press", muscleGroup: "Legs", isCustom: false },
-  { id: "10", name: "barbell romanian deadlift", muscleGroup: "Legs", isCustom: false },
-  { id: "11", name: "dumbbell incline bench press", muscleGroup: "Chest", isCustom: false },
+  {
+    id: "9",
+    name: "sled 45 degrees leg press",
+    muscleGroup: "Legs",
+    isCustom: false,
+  },
+  {
+    id: "10",
+    name: "barbell romanian deadlift",
+    muscleGroup: "Legs",
+    isCustom: false,
+  },
+  {
+    id: "11",
+    name: "dumbbell incline bench press",
+    muscleGroup: "Chest",
+    isCustom: false,
+  },
   { id: "12", name: "dumbbell fly", muscleGroup: "Chest", isCustom: false },
-  { id: "13", name: "dumbbell lateral raise", muscleGroup: "Shoulders", isCustom: false },
-  { id: "14", name: "cable rear delt row (with rope)", muscleGroup: "Shoulders", isCustom: false },
-  { id: "15", name: "lever lying leg curl", muscleGroup: "Legs", isCustom: false },
-  { id: "16", name: "lever leg extension", muscleGroup: "Legs", isCustom: false },
-  { id: "17", name: "barbell standing calf raise", muscleGroup: "Legs", isCustom: false },
+  {
+    id: "13",
+    name: "dumbbell lateral raise",
+    muscleGroup: "Shoulders",
+    isCustom: false,
+  },
+  {
+    id: "14",
+    name: "cable rear delt row (with rope)",
+    muscleGroup: "Shoulders",
+    isCustom: false,
+  },
+  {
+    id: "15",
+    name: "lever lying leg curl",
+    muscleGroup: "Legs",
+    isCustom: false,
+  },
+  {
+    id: "16",
+    name: "lever leg extension",
+    muscleGroup: "Legs",
+    isCustom: false,
+  },
+  {
+    id: "17",
+    name: "barbell standing calf raise",
+    muscleGroup: "Legs",
+    isCustom: false,
+  },
   { id: "18", name: "cable seated row", muscleGroup: "Back", isCustom: false },
 ];
 
@@ -93,16 +158,25 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 }
 
 export async function saveUserProfile(profile: UserProfile): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.USER_PROFILE,
+    JSON.stringify(profile),
+  );
 }
 
 // Macro Targets
 export async function getMacroTargets(): Promise<MacroTargets | null> {
   try {
     if (await isAuthenticated()) {
-      const result = await syncToServer<MacroTargets>("/api/macro-targets", "GET");
+      const result = await syncToServer<MacroTargets>(
+        "/api/macro-targets",
+        "GET",
+      );
       if (result.success && result.data) {
-        await AsyncStorage.setItem(STORAGE_KEYS.MACRO_TARGETS, JSON.stringify(result.data));
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.MACRO_TARGETS,
+          JSON.stringify(result.data),
+        );
         return result.data;
       }
     }
@@ -114,8 +188,11 @@ export async function getMacroTargets(): Promise<MacroTargets | null> {
 }
 
 export async function saveMacroTargets(targets: MacroTargets): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.MACRO_TARGETS, JSON.stringify(targets));
-  
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.MACRO_TARGETS,
+    JSON.stringify(targets),
+  );
+
   if (await isAuthenticated()) {
     await syncWithRetry("/api/macro-targets", "POST", targets);
   }
@@ -124,7 +201,7 @@ export async function saveMacroTargets(targets: MacroTargets): Promise<void> {
 // Calculate macros based on profile
 export function calculateMacros(profile: UserProfile): MacroTargets {
   const { weightKg, heightCm, age, sex, goal, activityLevel } = profile;
-  
+
   // Mifflin-St Jeor equation for BMR
   let bmr: number;
   if (sex === "male") {
@@ -132,11 +209,11 @@ export function calculateMacros(profile: UserProfile): MacroTargets {
   } else {
     bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
   }
-  
+
   // Activity multiplier
   const activityMultiplier = activityLevel === "5-6" ? 1.725 : 1.55;
   let tdee = bmr * activityMultiplier;
-  
+
   // Adjust for goal
   switch (goal) {
     case "lose_fat":
@@ -151,12 +228,12 @@ export function calculateMacros(profile: UserProfile): MacroTargets {
     case "maintain":
       break;
   }
-  
+
   const calories = Math.round(tdee);
   const protein = Math.round(weightKg * 2); // 2g per kg
   const fat = Math.round((calories * 0.25) / 9); // 25% from fat
   const carbs = Math.round((calories - protein * 4 - fat * 9) / 4);
-  
+
   return { calories, protein, carbs, fat };
 }
 
@@ -166,14 +243,17 @@ export async function getExercises(): Promise<Exercise[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/custom-exercises", "GET");
       if (result.success && result.data) {
-        const customExercises: Exercise[] = result.data.map(e => ({
+        const customExercises: Exercise[] = result.data.map((e) => ({
           id: e.clientId,
           name: e.name,
           muscleGroup: e.muscleGroup,
           isCustom: true,
         }));
         const allExercises = [...DEFAULT_EXERCISES, ...customExercises];
-        await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(allExercises));
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.EXERCISES,
+          JSON.stringify(allExercises),
+        );
         return allExercises;
       }
     }
@@ -181,14 +261,20 @@ export async function getExercises(): Promise<Exercise[]> {
     if (data) {
       return JSON.parse(data);
     }
-    await AsyncStorage.setItem(STORAGE_KEYS.EXERCISES, JSON.stringify(DEFAULT_EXERCISES));
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.EXERCISES,
+      JSON.stringify(DEFAULT_EXERCISES),
+    );
     return DEFAULT_EXERCISES;
   } catch {
     return DEFAULT_EXERCISES;
   }
 }
 
-export async function addExercise(name: string, muscleGroup: string): Promise<Exercise> {
+export async function addExercise(
+  name: string,
+  muscleGroup: string,
+): Promise<Exercise> {
   const exercises = await getExercises();
   const newExercise: Exercise = {
     id: uuidv4(),
@@ -216,7 +302,7 @@ export async function getRoutines(): Promise<Routine[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/routines", "GET");
       if (result.success && result.data) {
-        const routines: Routine[] = result.data.map(r => ({
+        const routines: Routine[] = result.data.map((r) => ({
           id: r.clientId,
           name: r.name,
           exercises: r.exercises,
@@ -225,7 +311,10 @@ export async function getRoutines(): Promise<Routine[]> {
           isFavorite: r.isFavorite,
           category: r.category,
         }));
-        await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.ROUTINES,
+          JSON.stringify(routines),
+        );
         return routines;
       }
     }
@@ -254,7 +343,7 @@ export async function saveRoutine(routine: Routine): Promise<void> {
     routines.push(routine);
   }
   await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(routines));
-  
+
   if (await isAuthenticated()) {
     await syncWithRetry("/api/routines", "POST", {
       clientId: routine.id,
@@ -272,7 +361,7 @@ export async function deleteRoutine(routineId: string): Promise<void> {
   const routines = await getRoutinesLocal();
   const filtered = routines.filter((r) => r.id !== routineId);
   await AsyncStorage.setItem(STORAGE_KEYS.ROUTINES, JSON.stringify(filtered));
-  
+
   if (await isAuthenticated()) {
     await syncWithRetry(`/api/routines/${routineId}`, "DELETE", {});
   }
@@ -284,7 +373,7 @@ export async function getWorkouts(): Promise<Workout[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/workouts", "GET");
       if (result.success && result.data) {
-        const workouts: Workout[] = result.data.map(w => ({
+        const workouts: Workout[] = result.data.map((w) => ({
           id: w.clientId,
           routineId: w.routineId,
           routineName: w.routineName,
@@ -295,7 +384,10 @@ export async function getWorkouts(): Promise<Workout[]> {
           notes: w.notes,
           totalVolumeKg: w.totalVolumeKg,
         }));
-        await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(workouts));
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.WORKOUTS,
+          JSON.stringify(workouts),
+        );
         return workouts;
       }
     }
@@ -324,7 +416,7 @@ export async function saveWorkout(workout: Workout): Promise<void> {
     workouts.push(workout);
   }
   await AsyncStorage.setItem(STORAGE_KEYS.WORKOUTS, JSON.stringify(workouts));
-  
+
   if (await isAuthenticated()) {
     await syncWithRetry("/api/workouts", "POST", {
       clientId: workout.id,
@@ -341,14 +433,17 @@ export async function saveWorkout(workout: Workout): Promise<void> {
 }
 
 export async function getLastWorkoutForExercise(
-  exerciseId: string
+  exerciseId: string,
 ): Promise<{ weight: number; reps: number }[] | null> {
   const workouts = await getWorkouts();
   // Sort by date descending
   const sorted = workouts
     .filter((w) => w.completedAt)
-    .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime());
-  
+    .sort(
+      (a, b) =>
+        new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime(),
+    );
+
   for (const workout of sorted) {
     const exercise = workout.exercises.find((e) => e.exerciseId === exerciseId);
     if (exercise && exercise.sets.length > 0) {
@@ -360,20 +455,25 @@ export async function getLastWorkoutForExercise(
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-  return token ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" };
+  return token
+    ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+    : { "Content-Type": "application/json" };
 }
 
 // Body Weight
 export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
   try {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-    
+
     if (token) {
       try {
-        const response = await fetch(new URL("/api/body-weights", getApiUrl()).toString(), {
-          headers: await getAuthHeaders(),
-        });
-        
+        const response = await fetch(
+          new URL("/api/body-weights", getApiUrl()).toString(),
+          {
+            headers: await getAuthHeaders(),
+          },
+        );
+
         if (response.ok) {
           const serverData = await response.json();
           const entries: BodyWeightEntry[] = serverData.map((item: any) => ({
@@ -381,14 +481,19 @@ export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
             weightKg: item.weightKg,
             date: item.date.split("T")[0],
           }));
-          await AsyncStorage.setItem(STORAGE_KEYS.BODY_WEIGHTS, JSON.stringify(entries));
+          await AsyncStorage.setItem(
+            STORAGE_KEYS.BODY_WEIGHTS,
+            JSON.stringify(entries),
+          );
           return entries;
         }
       } catch (e) {
-        console.log("Failed to fetch body weights from server, using local data");
+        console.log(
+          "Failed to fetch body weights from server, using local data",
+        );
       }
     }
-    
+
     const data = await AsyncStorage.getItem(STORAGE_KEYS.BODY_WEIGHTS);
     return data ? JSON.parse(data) : [];
   } catch {
@@ -396,30 +501,35 @@ export async function getBodyWeights(): Promise<BodyWeightEntry[]> {
   }
 }
 
-export async function addBodyWeight(weightKg: number): Promise<BodyWeightEntry> {
+export async function addBodyWeight(
+  weightKg: number,
+): Promise<BodyWeightEntry> {
   const entries = await getBodyWeightsLocal();
   const today = getLocalDateString();
-  
+
   const existingIndex = entries.findIndex((e) => e.date === today);
   let entry: BodyWeightEntry = {
     id: existingIndex >= 0 ? entries[existingIndex].id : uuidv4(),
     weightKg,
     date: today,
   };
-  
+
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-  
+
   if (token) {
     try {
-      const response = await fetch(new URL("/api/body-weights", getApiUrl()).toString(), {
-        method: "POST",
-        headers: await getAuthHeaders(),
-        // Local YYYY-MM-DD, not UTC instant — without this a user in
-        // UTC-7 logging at 9pm would shift to the next day on the
-        // server, "disappearing" today's entry and creating a phantom
-        // tomorrow entry on the next fetch.
-        body: JSON.stringify({ weightKg, date: today }),
-      });
+      const response = await fetch(
+        new URL("/api/body-weights", getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: await getAuthHeaders(),
+          // Local YYYY-MM-DD, not UTC instant — without this a user in
+          // UTC-7 logging at 9pm would shift to the next day on the
+          // server, "disappearing" today's entry and creating a phantom
+          // tomorrow entry on the next fetch.
+          body: JSON.stringify({ weightKg, date: today }),
+        },
+      );
 
       if (response.ok) {
         const serverEntry = await response.json();
@@ -433,14 +543,17 @@ export async function addBodyWeight(weightKg: number): Promise<BodyWeightEntry> 
       console.log("Failed to sync body weight to server, saving locally");
     }
   }
-  
+
   if (existingIndex >= 0) {
     entries[existingIndex] = entry;
   } else {
     entries.push(entry);
   }
-  
-  await AsyncStorage.setItem(STORAGE_KEYS.BODY_WEIGHTS, JSON.stringify(entries));
+
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.BODY_WEIGHTS,
+    JSON.stringify(entries),
+  );
   return entry;
 }
 
@@ -456,7 +569,10 @@ async function getBodyWeightsLocal(): Promise<BodyWeightEntry[]> {
 export async function deleteBodyWeight(id: string): Promise<void> {
   const entries = await getBodyWeightsLocal();
   const filtered = entries.filter((e) => e.id !== id);
-  await AsyncStorage.setItem(STORAGE_KEYS.BODY_WEIGHTS, JSON.stringify(filtered));
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.BODY_WEIGHTS,
+    JSON.stringify(filtered),
+  );
 
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
   if (token) {
@@ -477,7 +593,7 @@ export async function getSavedFoods(): Promise<Food[]> {
     if (await isAuthenticated()) {
       const result = await syncToServer<any[]>("/api/saved-foods", "GET");
       if (result.success && result.data) {
-        const foods: Food[] = result.data.map(f => ({
+        const foods: Food[] = result.data.map((f) => ({
           id: f.id,
           name: f.name,
           calories: f.calories,
@@ -486,7 +602,10 @@ export async function getSavedFoods(): Promise<Food[]> {
           fat: f.fat,
           isSaved: true,
         }));
-        await AsyncStorage.setItem(STORAGE_KEYS.SAVED_FOODS, JSON.stringify(foods));
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.SAVED_FOODS,
+          JSON.stringify(foods),
+        );
         return foods;
       }
     }
@@ -497,7 +616,9 @@ export async function getSavedFoods(): Promise<Food[]> {
   }
 }
 
-export async function saveFood(food: Omit<Food, "id" | "isSaved">): Promise<Food> {
+export async function saveFood(
+  food: Omit<Food, "id" | "isSaved">,
+): Promise<Food> {
   const foods = await getSavedFoods();
   const newFood: Food = {
     ...food,
@@ -516,7 +637,10 @@ export async function saveFood(food: Omit<Food, "id" | "isSaved">): Promise<Food
 export async function deleteSavedFood(foodId: string): Promise<void> {
   const foods = await getSavedFoods();
   const filtered = foods.filter((f) => f.id !== foodId);
-  await AsyncStorage.setItem(STORAGE_KEYS.SAVED_FOODS, JSON.stringify(filtered));
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.SAVED_FOODS,
+    JSON.stringify(filtered),
+  );
 
   if (await isAuthenticated()) {
     await syncWithRetry("/api/saved-foods/" + foodId, "DELETE", {});
@@ -548,7 +672,7 @@ export async function getFoodLog(
             localImageMap.set(le.id, le.imageUri);
           }
         }
-        const entries: FoodLogEntry[] = result.data.map(log => {
+        const entries: FoodLogEntry[] = result.data.map((log) => {
           const serverImage = log.imageUri;
           const localImage = localImageMap.get(log.clientId);
           return {
@@ -557,19 +681,26 @@ export async function getFoodLog(
             food: log.foodData,
             date: log.date,
             createdAt: log.createdAt,
-            ...(serverImage ? { imageUri: serverImage } : localImage ? { imageUri: localImage } : {}),
+            ...(serverImage
+              ? { imageUri: serverImage }
+              : localImage
+                ? { imageUri: localImage }
+                : {}),
           };
         });
         const allLocal = [...localEntries];
         for (const entry of entries) {
-          const idx = allLocal.findIndex(le => le.id === entry.id);
+          const idx = allLocal.findIndex((le) => le.id === entry.id);
           if (idx !== -1) {
             allLocal[idx] = entry;
           } else {
             allLocal.push(entry);
           }
         }
-        await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(allLocal));
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.FOOD_LOG,
+          JSON.stringify(allLocal),
+        );
         return entries;
       }
     }
@@ -579,7 +710,9 @@ export async function getFoodLog(
       return entries.filter((e) => e.date === filter);
     }
     if (filter && filter.start && filter.end) {
-      return entries.filter((e) => e.date >= filter.start && e.date <= filter.end);
+      return entries.filter(
+        (e) => e.date >= filter.start && e.date <= filter.end,
+      );
     }
     return entries;
   } catch {
@@ -596,7 +729,11 @@ async function getFoodLogLocal(): Promise<FoodLogEntry[]> {
   }
 }
 
-export async function addFoodLogEntry(food: Food, date: string, imageUri?: string): Promise<FoodLogEntry> {
+export async function addFoodLogEntry(
+  food: Food,
+  date: string,
+  imageUri?: string,
+): Promise<FoodLogEntry> {
   const entries = await getFoodLogLocal();
   const entry: FoodLogEntry = {
     id: uuidv4(),
@@ -608,7 +745,7 @@ export async function addFoodLogEntry(food: Food, date: string, imageUri?: strin
   };
   entries.push(entry);
   await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(entries));
-  
+
   if (await isAuthenticated()) {
     await syncWithRetry("/api/food-logs", "POST", {
       clientId: entry.id,
@@ -618,11 +755,14 @@ export async function addFoodLogEntry(food: Food, date: string, imageUri?: strin
       ...(imageUri ? { imageUri } : {}),
     });
   }
-  
+
   return entry;
 }
 
-export async function updateFoodLogEntry(entryId: string, updatedFood: Food): Promise<void> {
+export async function updateFoodLogEntry(
+  entryId: string,
+  updatedFood: Food,
+): Promise<void> {
   const entries = await getFoodLogLocal();
   const idx = entries.findIndex((e) => e.id === entryId);
   if (idx !== -1) {
@@ -632,7 +772,9 @@ export async function updateFoodLogEntry(entryId: string, updatedFood: Food): Pr
   }
 
   if (await isAuthenticated()) {
-    await syncWithRetry(`/api/food-logs/${entryId}`, "PUT", { foodData: updatedFood });
+    await syncWithRetry(`/api/food-logs/${entryId}`, "PUT", {
+      foodData: updatedFood,
+    });
   }
 }
 
@@ -640,17 +782,22 @@ export async function deleteFoodLogEntry(entryId: string): Promise<void> {
   const entries = await getFoodLogLocal();
   const filtered = entries.filter((e) => e.id !== entryId);
   await AsyncStorage.setItem(STORAGE_KEYS.FOOD_LOG, JSON.stringify(filtered));
-  
+
   if (await isAuthenticated()) {
     await syncWithRetry(`/api/food-logs/${entryId}`, "DELETE", {});
   }
 }
 
-export async function getRecentMeals(limit: number = 5): Promise<FoodLogEntry[]> {
+export async function getRecentMeals(
+  limit: number = 5,
+): Promise<FoodLogEntry[]> {
   try {
     const entries = await getFoodLogLocal();
     return entries
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      )
       .slice(0, limit);
   } catch {
     return [];
@@ -667,7 +814,7 @@ export async function getDailyTotals(date: string): Promise<MacroTargets> {
       carbs: acc.carbs + entry.food.carbs,
       fat: acc.fat + entry.food.fat,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
 }
 
@@ -675,16 +822,16 @@ export async function getDailyTotals(date: string): Promise<MacroTargets> {
 export function calculateProgression(
   exerciseId: string,
   exerciseName: string,
-  lastSets: { weight: number; reps: number; completed: boolean }[]
+  lastSets: { weight: number; reps: number; completed: boolean }[],
 ): { suggestedWeight: number; message: string } {
   if (lastSets.length === 0) {
     return { suggestedWeight: 0, message: "Start with a comfortable weight" };
   }
-  
+
   const completedSets = lastSets.filter((s) => s.completed);
   const failedSets = lastSets.filter((s) => !s.completed);
   const lastWeight = lastSets[0].weight;
-  
+
   // If all sets completed, suggest increase
   if (failedSets.length === 0) {
     const increase = lastWeight >= 50 ? 5 : 2.5;
@@ -693,7 +840,7 @@ export function calculateProgression(
       message: `Great work! Try ${lastWeight + increase} lbs next time`,
     };
   }
-  
+
   // If multiple sets failed, suggest decrease
   if (failedSets.length >= 2) {
     const decrease = lastWeight * 0.05;
@@ -703,7 +850,7 @@ export function calculateProgression(
       message: `Deload to ${newWeight} lbs and focus on form`,
     };
   }
-  
+
   // Otherwise, keep same weight
   return {
     suggestedWeight: lastWeight,
@@ -726,7 +873,7 @@ export async function getRunHistory(): Promise<RunEntry[]> {
         const profile = await getUserProfile();
         const age = profile?.age ?? 30;
 
-        const runs: RunEntry[] = result.data.map(r => {
+        const runs: RunEntry[] = result.data.map((r) => {
           const local = localById.get(r.clientId);
           const zoneInfo = r.avgHeartRate
             ? getZoneForHeartRate(r.avgHeartRate, age)
@@ -748,14 +895,18 @@ export async function getRunHistory(): Promise<RunEntry[]> {
             splitsUnit: local?.splitsUnit,
           };
         });
-        await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(runs));
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.RUN_HISTORY,
+          JSON.stringify(runs),
+        );
         return runs;
       }
     }
     const data = await AsyncStorage.getItem(STORAGE_KEYS.RUN_HISTORY);
     const runs: RunEntry[] = data ? JSON.parse(data) : [];
     return runs.sort(
-      (a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+      (a, b) =>
+        new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime(),
     );
   } catch {
     return [];
@@ -809,7 +960,10 @@ export async function saveRunHistory(runs: RunEntry[]): Promise<void> {
 export async function deleteRunEntry(id: string): Promise<void> {
   const runs = await getRunHistoryLocal();
   const filtered = runs.filter((r) => r.id !== id);
-  await AsyncStorage.setItem(STORAGE_KEYS.RUN_HISTORY, JSON.stringify(filtered));
+  await AsyncStorage.setItem(
+    STORAGE_KEYS.RUN_HISTORY,
+    JSON.stringify(filtered),
+  );
 
   if (await isAuthenticated()) {
     await syncWithRetry(`/api/runs/${id}`, "DELETE", {});

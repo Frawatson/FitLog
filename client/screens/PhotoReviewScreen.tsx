@@ -1,8 +1,21 @@
 import React, { useState } from "react";
-import { View, StyleSheet, ScrollView, Image, Pressable, TextInput, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Image,
+  Pressable,
+  TextInput,
+  Platform,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useNavigation, useRoute, RouteProp, StackActions } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  RouteProp,
+  StackActions,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
@@ -64,12 +77,13 @@ export default function PhotoReviewScreen() {
       confidence: f.confidence || "medium",
       notes: f.notes || "",
       servingSize: f.servingSize || "",
-    }))
+    })),
   );
 
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [isLogging, setIsLogging] = useState(false);
-  const bgElevated = (theme as any).backgroundElevated || theme.backgroundSecondary;
+  const bgElevated =
+    (theme as any).backgroundElevated || theme.backgroundSecondary;
 
   const totals = items.reduce(
     (acc, item) => ({
@@ -78,24 +92,37 @@ export default function PhotoReviewScreen() {
       carbs: acc.carbs + parseN(item.carbs),
       fat: acc.fat + parseN(item.fat),
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
   );
 
-  const updateItem = (index: number, field: keyof ReviewItem, value: string) => {
-    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
+  const updateItem = (
+    index: number,
+    field: keyof ReviewItem,
+    value: string,
+  ) => {
+    setItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)),
+    );
   };
 
   const removeItem = (index: number) => {
-    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (Platform.OS !== "web")
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const createPersistentImageUri = async (uri: string): Promise<string | undefined> => {
+  const createPersistentImageUri = async (
+    uri: string,
+  ): Promise<string | undefined> => {
     try {
       const result = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: 600 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        {
+          compress: 0.6,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
       );
       if (result.base64) {
         return `data:image/jpeg;base64,${result.base64}`;
@@ -112,7 +139,11 @@ export default function PhotoReviewScreen() {
     // delete a row, but they can also just clear all fields. Either way
     // we don't want a 0-cal placeholder entry in the log.
     const valid = items.filter(
-      (i) => parseN(i.calories) > 0 || parseN(i.protein) > 0 || parseN(i.carbs) > 0 || parseN(i.fat) > 0,
+      (i) =>
+        parseN(i.calories) > 0 ||
+        parseN(i.protein) > 0 ||
+        parseN(i.carbs) > 0 ||
+        parseN(i.fat) > 0,
     );
     if (valid.length === 0) return;
 
@@ -174,35 +205,61 @@ export default function PhotoReviewScreen() {
         <View style={[styles.modeBadge, { backgroundColor: bgElevated }]}>
           <Feather name="target" size={14} color={Colors.light.primary} />
           <ThemedText type="small" style={{ fontWeight: "600" }}>
-            {mode === "lean" ? "Lean / Cut Mode" : mode === "bulk" ? "Bulk Mode" : "Maintenance Mode"}
+            {mode === "lean"
+              ? "Lean / Cut Mode"
+              : mode === "bulk"
+                ? "Bulk Mode"
+                : "Maintenance Mode"}
           </ThemedText>
         </View>
       ) : null}
 
       <Card style={styles.totalsCard}>
-        <ThemedText type="h3" style={{ textAlign: "center", marginBottom: Spacing.sm }}>
+        <ThemedText
+          type="h3"
+          style={{ textAlign: "center", marginBottom: Spacing.sm }}
+        >
           {totals.calories} cal
         </ThemedText>
         <View style={styles.totalsRow}>
           <View style={styles.totalsMacro}>
-            <ThemedText type="small" style={{ color: Colors.light.success, fontWeight: "700" }}>
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.success, fontWeight: "700" }}
+            >
               {totals.protein}g
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>Protein</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              Protein
+            </ThemedText>
           </View>
-          <View style={[styles.totalsDivider, { backgroundColor: theme.border }]} />
+          <View
+            style={[styles.totalsDivider, { backgroundColor: theme.border }]}
+          />
           <View style={styles.totalsMacro}>
-            <ThemedText type="small" style={{ color: Colors.light.macroCarbs, fontWeight: "700" }}>
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.macroCarbs, fontWeight: "700" }}
+            >
               {totals.carbs}g
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>Carbs</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              Carbs
+            </ThemedText>
           </View>
-          <View style={[styles.totalsDivider, { backgroundColor: theme.border }]} />
+          <View
+            style={[styles.totalsDivider, { backgroundColor: theme.border }]}
+          />
           <View style={styles.totalsMacro}>
-            <ThemedText type="small" style={{ color: Colors.light.macroFat, fontWeight: "700" }}>
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.macroFat, fontWeight: "700" }}
+            >
               {totals.fat}g
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>Fat</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              Fat
+            </ThemedText>
           </View>
         </View>
       </Card>
@@ -223,9 +280,18 @@ export default function PhotoReviewScreen() {
               style={styles.itemHeader}
             >
               <View style={styles.itemHeaderLeft}>
-                <View style={[styles.confidenceDot, { backgroundColor: confidenceColor(item.confidence) }]} />
+                <View
+                  style={[
+                    styles.confidenceDot,
+                    { backgroundColor: confidenceColor(item.confidence) },
+                  ]}
+                />
                 <View style={{ flex: 1 }}>
-                  <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={1}>
+                  <ThemedText
+                    type="body"
+                    style={{ fontWeight: "600" }}
+                    numberOfLines={1}
+                  >
                     {item.name}
                   </ThemedText>
                   <ThemedText type="small" style={{ opacity: 0.6 }}>
@@ -259,9 +325,18 @@ export default function PhotoReviewScreen() {
                 ) : null}
                 <View style={styles.editRow}>
                   <View style={styles.editField}>
-                    <ThemedText type="small" style={styles.editLabel}>Grams</ThemedText>
+                    <ThemedText type="small" style={styles.editLabel}>
+                      Grams
+                    </ThemedText>
                     <TextInput
-                      style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
+                      style={[
+                        styles.editInput,
+                        {
+                          color: theme.text,
+                          borderColor: theme.border,
+                          backgroundColor: bgElevated,
+                        },
+                      ]}
                       value={item.grams}
                       onChangeText={(v) => updateItem(index, "grams", v)}
                       keyboardType="number-pad"
@@ -269,9 +344,18 @@ export default function PhotoReviewScreen() {
                     />
                   </View>
                   <View style={styles.editField}>
-                    <ThemedText type="small" style={styles.editLabel}>Calories</ThemedText>
+                    <ThemedText type="small" style={styles.editLabel}>
+                      Calories
+                    </ThemedText>
                     <TextInput
-                      style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
+                      style={[
+                        styles.editInput,
+                        {
+                          color: theme.text,
+                          borderColor: theme.border,
+                          backgroundColor: bgElevated,
+                        },
+                      ]}
                       value={item.calories}
                       onChangeText={(v) => updateItem(index, "calories", v)}
                       keyboardType="number-pad"
@@ -281,27 +365,72 @@ export default function PhotoReviewScreen() {
                 </View>
                 <View style={styles.editRow}>
                   <View style={styles.editField}>
-                    <ThemedText type="small" style={[styles.editLabel, { color: Colors.light.success }]}>P (g)</ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={[
+                        styles.editLabel,
+                        { color: Colors.light.success },
+                      ]}
+                    >
+                      P (g)
+                    </ThemedText>
                     <TextInput
-                      style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
+                      style={[
+                        styles.editInput,
+                        {
+                          color: theme.text,
+                          borderColor: theme.border,
+                          backgroundColor: bgElevated,
+                        },
+                      ]}
                       value={item.protein}
                       onChangeText={(v) => updateItem(index, "protein", v)}
                       keyboardType="number-pad"
                     />
                   </View>
                   <View style={styles.editField}>
-                    <ThemedText type="small" style={[styles.editLabel, { color: Colors.light.macroCarbs }]}>C (g)</ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={[
+                        styles.editLabel,
+                        { color: Colors.light.macroCarbs },
+                      ]}
+                    >
+                      C (g)
+                    </ThemedText>
                     <TextInput
-                      style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
+                      style={[
+                        styles.editInput,
+                        {
+                          color: theme.text,
+                          borderColor: theme.border,
+                          backgroundColor: bgElevated,
+                        },
+                      ]}
                       value={item.carbs}
                       onChangeText={(v) => updateItem(index, "carbs", v)}
                       keyboardType="number-pad"
                     />
                   </View>
                   <View style={styles.editField}>
-                    <ThemedText type="small" style={[styles.editLabel, { color: Colors.light.macroFat }]}>F (g)</ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={[
+                        styles.editLabel,
+                        { color: Colors.light.macroFat },
+                      ]}
+                    >
+                      F (g)
+                    </ThemedText>
                     <TextInput
-                      style={[styles.editInput, { color: theme.text, borderColor: theme.border, backgroundColor: bgElevated }]}
+                      style={[
+                        styles.editInput,
+                        {
+                          color: theme.text,
+                          borderColor: theme.border,
+                          backgroundColor: bgElevated,
+                        },
+                      ]}
                       value={item.fat}
                       onChangeText={(v) => updateItem(index, "fat", v)}
                       keyboardType="number-pad"
@@ -315,11 +444,18 @@ export default function PhotoReviewScreen() {
       })}
 
       {items.length > 0 ? (
-        <Button onPress={handleLogAll} disabled={isLogging} style={styles.logButton}>
+        <Button
+          onPress={handleLogAll}
+          disabled={isLogging}
+          style={styles.logButton}
+        >
           {isLogging ? "Saving..." : `Log Meal (${totals.calories} cal)`}
         </Button>
       ) : (
-        <ThemedText type="body" style={{ textAlign: "center", opacity: 0.6, marginTop: Spacing.xl }}>
+        <ThemedText
+          type="body"
+          style={{ textAlign: "center", opacity: 0.6, marginTop: Spacing.xl }}
+        >
           All items removed. Go back to try again.
         </ThemedText>
       )}

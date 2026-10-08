@@ -14,7 +14,10 @@ import { EmptyState } from "@/components/EmptyState";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { RetractableHeader } from "@/components/RetractableHeader";
-import { useRetractableHeader, RETRACTABLE_HEADER_HEIGHT } from "@/hooks/useRetractableHeader";
+import {
+  useRetractableHeader,
+  RETRACTABLE_HEADER_HEIGHT,
+} from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine } from "@/types";
@@ -34,31 +37,33 @@ export default function RoutinesScreen() {
   // Native header is disabled (RoutinesStackNavigator.tsx); our custom
   // header overlays the screen, so content needs to start below it.
   const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
-  
+
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [routineToDelete, setRoutineToDelete] = useState<Routine | null>(null);
-  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(new Set());
-  
+  const [expandedRoutines, setExpandedRoutines] = useState<Set<string>>(
+    new Set(),
+  );
+
   const loadRoutines = async () => {
     const data = await storage.getRoutines();
     setRoutines(data);
     setLoading(false);
   };
-  
+
   useFocusEffect(
     useCallback(() => {
       loadRoutines();
-    }, [])
+    }, []),
   );
-  
+
   const handleDelete = (routine: Routine) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRoutineToDelete(routine);
     setDeleteModalVisible(true);
   };
-  
+
   const confirmDelete = async () => {
     if (routineToDelete) {
       await storage.deleteRoutine(routineToDelete.id);
@@ -68,12 +73,12 @@ export default function RoutinesScreen() {
       loadRoutines();
     }
   };
-  
+
   const cancelDelete = () => {
     setDeleteModalVisible(false);
     setRoutineToDelete(null);
   };
-  
+
   const handleStartWorkout = (routine: Routine) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.navigate("ActiveWorkout", { routineId: routine.id });
@@ -89,7 +94,7 @@ export default function RoutinesScreen() {
   };
 
   const renderRoutine = ({ item }: { item: Routine }) => {
-    const exercisePreview = item.exercises.map(e => e.exerciseName);
+    const exercisePreview = item.exercises.map((e) => e.exerciseName);
     const isExpanded = expandedRoutines.has(item.id);
 
     return (
@@ -98,9 +103,17 @@ export default function RoutinesScreen() {
           <View style={styles.routineHeader}>
             <View style={{ flex: 1 }}>
               <ThemedText type="h3">{item.name}</ThemedText>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginTop: Spacing.xs }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: Spacing.sm,
+                  marginTop: Spacing.xs,
+                }}
+              >
                 <ThemedText type="small" style={{ opacity: 0.6 }}>
-                  {item.exercises.length} exercise{item.exercises.length !== 1 ? "s" : ""}
+                  {item.exercises.length} exercise
+                  {item.exercises.length !== 1 ? "s" : ""}
                   {item.lastCompletedAt
                     ? `  \u00B7  ${new Date(item.lastCompletedAt).toLocaleDateString()}`
                     : ""}
@@ -125,7 +138,12 @@ export default function RoutinesScreen() {
           <View style={styles.exercisePreview}>
             {exercisePreview.map((name, i) => (
               <View key={i} style={styles.exercisePreviewItem}>
-                <View style={[styles.exerciseDot, { backgroundColor: Colors.light.primary }]} />
+                <View
+                  style={[
+                    styles.exerciseDot,
+                    { backgroundColor: Colors.light.primary },
+                  ]}
+                />
                 <ThemedText type="small" numberOfLines={1}>
                   {name}
                 </ThemedText>
@@ -134,25 +152,39 @@ export default function RoutinesScreen() {
           </View>
         )}
 
-        <View style={[styles.secondaryActions, { borderTopColor: theme.border }]}>
+        <View
+          style={[styles.secondaryActions, { borderTopColor: theme.border }]}
+        >
           <Pressable
             onPress={() => {
               Haptics.selectionAsync();
               navigation.navigate("EditRoutine", { routineId: item.id });
             }}
-            style={[styles.secondaryButton, { backgroundColor: theme.backgroundElevated }]}
+            style={[
+              styles.secondaryButton,
+              { backgroundColor: theme.backgroundElevated },
+            ]}
           >
             <Feather name="edit-2" size={16} color={theme.textSecondary} />
-            <ThemedText type="small" style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}>
+            <ThemedText
+              type="small"
+              style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}
+            >
               Edit
             </ThemedText>
           </Pressable>
           <Pressable
             onPress={() => handleDelete(item)}
-            style={[styles.secondaryButton, { backgroundColor: Colors.light.error + "10" }]}
+            style={[
+              styles.secondaryButton,
+              { backgroundColor: Colors.light.error + "10" },
+            ]}
           >
             <Feather name="trash-2" size={16} color={Colors.light.error} />
-            <ThemedText type="small" style={{ color: Colors.light.error, marginLeft: Spacing.sm }}>
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.error, marginLeft: Spacing.sm }}
+            >
               Delete
             </ThemedText>
           </Pressable>
@@ -160,7 +192,7 @@ export default function RoutinesScreen() {
       </Card>
     );
   };
-  
+
   if (loading) {
     return (
       <>
@@ -206,37 +238,43 @@ export default function RoutinesScreen() {
             },
           ]}
         >
-        <EmptyState
-          image={require("../../assets/images/empty-routines.png")}
-          title="No workouts yet"
-          message="Create your first workout routine or browse templates"
-          actionLabel="Browse Templates"
-          onAction={() => navigation.navigate("RoutineTemplates")}
-        />
-        <View style={styles.emptyStatePills}>
-          <AnimatedPress
-            onPress={() => navigation.navigate("GenerateRoutine")}
-            style={[styles.pillButton, { backgroundColor: "#9333EA" + "15" }]}
-          >
-            <View style={[styles.pillIcon, { backgroundColor: "#9333EA" }]}>
-              <Feather name="zap" size={14} color="#FFFFFF" />
-            </View>
-            <ThemedText type="small" style={{ fontWeight: "600", color: "#9333EA" }}>
-              Generate Routine
-            </ThemedText>
-          </AnimatedPress>
-          <AnimatedPress
-            onPress={() => navigation.navigate("ExerciseLibrary")}
-            style={[styles.pillButton, { backgroundColor: "#0D9488" + "15" }]}
-          >
-            <View style={[styles.pillIcon, { backgroundColor: "#0D9488" }]}>
-              <Feather name="book-open" size={14} color="#FFFFFF" />
-            </View>
-            <ThemedText type="small" style={{ fontWeight: "600", color: "#0D9488" }}>
-              Exercise Library
-            </ThemedText>
-          </AnimatedPress>
-        </View>
+          <EmptyState
+            image={require("../../assets/images/empty-routines.png")}
+            title="No workouts yet"
+            message="Create your first workout routine or browse templates"
+            actionLabel="Browse Templates"
+            onAction={() => navigation.navigate("RoutineTemplates")}
+          />
+          <View style={styles.emptyStatePills}>
+            <AnimatedPress
+              onPress={() => navigation.navigate("GenerateRoutine")}
+              style={[styles.pillButton, { backgroundColor: "#9333EA" + "15" }]}
+            >
+              <View style={[styles.pillIcon, { backgroundColor: "#9333EA" }]}>
+                <Feather name="zap" size={14} color="#FFFFFF" />
+              </View>
+              <ThemedText
+                type="small"
+                style={{ fontWeight: "600", color: "#9333EA" }}
+              >
+                Generate Routine
+              </ThemedText>
+            </AnimatedPress>
+            <AnimatedPress
+              onPress={() => navigation.navigate("ExerciseLibrary")}
+              style={[styles.pillButton, { backgroundColor: "#0D9488" + "15" }]}
+            >
+              <View style={[styles.pillIcon, { backgroundColor: "#0D9488" }]}>
+                <Feather name="book-open" size={14} color="#FFFFFF" />
+              </View>
+              <ThemedText
+                type="small"
+                style={{ fontWeight: "600", color: "#0D9488" }}
+              >
+                Exercise Library
+              </ThemedText>
+            </AnimatedPress>
+          </View>
         </View>
       </>
     );
@@ -244,30 +282,49 @@ export default function RoutinesScreen() {
 
   const renderDeleteModal = () => {
     if (!deleteModalVisible) return null;
-    
+
     return (
       <View style={StyleSheet.absoluteFill}>
         <Pressable style={styles.modalOverlay} onPress={cancelDelete}>
-          <Pressable style={[styles.modalContent, { backgroundColor: theme.backgroundCard }]} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.backgroundCard },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.modalIconContainer}>
               <Feather name="trash-2" size={32} color={Colors.light.error} />
             </View>
-            <ThemedText type="h3" style={styles.modalTitle}>Delete Routine</ThemedText>
+            <ThemedText type="h3" style={styles.modalTitle}>
+              Delete Routine
+            </ThemedText>
             <ThemedText type="body" style={styles.modalMessage}>
-              Are you sure you want to delete "{routineToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{routineToDelete?.name}
+              &quot;? This action cannot be undone.
             </ThemedText>
             <View style={styles.modalButtons}>
               <Pressable
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={cancelDelete}
               >
-                <ThemedText type="body" style={{ fontWeight: "600", color: "#1F2937" }}>Cancel</ThemedText>
+                <ThemedText
+                  type="body"
+                  style={{ fontWeight: "600", color: "#1F2937" }}
+                >
+                  Cancel
+                </ThemedText>
               </Pressable>
               <AnimatedPress
                 style={[styles.modalButton, styles.deleteButton]}
                 onPress={confirmDelete}
               >
-                <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Delete</ThemedText>
+                <ThemedText
+                  type="body"
+                  style={{ fontWeight: "600", color: "#FFFFFF" }}
+                >
+                  Delete
+                </ThemedText>
               </AnimatedPress>
             </View>
           </Pressable>
@@ -303,12 +360,24 @@ export default function RoutinesScreen() {
           <View style={[styles.pillRow, { marginBottom: Spacing.lg }]}>
             <AnimatedPress
               onPress={() => navigation.navigate("RoutineTemplates")}
-              style={[styles.pillButton, { backgroundColor: Colors.light.primary + "15" }]}
+              style={[
+                styles.pillButton,
+                { backgroundColor: Colors.light.primary + "15" },
+              ]}
             >
-              <View style={[styles.pillIcon, { backgroundColor: Colors.light.primary }]}>
+              <View
+                style={[
+                  styles.pillIcon,
+                  { backgroundColor: Colors.light.primary },
+                ]}
+              >
                 <Feather name="grid" size={14} color="#FFFFFF" />
               </View>
-              <ThemedText type="small" style={{ fontWeight: "600", color: Colors.light.primary }} numberOfLines={1}>
+              <ThemedText
+                type="small"
+                style={{ fontWeight: "600", color: Colors.light.primary }}
+                numberOfLines={1}
+              >
                 Templates
               </ThemedText>
             </AnimatedPress>
@@ -320,7 +389,11 @@ export default function RoutinesScreen() {
               <View style={[styles.pillIcon, { backgroundColor: "#9333EA" }]}>
                 <Feather name="zap" size={14} color="#FFFFFF" />
               </View>
-              <ThemedText type="small" style={{ fontWeight: "600", color: "#9333EA" }} numberOfLines={1}>
+              <ThemedText
+                type="small"
+                style={{ fontWeight: "600", color: "#9333EA" }}
+                numberOfLines={1}
+              >
                 Generate
               </ThemedText>
             </AnimatedPress>
@@ -332,7 +405,11 @@ export default function RoutinesScreen() {
               <View style={[styles.pillIcon, { backgroundColor: "#0D9488" }]}>
                 <Feather name="book-open" size={14} color="#FFFFFF" />
               </View>
-              <ThemedText type="small" style={{ fontWeight: "600", color: "#0D9488" }} numberOfLines={1}>
+              <ThemedText
+                type="small"
+                style={{ fontWeight: "600", color: "#0D9488" }}
+                numberOfLines={1}
+              >
                 Exercises
               </ThemedText>
             </AnimatedPress>

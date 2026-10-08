@@ -2,7 +2,12 @@ import React, { useState, useCallback, useRef } from "react";
 import { View, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useRoute, useNavigation, RouteProp, useFocusEffect } from "@react-navigation/native";
+import {
+  useRoute,
+  useNavigation,
+  RouteProp,
+  useFocusEffect,
+} from "@react-navigation/native";
 import Feather from "@expo/vector-icons/Feather";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -48,9 +53,9 @@ export default function WorkoutDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       loadWorkout();
-    }, [loadWorkout])
+    }, [loadWorkout]),
   );
-  
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString("en-US", {
@@ -60,7 +65,7 @@ export default function WorkoutDetailScreen() {
       year: "numeric",
     });
   };
-  
+
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleTimeString("en-US", {
@@ -68,7 +73,7 @@ export default function WorkoutDetailScreen() {
       minute: "2-digit",
     });
   };
-  
+
   if (loading) {
     return (
       <View
@@ -92,33 +97,58 @@ export default function WorkoutDetailScreen() {
 
   if (!workout) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center" }]}>
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ marginTop: Spacing["3xl"] }} />
-        <ThemedText type="h3" style={{ marginTop: Spacing.lg }}>Workout not found</ThemedText>
-        <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: Spacing.sm }}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight,
+            alignItems: "center",
+          },
+        ]}
+      >
+        <Feather
+          name="alert-circle"
+          size={48}
+          color={theme.textSecondary}
+          style={{ marginTop: Spacing["3xl"] }}
+        />
+        <ThemedText type="h3" style={{ marginTop: Spacing.lg }}>
+          Workout not found
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={{ color: theme.textSecondary, marginTop: Spacing.sm }}
+        >
           This workout may have been deleted
         </ThemedText>
-        <Pressable onPress={() => navigation.goBack()} style={{ marginTop: Spacing.xl }}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          style={{ marginTop: Spacing.xl }}
+        >
           <ThemedText type="link">Go back</ThemedText>
         </Pressable>
       </View>
     );
   }
-  
+
   const totalSets = workout.exercises.reduce(
     (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
-    0
+    0,
   );
-  
+
   const totalVolume = workout.exercises.reduce((acc, ex) => {
-    return acc + ex.sets.reduce((setAcc, set) => {
-      if (set.completed) {
-        return setAcc + (set.weight * set.reps);
-      }
-      return setAcc;
-    }, 0);
+    return (
+      acc +
+      ex.sets.reduce((setAcc, set) => {
+        if (set.completed) {
+          return setAcc + set.weight * set.reps;
+        }
+        return setAcc;
+      }, 0)
+    );
   }, 0);
-  
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
@@ -129,7 +159,9 @@ export default function WorkoutDetailScreen() {
       }}
     >
       <Card style={styles.summaryCard}>
-        <ThemedText type="h2" style={styles.routineName}>{workout.routineName}</ThemedText>
+        <ThemedText type="h2" style={styles.routineName}>
+          {workout.routineName}
+        </ThemedText>
         <ThemedText type="small" style={styles.dateText}>
           {/* Workouts in progress have no completedAt — fall back to
               startedAt so we never call new Date(undefined) and render
@@ -141,66 +173,118 @@ export default function WorkoutDetailScreen() {
             ? `${formatTime(workout.startedAt)} - ${formatTime(workout.completedAt)}`
             : `Started ${formatTime(workout.startedAt)} · in progress`}
         </ThemedText>
-        
+
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Feather name="clock" size={20} color={Colors.light.primary} />
-            <ThemedText type="h3" style={styles.statValue}>{workout.durationMinutes}</ThemedText>
-            <ThemedText type="small" style={styles.statLabel}>minutes</ThemedText>
+            <ThemedText type="h3" style={styles.statValue}>
+              {workout.durationMinutes}
+            </ThemedText>
+            <ThemedText type="small" style={styles.statLabel}>
+              minutes
+            </ThemedText>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Feather name="check-circle" size={20} color={Colors.light.success} />
-            <ThemedText type="h3" style={styles.statValue}>{totalSets}</ThemedText>
-            <ThemedText type="small" style={styles.statLabel}>sets</ThemedText>
+            <Feather
+              name="check-circle"
+              size={20}
+              color={Colors.light.success}
+            />
+            <ThemedText type="h3" style={styles.statValue}>
+              {totalSets}
+            </ThemedText>
+            <ThemedText type="small" style={styles.statLabel}>
+              sets
+            </ThemedText>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Feather name="trending-up" size={20} color={Colors.light.primary} />
-            <ThemedText type="h3" style={styles.statValue}>{Math.round(totalVolume)}</ThemedText>
+            <Feather
+              name="trending-up"
+              size={20}
+              color={Colors.light.primary}
+            />
+            <ThemedText type="h3" style={styles.statValue}>
+              {Math.round(totalVolume)}
+            </ThemedText>
             {/* Label only — set.weight is stored as the raw number the
                 user typed (no kg/lbs conversion), so we just label with
                 the current preference. A metric user who logged kg sees
                 "kg volume"; switching units later won't re-convert
                 historical entries (data-model concern, not a regression). */}
-            <ThemedText type="small" style={styles.statLabel}>{weightLabel(unitSystem)} volume</ThemedText>
+            <ThemedText type="small" style={styles.statLabel}>
+              {weightLabel(unitSystem)} volume
+            </ThemedText>
           </View>
         </View>
       </Card>
-      
-      <ThemedText type="h3" style={styles.sectionTitle}>Exercises</ThemedText>
-      
+
+      <ThemedText type="h3" style={styles.sectionTitle}>
+        Exercises
+      </ThemedText>
+
       {workout.exercises.map((exercise, exerciseIndex) => (
-        <Card key={`${exercise.exerciseId}-${exerciseIndex}`} style={styles.exerciseCard}>
-          <ThemedText type="h4" style={styles.exerciseName}>{exercise.exerciseName}</ThemedText>
-          
+        <Card
+          key={`${exercise.exerciseId}-${exerciseIndex}`}
+          style={styles.exerciseCard}
+        >
+          <ThemedText type="h4" style={styles.exerciseName}>
+            {exercise.exerciseName}
+          </ThemedText>
+
           <View style={styles.setsHeader}>
-            <ThemedText type="small" style={[styles.setHeaderText, { flex: 1 }]}>Set</ThemedText>
-            <ThemedText type="small" style={[styles.setHeaderText, { flex: 2, textAlign: "center" }]}>Weight</ThemedText>
-            <ThemedText type="small" style={[styles.setHeaderText, { flex: 2, textAlign: "center" }]}>Reps</ThemedText>
-            <ThemedText type="small" style={[styles.setHeaderText, { width: 30 }]}></ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.setHeaderText, { flex: 1 }]}
+            >
+              Set
+            </ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.setHeaderText, { flex: 2, textAlign: "center" }]}
+            >
+              Weight
+            </ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.setHeaderText, { flex: 2, textAlign: "center" }]}
+            >
+              Reps
+            </ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.setHeaderText, { width: 30 }]}
+            ></ThemedText>
           </View>
-          
+
           {exercise.sets.map((set, setIndex) => (
-            <View 
-              key={set.id} 
-              style={[
-                styles.setRow,
-                !set.completed && styles.skippedSet,
-              ]}
+            <View
+              key={set.id}
+              style={[styles.setRow, !set.completed && styles.skippedSet]}
             >
               <ThemedText type="body" style={[styles.setNumber, { flex: 1 }]}>
                 {setIndex + 1}
               </ThemedText>
-              <ThemedText type="body" style={[styles.setValue, { flex: 2, textAlign: "center" }]}>
+              <ThemedText
+                type="body"
+                style={[styles.setValue, { flex: 2, textAlign: "center" }]}
+              >
                 {set.weight} {weightLabel(unitSystem)}
               </ThemedText>
-              <ThemedText type="body" style={[styles.setValue, { flex: 2, textAlign: "center" }]}>
+              <ThemedText
+                type="body"
+                style={[styles.setValue, { flex: 2, textAlign: "center" }]}
+              >
                 {set.reps}
               </ThemedText>
               <View style={{ width: 30, alignItems: "center" }}>
                 {set.completed ? (
-                  <Feather name="check" size={16} color={Colors.light.success} />
+                  <Feather
+                    name="check"
+                    size={16}
+                    color={Colors.light.success}
+                  />
                 ) : (
                   <Feather name="x" size={16} color={theme.textSecondary} />
                 )}

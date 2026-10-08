@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator, Platform, Image, Linking } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  TextInput,
+  ActivityIndicator,
+  Platform,
+  Image,
+  Linking,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HeaderButton, useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -19,7 +29,11 @@ import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollV
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
-import { FOOD_DATABASE, FoodDatabaseItem, searchFoods } from "@/lib/foodDatabase";
+import {
+  FOOD_DATABASE,
+  FoodDatabaseItem,
+  searchFoods,
+} from "@/lib/foodDatabase";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
@@ -50,7 +64,9 @@ export default function AddFoodScreen() {
   const prefill = route.params?.prefill;
 
   const [savedFoods, setSavedFoods] = useState<Food[]>([]);
-  const [recentMeals, setRecentMeals] = useState<import("@/types").FoodLogEntry[]>([]);
+  const [recentMeals, setRecentMeals] = useState<
+    import("@/types").FoodLogEntry[]
+  >([]);
   const [showForm, setShowForm] = useState(!!prefill);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<APIFoodResult[]>([]);
@@ -66,12 +82,16 @@ export default function AddFoodScreen() {
   const [carbs, setCarbs] = useState(prefill?.carbs || "");
   const [fat, setFat] = useState(prefill?.fat || "");
   const [saveAsFavorite, setSaveAsFavorite] = useState(false);
-  const [servingSize, setServingSize] = useState<string | undefined>(prefill?.serving);
+  const [servingSize, setServingSize] = useState<string | undefined>(
+    prefill?.serving,
+  );
   const [foodImage, setFoodImage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [nameSuggestions, setNameSuggestions] = useState<FoodDatabaseItem[]>([]);
+  const [nameSuggestions, setNameSuggestions] = useState<FoodDatabaseItem[]>(
+    [],
+  );
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Per-entry outer bounds — generous enough for huge meals (e.g. a
@@ -83,11 +103,15 @@ export default function AddFoodScreen() {
   // a slow fetch for "chic" can still resolve after a fast fetch for
   // "chicken breast" and overwrite the better result.
   const searchRequestIdRef = useRef(0);
-  const nameSuggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nameSuggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
-  const [mediaPermission, requestMediaPermission] = ImagePicker.useMediaLibraryPermissions();
-  const [cameraPermission, requestCameraPermission] = ImagePicker.useCameraPermissions();
-  
+  const [mediaPermission, requestMediaPermission] =
+    ImagePicker.useMediaLibraryPermissions();
+  const [cameraPermission, requestCameraPermission] =
+    ImagePicker.useCameraPermissions();
+
   const resetForm = useCallback(() => {
     setShowForm(false);
     setFoodImage(null);
@@ -122,7 +146,8 @@ export default function AddFoodScreen() {
     loadSavedFoods();
     loadRecentMeals();
     return () => {
-      if (nameSuggestTimeoutRef.current) clearTimeout(nameSuggestTimeoutRef.current);
+      if (nameSuggestTimeoutRef.current)
+        clearTimeout(nameSuggestTimeoutRef.current);
     };
   }, []);
 
@@ -139,7 +164,7 @@ export default function AddFoodScreen() {
     }
     navigation.goBack();
   };
-  
+
   // Debounced search - tries API first, falls back to local database
   useEffect(() => {
     // Bump request id unconditionally so an in-flight fetch from a
@@ -158,23 +183,26 @@ export default function AddFoodScreen() {
     }
 
     setIsSearching(true);
-    const localFallback = (): APIFoodResult[] => searchFoods(searchQuery).map(f => ({
-      id: f.id,
-      name: f.name,
-      brand: null,
-      type: "local",
-      servingSize: f.servingSize,
-      calories: f.calories,
-      fat: f.fat,
-      carbs: f.carbs,
-      protein: f.protein,
-    }));
+    const localFallback = (): APIFoodResult[] =>
+      searchFoods(searchQuery).map((f) => ({
+        id: f.id,
+        name: f.name,
+        brand: null,
+        type: "local",
+        servingSize: f.servingSize,
+        calories: f.calories,
+        fat: f.fat,
+        carbs: f.carbs,
+        protein: f.protein,
+      }));
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const url = new URL("/api/foods/search", getApiUrl());
         url.searchParams.set("query", searchQuery.trim());
 
-        const response = await fetch(url.toString(), { credentials: "include" });
+        const response = await fetch(url.toString(), {
+          credentials: "include",
+        });
         // Stale-response guard: a faster fetch for a later keystroke may
         // have already returned and rendered; don't let this one clobber it.
         if (requestId !== searchRequestIdRef.current) return;
@@ -206,25 +234,29 @@ export default function AddFoodScreen() {
         if (requestId === searchRequestIdRef.current) setIsSearching(false);
       }
     }, 400); // 400ms debounce
-    
+
     return () => {
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
     };
   }, [searchQuery]);
-  
+
   const loadSavedFoods = async () => {
     const foods = await storage.getSavedFoods();
     setSavedFoods(foods);
   };
-  
+
   const compressImage = async (uri: string): Promise<string | null> => {
     try {
       const manipulated = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: 1536 } }],
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        {
+          compress: 0.85,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
       );
       return manipulated.base64 || null;
     } catch (error) {
@@ -247,15 +279,15 @@ export default function AddFoodScreen() {
         return;
       }
     }
-    
+
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: false,
       quality: 1,
       base64: false,
       exif: false,
     });
-    
+
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       setFoodImage(asset.uri);
@@ -269,7 +301,7 @@ export default function AddFoodScreen() {
       await analyzePhoto(compressedBase64, asset.uri);
     }
   };
-  
+
   const pickImage = async () => {
     if (!mediaPermission?.granted) {
       const result = await requestMediaPermission();
@@ -284,15 +316,15 @@ export default function AddFoodScreen() {
         return;
       }
     }
-    
+
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       allowsEditing: false,
       quality: 1,
       base64: false,
       exif: false,
     });
-    
+
     if (!result.canceled && result.assets[0]) {
       const asset = result.assets[0];
       setFoodImage(asset.uri);
@@ -306,12 +338,14 @@ export default function AddFoodScreen() {
       await analyzePhoto(compressedBase64, asset.uri);
     }
   };
-  
+
   const analyzePhoto = async (base64: string | null, uri: string) => {
     if (!base64) {
       // compressImage failed — without this branch we sent null to the
       // server, which 400'd back as a generic "Failed to analyze photo".
-      setPhotoError("Couldn't process this image. Try a different photo, or enter details manually.");
+      setPhotoError(
+        "Couldn't process this image. Try a different photo, or enter details manually.",
+      );
       setIsAnalyzingPhoto(false);
       return;
     }
@@ -325,13 +359,13 @@ export default function AddFoodScreen() {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           imageBase64: base64,
         }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.foods && data.foods.length > 0) {
@@ -348,16 +382,25 @@ export default function AddFoodScreen() {
           resetForm();
           return;
         } else {
-          setPhotoError(data.message || "Could not identify food. Please enter details manually.");
+          setPhotoError(
+            data.message ||
+              "Could not identify food. Please enter details manually.",
+          );
         }
       } else {
         const errData = await response.json().catch(() => null);
-        setPhotoError(errData?.message || errData?.error || "Failed to analyze photo. Please try again.");
+        setPhotoError(
+          errData?.message ||
+            errData?.error ||
+            "Failed to analyze photo. Please try again.",
+        );
       }
     } catch (error: any) {
       console.error("Error analyzing photo:", error);
       if (error?.name === "AbortError") {
-        setPhotoError("Analysis timed out. Please try again with a simpler photo.");
+        setPhotoError(
+          "Analysis timed out. Please try again with a simpler photo.",
+        );
       } else {
         setPhotoError("Network error analyzing photo. Please try again.");
       }
@@ -365,13 +408,14 @@ export default function AddFoodScreen() {
       setIsAnalyzingPhoto(false);
     }
   };
-  
+
   const handleNameChange = (text: string) => {
     setName(text);
     if (submitError) setSubmitError(null);
     // Debounce the local-DB scan — was running on every keystroke,
     // synchronously, with no upper bound on DB growth.
-    if (nameSuggestTimeoutRef.current) clearTimeout(nameSuggestTimeoutRef.current);
+    if (nameSuggestTimeoutRef.current)
+      clearTimeout(nameSuggestTimeoutRef.current);
     if (text.trim().length < 2) {
       setNameSuggestions([]);
       setShowSuggestions(false);
@@ -409,14 +453,14 @@ export default function AddFoodScreen() {
     setShowForm(true);
     Haptics.selectionAsync();
   };
-  
+
   const handleQuickAdd = async (food: Food) => {
     const today = getLocalDateString();
     await storage.addFoodLogEntry(food, today);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.goBack();
   };
-  
+
   const handleQuickAddApiFood = async (food: APIFoodResult) => {
     const foodEntry: Food = {
       id: uuidv4(),
@@ -433,13 +477,19 @@ export default function AddFoodScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     navigation.goBack();
   };
-  
-  const createPersistentImageUri = async (uri: string): Promise<string | undefined> => {
+
+  const createPersistentImageUri = async (
+    uri: string,
+  ): Promise<string | undefined> => {
     try {
       const result = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: 600 } }],
-        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        {
+          compress: 0.6,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
       );
       if (result.base64) {
         return `data:image/jpeg;base64,${result.base64}`;
@@ -463,7 +513,11 @@ export default function AddFoodScreen() {
     const p = protein.trim() === "" ? 0 : parseInt(protein.trim(), 10);
     const cb = carbs.trim() === "" ? 0 : parseInt(carbs.trim(), 10);
     const f = fat.trim() === "" ? 0 : parseInt(fat.trim(), 10);
-    for (const [val, label] of [[p, "Protein"], [cb, "Carbs"], [f, "Fat"]] as const) {
+    for (const [val, label] of [
+      [p, "Protein"],
+      [cb, "Carbs"],
+      [f, "Fat"],
+    ] as const) {
       if (!Number.isFinite(val) || val < 0 || val > MAX_MACRO_G) {
         setSubmitError(`${label} must be between 0 and ${MAX_MACRO_G}g.`);
         return;
@@ -481,7 +535,7 @@ export default function AddFoodScreen() {
       isSaved: saveAsFavorite,
       ...(servingSize ? { serving: servingSize } : {}),
     };
-    
+
     if (saveAsFavorite) {
       await storage.saveFood({
         name: food.name,
@@ -492,19 +546,18 @@ export default function AddFoodScreen() {
         ...(food.serving ? { serving: food.serving } : {}),
       });
     }
-    
+
     let persistentImageUri: string | undefined;
     if (foodImage) {
       persistentImageUri = await createPersistentImageUri(foodImage);
     }
-    
+
     const today = getLocalDateString();
     await storage.addFoodLogEntry(food, today, persistentImageUri);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();
   };
-  
-  
+
   if (showForm) {
     return (
       <KeyboardAwareScrollViewCompat
@@ -521,17 +574,21 @@ export default function AddFoodScreen() {
             {isAnalyzingPhoto ? (
               <View style={styles.analyzingOverlay}>
                 <ActivityIndicator size="large" color="#FFFFFF" />
-                <ThemedText style={styles.analyzingText}>Analyzing your food...</ThemedText>
-                <ThemedText style={styles.analyzingSubtext}>This usually takes 5-10 seconds</ThemedText>
+                <ThemedText style={styles.analyzingText}>
+                  Analyzing your food...
+                </ThemedText>
+                <ThemedText style={styles.analyzingSubtext}>
+                  This usually takes 5-10 seconds
+                </ThemedText>
               </View>
             ) : null}
           </View>
         ) : null}
-        
+
         {photoError ? (
           <ThemedText style={styles.photoErrorText}>{photoError}</ThemedText>
         ) : null}
-        
+
         <View style={{ zIndex: 10 }}>
           <Input
             label="Food Name"
@@ -545,7 +602,15 @@ export default function AddFoodScreen() {
             testID="input-food-name"
           />
           {showSuggestions ? (
-            <View style={[styles.suggestionsDropdown, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+            <View
+              style={[
+                styles.suggestionsDropdown,
+                {
+                  backgroundColor: theme.backgroundDefault,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
               {nameSuggestions.map((item) => (
                 <AnimatedPress
                   key={item.id}
@@ -556,22 +621,28 @@ export default function AddFoodScreen() {
                   ]}
                   testID={`suggestion-${item.id}`}
                 >
-                  <ThemedText type="body" style={{ fontWeight: "500" }}>{item.name}</ThemedText>
+                  <ThemedText type="body" style={{ fontWeight: "500" }}>
+                    {item.name}
+                  </ThemedText>
                   <ThemedText type="small" style={{ opacity: 0.6 }}>
-                    {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                    {item.calories} cal | P: {item.protein}g | C: {item.carbs}g
+                    | F: {item.fat}g
                   </ThemedText>
                 </AnimatedPress>
               ))}
             </View>
           ) : null}
         </View>
-        
+
         <Input
           label="Calories"
           placeholder="0"
           keyboardType="number-pad"
           value={calories}
-          onChangeText={(t) => { setCalories(t); if (submitError) setSubmitError(null); }}
+          onChangeText={(t) => {
+            setCalories(t);
+            if (submitError) setSubmitError(null);
+          }}
         />
 
         <View style={styles.macroRow}>
@@ -581,7 +652,10 @@ export default function AddFoodScreen() {
               placeholder="0"
               keyboardType="number-pad"
               value={protein}
-              onChangeText={(t) => { setProtein(t); if (submitError) setSubmitError(null); }}
+              onChangeText={(t) => {
+                setProtein(t);
+                if (submitError) setSubmitError(null);
+              }}
             />
           </View>
           <View style={styles.macroInput}>
@@ -590,7 +664,10 @@ export default function AddFoodScreen() {
               placeholder="0"
               keyboardType="number-pad"
               value={carbs}
-              onChangeText={(t) => { setCarbs(t); if (submitError) setSubmitError(null); }}
+              onChangeText={(t) => {
+                setCarbs(t);
+                if (submitError) setSubmitError(null);
+              }}
             />
           </View>
           <View style={styles.macroInput}>
@@ -599,11 +676,14 @@ export default function AddFoodScreen() {
               placeholder="0"
               keyboardType="number-pad"
               value={fat}
-              onChangeText={(t) => { setFat(t); if (submitError) setSubmitError(null); }}
+              onChangeText={(t) => {
+                setFat(t);
+                if (submitError) setSubmitError(null);
+              }}
             />
           </View>
         </View>
-        
+
         <AnimatedPress
           onPress={() => {
             Haptics.selectionAsync();
@@ -615,8 +695,12 @@ export default function AddFoodScreen() {
             style={[
               styles.checkbox,
               {
-                backgroundColor: saveAsFavorite ? Colors.light.primary : "transparent",
-                borderColor: saveAsFavorite ? Colors.light.primary : theme.border,
+                backgroundColor: saveAsFavorite
+                  ? Colors.light.primary
+                  : "transparent",
+                borderColor: saveAsFavorite
+                  ? Colors.light.primary
+                  : theme.border,
               },
             ]}
           >
@@ -626,11 +710,14 @@ export default function AddFoodScreen() {
           </View>
           <ThemedText type="body">Save to favorites</ThemedText>
         </AnimatedPress>
-        
+
         {submitError ? (
           <View style={styles.submitErrorContainer}>
             <Feather name="alert-circle" size={16} color={Colors.light.error} />
-            <ThemedText type="small" style={{ color: Colors.light.error, flex: 1 }}>
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.error, flex: 1 }}
+            >
               {submitError}
             </ThemedText>
           </View>
@@ -642,7 +729,7 @@ export default function AddFoodScreen() {
       </KeyboardAwareScrollViewCompat>
     );
   }
-  
+
   return (
     <FlatList
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
@@ -654,7 +741,12 @@ export default function AddFoodScreen() {
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={
         <View>
-          <View style={[styles.searchContainer, { backgroundColor: theme.backgroundElevated }]}>
+          <View
+            style={[
+              styles.searchContainer,
+              { backgroundColor: theme.backgroundElevated },
+            ]}
+          >
             <Feather name="search" size={20} color={theme.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: theme.text }]}
@@ -669,7 +761,7 @@ export default function AddFoodScreen() {
               </Pressable>
             ) : null}
           </View>
-          
+
           {isSearching ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={Colors.light.primary} />
@@ -683,7 +775,10 @@ export default function AddFoodScreen() {
                 Search Results
               </ThemedText>
               {searchUsedLocalFallback ? (
-                <ThemedText type="small" style={{ opacity: 0.6, marginBottom: Spacing.sm }}>
+                <ThemedText
+                  type="small"
+                  style={{ opacity: 0.6, marginBottom: Spacing.sm }}
+                >
                   AI search is offline — showing local results only.
                 </ThemedText>
               ) : null}
@@ -704,7 +799,8 @@ export default function AddFoodScreen() {
                         </ThemedText>
                       ) : null}
                       <ThemedText type="small" style={styles.foodMacros}>
-                        {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                        {item.calories} cal | P: {item.protein}g | C:{" "}
+                        {item.carbs}g | F: {item.fat}g
                       </ThemedText>
                       <ThemedText type="small" style={styles.servingSize}>
                         {item.servingSize}
@@ -714,7 +810,11 @@ export default function AddFoodScreen() {
                       onPress={() => handleQuickAddApiFood(item)}
                       hitSlop={8}
                     >
-                      <Feather name="plus-circle" size={24} color={Colors.light.primary} />
+                      <Feather
+                        name="plus-circle"
+                        size={24}
+                        color={Colors.light.primary}
+                      />
                     </Pressable>
                   </View>
                 </Card>
@@ -722,41 +822,62 @@ export default function AddFoodScreen() {
             </View>
           ) : searchQuery.length >= 2 ? (
             <View style={styles.noResultsContainer}>
-              <ThemedText type="small" style={{ textAlign: "center", opacity: 0.6 }}>
+              <ThemedText
+                type="small"
+                style={{ textAlign: "center", opacity: 0.6 }}
+              >
                 {searchUsedLocalFallback
                   ? `AI search is offline and no local matches for "${searchQuery}". Try Custom Food.`
                   : `No foods found for "${searchQuery}"`}
               </ThemedText>
             </View>
           ) : null}
-          
+
           <View style={styles.addButtonsRow}>
             <AnimatedPress
               onPress={takePhoto}
-              style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
+              style={[
+                styles.photoButton,
+                { backgroundColor: theme.backgroundElevated },
+              ]}
             >
               <Feather name="camera" size={24} color={Colors.light.primary} />
-              <ThemedText type="small" style={{ color: theme.text }}>Take Photo</ThemedText>
+              <ThemedText type="small" style={{ color: theme.text }}>
+                Take Photo
+              </ThemedText>
             </AnimatedPress>
             <AnimatedPress
               onPress={pickImage}
-              style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
+              style={[
+                styles.photoButton,
+                { backgroundColor: theme.backgroundElevated },
+              ]}
             >
               <Feather name="image" size={24} color={Colors.light.primary} />
-              <ThemedText type="small" style={{ color: theme.text }}>Pick Photo</ThemedText>
+              <ThemedText type="small" style={{ color: theme.text }}>
+                Pick Photo
+              </ThemedText>
             </AnimatedPress>
             <AnimatedPress
               onPress={() => navigation.navigate("BarcodeScanner")}
-              style={[styles.photoButton, { backgroundColor: theme.backgroundElevated }]}
+              style={[
+                styles.photoButton,
+                { backgroundColor: theme.backgroundElevated },
+              ]}
             >
               <Feather name="maximize" size={24} color={Colors.light.primary} />
-              <ThemedText type="small" style={{ color: theme.text }}>Scan Barcode</ThemedText>
+              <ThemedText type="small" style={{ color: theme.text }}>
+                Scan Barcode
+              </ThemedText>
             </AnimatedPress>
           </View>
-          
+
           <Button
             onPress={() => setShowForm(true)}
-            style={[styles.newFoodButton, { backgroundColor: Colors.light.primary }]}
+            style={[
+              styles.newFoodButton,
+              { backgroundColor: Colors.light.primary },
+            ]}
           >
             Add Custom Food
           </Button>
@@ -780,23 +901,38 @@ export default function AddFoodScreen() {
                       />
                     ) : null}
                     <View style={styles.foodInfo}>
-                      <ThemedText type="body" style={{ fontWeight: "600" }} numberOfLines={1}>
+                      <ThemedText
+                        type="body"
+                        style={{ fontWeight: "600" }}
+                        numberOfLines={1}
+                      >
                         {entry.food.name}
                       </ThemedText>
                       <ThemedText type="small" style={styles.foodMacros}>
-                        {entry.food.calories} cal | P: {entry.food.protein}g | C: {entry.food.carbs}g | F: {entry.food.fat}g
+                        {entry.food.calories} cal | P: {entry.food.protein}g |
+                        C: {entry.food.carbs}g | F: {entry.food.fat}g
                       </ThemedText>
-                      <ThemedText type="small" style={{ opacity: 0.4, marginTop: 2 }}>
-                        {new Date(entry.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      <ThemedText
+                        type="small"
+                        style={{ opacity: 0.4, marginTop: 2 }}
+                      >
+                        {new Date(entry.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
                       </ThemedText>
                     </View>
-                    <Feather name="refresh-cw" size={20} color={Colors.light.primary} />
+                    <Feather
+                      name="refresh-cw"
+                      size={20}
+                      color={Colors.light.primary}
+                    />
                   </View>
                 </Card>
               ))}
             </>
           ) : null}
-          
+
           {savedFoods.length > 0 ? (
             <>
               <ThemedText type="h4" style={styles.sectionTitle}>
@@ -814,23 +950,39 @@ export default function AddFoodScreen() {
                         {item.name}
                       </ThemedText>
                       <ThemedText type="small" style={styles.foodMacros}>
-                        {item.calories} cal | P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                        {item.calories} cal | P: {item.protein}g | C:{" "}
+                        {item.carbs}g | F: {item.fat}g
                       </ThemedText>
                     </View>
-                    <Feather name="plus-circle" size={24} color={Colors.light.primary} />
+                    <Feather
+                      name="plus-circle"
+                      size={24}
+                      color={Colors.light.primary}
+                    />
                   </View>
                 </Card>
               ))}
             </>
           ) : null}
-          
+
           {searchQuery.length < 2 && searchResults.length === 0 ? (
             <View style={styles.tipContainer}>
-              <Feather name="search" size={48} color={theme.textSecondary} style={{ opacity: 0.5 }} />
-              <ThemedText type="body" style={[styles.tipText, { color: theme.textSecondary }]}>
+              <Feather
+                name="search"
+                size={48}
+                color={theme.textSecondary}
+                style={{ opacity: 0.5 }}
+              />
+              <ThemedText
+                type="body"
+                style={[styles.tipText, { color: theme.textSecondary }]}
+              >
                 Search for any food to get nutritional info
               </ThemedText>
-              <ThemedText type="small" style={[styles.tipSubtext, { color: theme.textSecondary }]}>
+              <ThemedText
+                type="small"
+                style={[styles.tipSubtext, { color: theme.textSecondary }]}
+              >
                 AI-powered nutrition data
               </ThemedText>
             </View>

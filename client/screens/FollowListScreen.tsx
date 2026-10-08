@@ -1,7 +1,12 @@
 import React, { useState, useCallback, useRef } from "react";
 import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+  RouteProp,
+} from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 
@@ -14,7 +19,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { FollowUser } from "@/types";
-import { getFollowersList, getFollowingList, followUserApi, unfollowUserApi } from "@/lib/socialStorage";
+import {
+  getFollowersList,
+  getFollowingList,
+  followUserApi,
+  unfollowUserApi,
+} from "@/lib/socialStorage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -38,12 +48,13 @@ export default function FollowListScreen() {
   const loadData = async (pageNum = 0) => {
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
-      const fetcher = mode === "followers" ? getFollowersList : getFollowingList;
+      const fetcher =
+        mode === "followers" ? getFollowersList : getFollowingList;
       const result = await fetcher(userId, pageNum);
       if (pageNum === 0) {
         setUsers(result);
       } else {
-        setUsers(prev => [...prev, ...result]);
+        setUsers((prev) => [...prev, ...result]);
       }
       setHasMore(result.length === 20);
       setError(false);
@@ -58,26 +69,40 @@ export default function FollowListScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => { loadData(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, []),
+  );
 
   React.useEffect(() => {
-    navigation.setOptions({ headerTitle: mode === "followers" ? "Followers" : "Following" });
+    navigation.setOptions({
+      headerTitle: mode === "followers" ? "Followers" : "Following",
+    });
   }, [mode]);
 
   const handleFollow = async (targetUser: FollowUser) => {
     // Targeted optimistic + rollback — see SocialFeedScreen.handleLike for
     // why we don't capture/restore the whole list.
     const wasFollowed = targetUser.isFollowedByMe;
-    setUsers(prev => prev.map(u =>
-      u.userId === targetUser.userId ? { ...u, isFollowedByMe: !u.isFollowedByMe } : u
-    ));
+    setUsers((prev) =>
+      prev.map((u) =>
+        u.userId === targetUser.userId
+          ? { ...u, isFollowedByMe: !u.isFollowedByMe }
+          : u,
+      ),
+    );
     const ok = wasFollowed
       ? await unfollowUserApi(targetUser.userId)
       : await followUserApi(targetUser.userId);
     if (!ok) {
-      setUsers(prev => prev.map(u =>
-        u.userId === targetUser.userId ? { ...u, isFollowedByMe: wasFollowed } : u
-      ));
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.userId === targetUser.userId
+            ? { ...u, isFollowedByMe: wasFollowed }
+            : u,
+        ),
+      );
     }
   };
 
@@ -90,7 +115,12 @@ export default function FollowListScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight },
+        ]}
+      >
         <SkeletonLoader variant="card" count={5} />
       </View>
     );
@@ -98,12 +128,37 @@ export default function FollowListScreen() {
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center", justifyContent: "center" }]}>
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <Feather
+          name="alert-circle"
+          size={48}
+          color={theme.textSecondary}
+          style={{ opacity: 0.4, marginBottom: Spacing.lg }}
+        />
+        <ThemedText
+          type="body"
+          style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}
+        >
           Could not load list.
         </ThemedText>
-        <Button onPress={() => { setError(false); hasLoadedRef.current = false; loadData(); }} variant="outline">
+        <Button
+          onPress={() => {
+            setError(false);
+            hasLoadedRef.current = false;
+            loadData();
+          }}
+          variant="outline"
+        >
           Retry
         </Button>
       </View>
@@ -115,25 +170,55 @@ export default function FollowListScreen() {
       <FlatList
         data={users}
         keyExtractor={(item) => item.userId.toString()}
-        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"], width: "100%", maxWidth: 720, alignSelf: "center" }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingHorizontal: Spacing.lg,
+          paddingBottom: Spacing["5xl"],
+          width: "100%",
+          maxWidth: 720,
+          alignSelf: "center",
+        }}
         onEndReached={loadMore}
         onEndReachedThreshold={0.3}
         renderItem={({ item }) => (
           <AnimatedPress
-            onPress={() => navigation.navigate("SocialProfile", { userId: item.userId })}
+            onPress={() =>
+              navigation.navigate("SocialProfile", { userId: item.userId })
+            }
             style={[styles.userRow, { borderBottomColor: theme.border }]}
           >
             <Avatar uri={item.avatarUrl} name={item.name} size={44} />
             <View style={{ flex: 1 }}>
               <ThemedText type="h4">{item.name}</ThemedText>
-              {item.bio ? <ThemedText type="caption" numberOfLines={1} style={{ color: theme.textSecondary }}>{item.bio}</ThemedText> : null}
+              {item.bio ? (
+                <ThemedText
+                  type="caption"
+                  numberOfLines={1}
+                  style={{ color: theme.textSecondary }}
+                >
+                  {item.bio}
+                </ThemedText>
+              ) : null}
             </View>
             {user && item.userId !== Number(user.id) && (
               <Pressable
                 onPress={() => handleFollow(item)}
-                style={[styles.followBtn, { backgroundColor: item.isFollowedByMe ? theme.backgroundDefault : Colors.light.primary }]}
+                style={[
+                  styles.followBtn,
+                  {
+                    backgroundColor: item.isFollowedByMe
+                      ? theme.backgroundDefault
+                      : Colors.light.primary,
+                  },
+                ]}
               >
-                <ThemedText type="caption" style={{ color: item.isFollowedByMe ? theme.text : "#fff", fontWeight: "700" }}>
+                <ThemedText
+                  type="caption"
+                  style={{
+                    color: item.isFollowedByMe ? theme.text : "#fff",
+                    fontWeight: "700",
+                  }}
+                >
                   {item.isFollowedByMe ? "Following" : "Follow"}
                 </ThemedText>
               </Pressable>
@@ -141,8 +226,17 @@ export default function FollowListScreen() {
           </AnimatedPress>
         )}
         ListEmptyComponent={
-          <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", paddingTop: Spacing["3xl"] }}>
-            {mode === "followers" ? "No followers yet." : "Not following anyone yet."}
+          <ThemedText
+            type="body"
+            style={{
+              color: theme.textSecondary,
+              textAlign: "center",
+              paddingTop: Spacing["3xl"],
+            }}
+          >
+            {mode === "followers"
+              ? "No followers yet."
+              : "Not following anyone yet."}
           </ThemedText>
         }
       />
@@ -152,6 +246,16 @@ export default function FollowListScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  userRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
-  followBtn: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.sm },
+  userRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  followBtn: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
 });

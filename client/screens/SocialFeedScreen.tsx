@@ -1,5 +1,18 @@
-import React, { useState, useCallback, useRef, useEffect, useLayoutEffect } from "react";
-import { View, StyleSheet, FlatList, RefreshControl, Pressable, Image } from "react-native";
+import React, {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+} from "react";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Pressable,
+  Image,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -13,8 +26,15 @@ import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Post, PostType } from "@/types";
-import { getFeed, likePostApi, unlikePostApi, getUnreadCountApi, blockUserApi, reportContentApi } from "@/lib/socialStorage";
+import type { Post, PostType, UnitSystem } from "@/types";
+import {
+  getFeed,
+  likePostApi,
+  unlikePostApi,
+  getUnreadCountApi,
+  blockUserApi,
+  reportContentApi,
+} from "@/lib/socialStorage";
 import { onPostDeleted } from "@/lib/postEvents";
 import { showSystemMenu } from "@/components/SystemMenu";
 import { webSafeAlert } from "@/lib/webSafeAlert";
@@ -22,14 +42,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { timeAgo } from "@/lib/timeAgo";
 import { formatDistance, formatPace, formatPaceUnit } from "@/lib/units";
 import * as storage from "@/lib/storage";
-import type { UnitSystem } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const SEARCH_BAR_HEIGHT = 56;
 
-const POST_TYPE_CONFIG: Record<PostType, { icon: keyof typeof Feather.glyphMap; color: string; label: string }> = {
+const POST_TYPE_CONFIG: Record<
+  PostType,
+  { icon: keyof typeof Feather.glyphMap; color: string; label: string }
+> = {
   workout: { icon: "activity", color: "#1B3A27", label: "Workout" },
   run: { icon: "map-pin", color: "#00D084", label: "Run" },
   meal: { icon: "pie-chart", color: "#818cf8", label: "Meal" },
@@ -37,7 +59,15 @@ const POST_TYPE_CONFIG: Record<PostType, { icon: keyof typeof Feather.glyphMap; 
   text: { icon: "edit-3", color: "#9BA1A6", label: "Post" },
 };
 
-function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitSystem }: {
+function PostCard({
+  post,
+  onLike,
+  onPress,
+  onMorePress,
+  theme,
+  serverTime,
+  unitSystem,
+}: {
   post: Post;
   onLike: (post: Post) => void;
   onPress: (post: Post) => void;
@@ -50,28 +80,57 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitS
   const ref = post.referenceData;
 
   return (
-    <AnimatedPress onPress={() => onPress(post)} style={[styles.postCard, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}>
+    <AnimatedPress
+      onPress={() => onPress(post)}
+      style={[
+        styles.postCard,
+        {
+          backgroundColor: theme.backgroundCard,
+          borderColor: theme.cardBorder,
+        },
+      ]}
+    >
       <View style={styles.postHeader}>
         <Avatar uri={post.authorAvatarUrl} name={post.authorName} size={40} />
         <View style={{ flex: 1 }}>
-          <ThemedText type="h4" style={{ fontSize: 15 }}>{post.authorName}</ThemedText>
+          <ThemedText type="h4" style={{ fontSize: 15 }}>
+            {post.authorName}
+          </ThemedText>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <View style={[styles.typeBadge, { backgroundColor: config.color + "20" }]}>
+            <View
+              style={[
+                styles.typeBadge,
+                { backgroundColor: config.color + "20" },
+              ]}
+            >
               <Feather name={config.icon} size={10} color={config.color} />
-              <ThemedText type="caption" style={{ color: config.color, fontSize: 10 }}>{config.label}</ThemedText>
+              <ThemedText
+                type="caption"
+                style={{ color: config.color, fontSize: 10 }}
+              >
+                {config.label}
+              </ThemedText>
             </View>
-            <ThemedText type="caption" style={{ color: theme.textSecondary }}>{timeAgo(post.createdAt, serverTime)}</ThemedText>
+            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+              {timeAgo(post.createdAt, serverTime)}
+            </ThemedText>
           </View>
         </View>
         {onMorePress && (
           <Pressable onPress={() => onMorePress(post)} hitSlop={8}>
-            <Feather name="more-horizontal" size={18} color={theme.textSecondary} />
+            <Feather
+              name="more-horizontal"
+              size={18}
+              color={theme.textSecondary}
+            />
           </Pressable>
         )}
       </View>
 
       {post.content ? (
-        <ThemedText type="body" style={{ marginBottom: Spacing.md }}>{post.content}</ThemedText>
+        <ThemedText type="body" style={{ marginBottom: Spacing.md }}>
+          {post.content}
+        </ThemedText>
       ) : null}
 
       {post.imageData ? (
@@ -83,15 +142,41 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitS
       ) : null}
 
       {post.postType === "workout" && ref && (
-        <View style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h4" style={{ marginBottom: 4 }}>{ref.routineName || "Workout"}</ThemedText>
+        <View
+          style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}
+        >
+          <ThemedText type="h4" style={{ marginBottom: 4 }}>
+            {ref.routineName || "Workout"}
+          </ThemedText>
           <View style={styles.statsRow}>
-            {ref.durationMinutes ? <StatChip icon="clock" value={`${ref.durationMinutes}m`} theme={theme} /> : null}
-            {ref.totalSets ? <StatChip icon="layers" value={`${ref.totalSets} sets`} theme={theme} /> : null}
-            {ref.exerciseCount ? <StatChip icon="list" value={`${ref.exerciseCount} exercises`} theme={theme} /> : null}
+            {ref.durationMinutes ? (
+              <StatChip
+                icon="clock"
+                value={`${ref.durationMinutes}m`}
+                theme={theme}
+              />
+            ) : null}
+            {ref.totalSets ? (
+              <StatChip
+                icon="layers"
+                value={`${ref.totalSets} sets`}
+                theme={theme}
+              />
+            ) : null}
+            {ref.exerciseCount ? (
+              <StatChip
+                icon="list"
+                value={`${ref.exerciseCount} exercises`}
+                theme={theme}
+              />
+            ) : null}
           </View>
           {ref.exercises?.length > 0 && (
-            <ThemedText type="caption" style={{ color: theme.textSecondary, marginTop: 4 }} numberOfLines={1}>
+            <ThemedText
+              type="caption"
+              style={{ color: theme.textSecondary, marginTop: 4 }}
+              numberOfLines={1}
+            >
               {ref.exercises.map((e: any) => e.name).join(", ")}
             </ThemedText>
           )}
@@ -99,10 +184,24 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitS
       )}
 
       {post.postType === "run" && ref && (
-        <View style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}>
+        <View
+          style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}
+        >
           <View style={styles.statsRow}>
-            {ref.distanceKm != null && <StatChip icon="navigation" value={formatDistance(ref.distanceKm, unitSystem)} theme={theme} />}
-            {ref.durationMinutes ? <StatChip icon="clock" value={`${ref.durationMinutes}m`} theme={theme} /> : null}
+            {ref.distanceKm != null && (
+              <StatChip
+                icon="navigation"
+                value={formatDistance(ref.distanceKm, unitSystem)}
+                theme={theme}
+              />
+            )}
+            {ref.durationMinutes ? (
+              <StatChip
+                icon="clock"
+                value={`${ref.durationMinutes}m`}
+                theme={theme}
+              />
+            ) : null}
             {ref.paceMinPerKm != null ? (
               <StatChip
                 icon="trending-up"
@@ -117,17 +216,37 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitS
       )}
 
       {post.postType === "meal" && ref && (
-        <View style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h4" style={{ marginBottom: 4 }}>{ref.foodName || "Meal"}</ThemedText>
+        <View
+          style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}
+        >
+          <ThemedText type="h4" style={{ marginBottom: 4 }}>
+            {ref.foodName || "Meal"}
+          </ThemedText>
           <View style={styles.statsRow}>
-            {ref.calories != null && <StatChip icon="zap" value={`${ref.calories} cal`} theme={theme} />}
-            {ref.protein != null && <StatChip icon="target" value={`${ref.protein}g P`} theme={theme} />}
+            {ref.calories != null && (
+              <StatChip
+                icon="zap"
+                value={`${ref.calories} cal`}
+                theme={theme}
+              />
+            )}
+            {ref.protein != null && (
+              <StatChip
+                icon="target"
+                value={`${ref.protein}g P`}
+                theme={theme}
+              />
+            )}
           </View>
         </View>
       )}
 
       <View style={styles.postActions}>
-        <Pressable onPress={() => onLike(post)} style={styles.actionBtn} hitSlop={8}>
+        <Pressable
+          onPress={() => onLike(post)}
+          style={styles.actionBtn}
+          hitSlop={8}
+        >
           <Feather
             name="heart"
             size={18}
@@ -138,8 +257,17 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitS
             {post.likesCount > 0 ? post.likesCount : null}
           </ThemedText>
         </Pressable>
-        <Pressable onPress={() => onPress(post)} style={styles.actionBtn} hitSlop={8}>
-          <Feather name="message-circle" size={18} color={theme.textSecondary} style={{ opacity: 0.6 }} />
+        <Pressable
+          onPress={() => onPress(post)}
+          style={styles.actionBtn}
+          hitSlop={8}
+        >
+          <Feather
+            name="message-circle"
+            size={18}
+            color={theme.textSecondary}
+            style={{ opacity: 0.6 }}
+          />
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
             {post.commentsCount > 0 ? post.commentsCount : null}
           </ThemedText>
@@ -149,11 +277,21 @@ function PostCard({ post, onLike, onPress, onMorePress, theme, serverTime, unitS
   );
 }
 
-function StatChip({ icon, value, theme }: { icon: keyof typeof Feather.glyphMap; value: string; theme: any }) {
+function StatChip({
+  icon,
+  value,
+  theme,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  value: string;
+  theme: any;
+}) {
   return (
     <View style={styles.statChip}>
       <Feather name={icon} size={12} color={theme.textSecondary} />
-      <ThemedText type="caption" style={{ color: theme.textSecondary }}>{value}</ThemedText>
+      <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+        {value}
+      </ThemedText>
     </View>
   );
 }
@@ -198,7 +336,10 @@ export default function SocialFeedScreen() {
           <Feather name="bell" size={22} color={theme.text} />
           {unreadCount > 0 && (
             <View style={styles.headerBadge}>
-              <ThemedText type="caption" style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}>
+              <ThemedText
+                type="caption"
+                style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}
+              >
                 {unreadCount > 99 ? "99+" : unreadCount}
               </ThemedText>
             </View>
@@ -216,7 +357,10 @@ export default function SocialFeedScreen() {
   const loadData = async () => {
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
-      const [result, count] = await Promise.all([loadFeed(), getUnreadCountApi()]);
+      const [result, count] = await Promise.all([
+        loadFeed(),
+        getUnreadCountApi(),
+      ]);
       setPosts(result.posts);
       setNextCursor(result.nextCursor);
       setServerTime(result.serverTime);
@@ -233,14 +377,22 @@ export default function SocialFeedScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => { loadData(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, []),
+  );
 
   // Drop deleted posts immediately when emitted from PostDetailScreen,
   // so navigating back doesn't show a row that no longer exists on the
   // server. Subscriber lives for the lifetime of the screen.
-  React.useEffect(() => onPostDeleted((postId) => {
-    setPosts(prev => prev.filter(p => p.id !== postId));
-  }), []);
+  React.useEffect(
+    () =>
+      onPostDeleted((postId) => {
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+      }),
+    [],
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -259,7 +411,7 @@ export default function SocialFeedScreen() {
     setLoadingMore(true);
     try {
       const result = await loadFeed(nextCursor);
-      setPosts(prev => {
+      setPosts((prev) => {
         // Dedupe by id — if the feed cursor re-emits a post the user
         // already has (e.g. follow / unfollow churn while paginating),
         // a blind append would render the same row twice.
@@ -279,18 +431,32 @@ export default function SocialFeedScreen() {
     // (e.g. user double-likes B while A is still in-flight) — so we only
     // touch the one post on rollback too.
     const wasLiked = post.likedByMe;
-    setPosts(prev => prev.map(p =>
-      p.id === post.id
-        ? { ...p, likedByMe: !p.likedByMe, likesCount: p.likedByMe ? p.likesCount - 1 : p.likesCount + 1 }
-        : p
-    ));
-    const ok = wasLiked ? await unlikePostApi(post.id) : await likePostApi(post.id);
-    if (!ok) {
-      setPosts(prev => prev.map(p =>
+    setPosts((prev) =>
+      prev.map((p) =>
         p.id === post.id
-          ? { ...p, likedByMe: wasLiked, likesCount: wasLiked ? p.likesCount + 1 : p.likesCount - 1 }
-          : p
-      ));
+          ? {
+              ...p,
+              likedByMe: !p.likedByMe,
+              likesCount: p.likedByMe ? p.likesCount - 1 : p.likesCount + 1,
+            }
+          : p,
+      ),
+    );
+    const ok = wasLiked
+      ? await unlikePostApi(post.id)
+      : await likePostApi(post.id);
+    if (!ok) {
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === post.id
+            ? {
+                ...p,
+                likedByMe: wasLiked,
+                likesCount: wasLiked ? p.likesCount + 1 : p.likesCount - 1,
+              }
+            : p,
+        ),
+      );
     }
   };
 
@@ -313,7 +479,7 @@ export default function SocialFeedScreen() {
             destructive: true,
             onPress: async () => {
               await blockUserApi(post.userId);
-              setPosts(prev => prev.filter(p => p.userId !== post.userId));
+              setPosts((prev) => prev.filter((p) => p.userId !== post.userId));
               webSafeAlert("Blocked", `${post.authorName} has been blocked.`);
             },
           },
@@ -327,7 +493,10 @@ export default function SocialFeedScreen() {
         options: [
           { label: "Spam", onPress: () => reportWith("spam") },
           { label: "Harassment", onPress: () => reportWith("harassment") },
-          { label: "Inappropriate", onPress: () => reportWith("inappropriate") },
+          {
+            label: "Inappropriate",
+            onPress: () => reportWith("inappropriate"),
+          },
           { label: "Cancel", cancel: true },
         ],
       });
@@ -344,7 +513,12 @@ export default function SocialFeedScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight },
+        ]}
+      >
         <SkeletonLoader variant="card" count={3} />
       </View>
     );
@@ -352,12 +526,37 @@ export default function SocialFeedScreen() {
 
   if (error) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight, alignItems: "center", justifyContent: "center" }]}>
-        <Feather name="alert-circle" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
-        <ThemedText type="body" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <Feather
+          name="alert-circle"
+          size={48}
+          color={theme.textSecondary}
+          style={{ opacity: 0.4, marginBottom: Spacing.lg }}
+        />
+        <ThemedText
+          type="body"
+          style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}
+        >
           Could not load feed.
         </ThemedText>
-        <Button onPress={() => { setError(false); hasLoadedRef.current = false; loadData(); }} variant="outline">
+        <Button
+          onPress={() => {
+            setError(false);
+            hasLoadedRef.current = false;
+            loadData();
+          }}
+          variant="outline"
+        >
           Retry
         </Button>
       </View>
@@ -380,10 +579,19 @@ export default function SocialFeedScreen() {
       >
         <AnimatedPress
           onPress={() => navigation.navigate("UserSearch")}
-          style={[styles.searchBtn, { backgroundColor: theme.backgroundDefault, borderColor: theme.border, flex: 1 }]}
+          style={[
+            styles.searchBtn,
+            {
+              backgroundColor: theme.backgroundDefault,
+              borderColor: theme.border,
+              flex: 1,
+            },
+          ]}
         >
           <Feather name="search" size={16} color={theme.textSecondary} />
-          <ThemedText type="body" style={{ color: theme.textSecondary }}>Find people...</ThemedText>
+          <ThemedText type="body" style={{ color: theme.textSecondary }}>
+            Find people...
+          </ThemedText>
         </AnimatedPress>
       </View>
       <FlatList
@@ -403,20 +611,40 @@ export default function SocialFeedScreen() {
             post={item}
             onLike={handleLike}
             onPress={handlePostPress}
-            onMorePress={user && item.userId !== Number(user.id) ? handleMorePress : undefined}
+            onMorePress={
+              user && item.userId !== Number(user.id)
+                ? handleMorePress
+                : undefined
+            }
             theme={theme}
             serverTime={serverTime}
             unitSystem={unitSystem}
           />
         )}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.textSecondary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.textSecondary}
+          />
+        }
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Feather name="users" size={48} color={theme.textSecondary} style={{ opacity: 0.3, marginBottom: Spacing.lg }} />
-            <ThemedText type="h3" style={{ marginBottom: Spacing.sm }}>No posts yet</ThemedText>
-            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+            <Feather
+              name="users"
+              size={48}
+              color={theme.textSecondary}
+              style={{ opacity: 0.3, marginBottom: Spacing.lg }}
+            />
+            <ThemedText type="h3" style={{ marginBottom: Spacing.sm }}>
+              No posts yet
+            </ThemedText>
+            <ThemedText
+              type="body"
+              style={{ color: theme.textSecondary, textAlign: "center" }}
+            >
               Follow other users or create your first post to get started.
             </ThemedText>
           </View>
@@ -425,7 +653,10 @@ export default function SocialFeedScreen() {
 
       <AnimatedPress
         onPress={() => navigation.navigate("CreatePost", undefined)}
-        style={[styles.fab, { backgroundColor: Colors.light.primary, bottom: insets.bottom + 80 }]}
+        style={[
+          styles.fab,
+          { backgroundColor: Colors.light.primary, bottom: insets.bottom + 80 },
+        ]}
       >
         <Feather name="plus" size={24} color="#fff" />
       </AnimatedPress>

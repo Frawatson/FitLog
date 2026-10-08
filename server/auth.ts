@@ -2,7 +2,18 @@ import { Router, Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
-import { getUserByEmail, getUserById, createUser, updateUserProfile, deleteUser, pool, createPasswordResetCode, verifyPasswordResetCode, markResetCodeUsed, updateUserPassword } from "./db";
+import {
+  getUserByEmail,
+  getUserById,
+  createUser,
+  updateUserProfile,
+  deleteUser,
+  pool,
+  createPasswordResetCode,
+  verifyPasswordResetCode,
+  markResetCodeUsed,
+  updateUserPassword,
+} from "./db";
 import { Resend } from "resend";
 
 declare module "express-session" {
@@ -41,21 +52,36 @@ export const authLimiter = rateLimit({
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Password strength validation
-function validatePassword(password: string): { valid: boolean; message: string } {
+function validatePassword(password: string): {
+  valid: boolean;
+  message: string;
+} {
   if (password.length < 8) {
     return { valid: false, message: "Password must be at least 8 characters" };
   }
   if (!/[A-Z]/.test(password)) {
-    return { valid: false, message: "Password must contain at least one uppercase letter" };
+    return {
+      valid: false,
+      message: "Password must contain at least one uppercase letter",
+    };
   }
   if (!/[a-z]/.test(password)) {
-    return { valid: false, message: "Password must contain at least one lowercase letter" };
+    return {
+      valid: false,
+      message: "Password must contain at least one lowercase letter",
+    };
   }
   if (!/[0-9]/.test(password)) {
-    return { valid: false, message: "Password must contain at least one number" };
+    return {
+      valid: false,
+      message: "Password must contain at least one number",
+    };
   }
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-    return { valid: false, message: "Password must contain at least one special character" };
+    return {
+      valid: false,
+      message: "Password must contain at least one special character",
+    };
   }
   return { valid: true, message: "" };
 }
@@ -69,7 +95,8 @@ const LOCKOUT_DURATION_MINUTES = 15;
 // stranded at MAX_FAILED_ATTEMPTS after one bad attempt long ago.
 async function recordFailedAttempt(email: string): Promise<void> {
   try {
-    await pool.query(`
+    await pool.query(
+      `
       INSERT INTO login_attempts (email, attempt_count, last_attempt_at)
       VALUES ($1, 1, NOW())
       ON CONFLICT (email) DO UPDATE SET
@@ -79,7 +106,9 @@ async function recordFailedAttempt(email: string): Promise<void> {
           ELSE login_attempts.attempt_count + 1
         END,
         last_attempt_at = NOW()
-    `, [email.toLowerCase(), String(LOCKOUT_DURATION_MINUTES)]);
+    `,
+      [email.toLowerCase(), String(LOCKOUT_DURATION_MINUTES)],
+    );
   } catch (error) {
     console.error("Error recording failed attempt:", error);
   }
@@ -88,39 +117,48 @@ async function recordFailedAttempt(email: string): Promise<void> {
 // Clear failed attempts on successful login
 async function clearFailedAttempts(email: string): Promise<void> {
   try {
-    await pool.query("DELETE FROM login_attempts WHERE email = $1", [email.toLowerCase()]);
+    await pool.query("DELETE FROM login_attempts WHERE email = $1", [
+      email.toLowerCase(),
+    ]);
   } catch (error) {
     console.error("Error clearing failed attempts:", error);
   }
 }
 
 // Check if account is locked
-async function isAccountLocked(email: string): Promise<{ locked: boolean; remainingMinutes: number }> {
+async function isAccountLocked(
+  email: string,
+): Promise<{ locked: boolean; remainingMinutes: number }> {
   try {
-    const result = await pool.query(`
+    const result = await pool.query(
+      `
       SELECT attempt_count, last_attempt_at 
       FROM login_attempts 
       WHERE email = $1
-    `, [email.toLowerCase()]);
-    
+    `,
+      [email.toLowerCase()],
+    );
+
     if (result.rows.length === 0) {
       return { locked: false, remainingMinutes: 0 };
     }
-    
+
     const { attempt_count, last_attempt_at } = result.rows[0];
     const lockoutEnd = new Date(last_attempt_at);
     lockoutEnd.setMinutes(lockoutEnd.getMinutes() + LOCKOUT_DURATION_MINUTES);
-    
+
     if (attempt_count >= MAX_FAILED_ATTEMPTS && new Date() < lockoutEnd) {
-      const remainingMinutes = Math.ceil((lockoutEnd.getTime() - Date.now()) / 60000);
+      const remainingMinutes = Math.ceil(
+        (lockoutEnd.getTime() - Date.now()) / 60000,
+      );
       return { locked: true, remainingMinutes };
     }
-    
+
     // If lockout period has passed, clear the attempts
     if (attempt_count >= MAX_FAILED_ATTEMPTS && new Date() >= lockoutEnd) {
       await clearFailedAttempts(email);
     }
-    
+
     return { locked: false, remainingMinutes: 0 };
   } catch (error) {
     console.error("Error checking account lock:", error);
@@ -152,13 +190,15 @@ async function getUserIdFromToken(token: string): Promise<number | null> {
 
   const result = await pool.query(
     "SELECT password_changed_at FROM users WHERE id = $1",
-    [decoded.userId]
+    [decoded.userId],
   );
   if (result.rows.length === 0) return null;
 
   const { password_changed_at } = result.rows[0];
   if (password_changed_at) {
-    const changedAtSeconds = Math.floor(new Date(password_changed_at).getTime() / 1000);
+    const changedAtSeconds = Math.floor(
+      new Date(password_changed_at).getTime() / 1000,
+    );
     if (decoded.iat < changedAtSeconds) {
       return null;
     }
@@ -180,15 +220,17 @@ async function getUserIdFromRequest(req: Request): Promise<number | null> {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
-  getUserIdFromRequest(req).then(userId => {
-    if (!userId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-    (req as any).userId = userId;
-    next();
-  }).catch(() => {
-    res.status(401).json({ error: "Authentication required" });
-  });
+  getUserIdFromRequest(req)
+    .then((userId) => {
+      if (!userId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      (req as any).userId = userId;
+      next();
+    })
+    .catch(() => {
+      res.status(401).json({ error: "Authentication required" });
+    });
 }
 
 // Registration uses an email-confirmation flow so /register cannot be used
@@ -206,7 +248,9 @@ interface RegisterConfirmPayload {
   name: string;
 }
 
-function signRegisterConfirmToken(payload: Omit<RegisterConfirmPayload, "type">): string {
+function signRegisterConfirmToken(
+  payload: Omit<RegisterConfirmPayload, "type">,
+): string {
   return jwt.sign(
     { type: REGISTER_CONFIRM_TOKEN_TYPE, ...payload },
     JWT_SECRET,
@@ -214,13 +258,19 @@ function signRegisterConfirmToken(payload: Omit<RegisterConfirmPayload, "type">)
   );
 }
 
-function verifyRegisterConfirmToken(token: string): RegisterConfirmPayload | null {
+function verifyRegisterConfirmToken(
+  token: string,
+): RegisterConfirmPayload | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET, {
       algorithms: [JWT_ALGORITHM],
     }) as RegisterConfirmPayload;
     if (decoded.type !== REGISTER_CONFIRM_TOKEN_TYPE) return null;
-    if (typeof decoded.email !== "string" || typeof decoded.passwordHash !== "string" || typeof decoded.name !== "string") {
+    if (
+      typeof decoded.email !== "string" ||
+      typeof decoded.passwordHash !== "string" ||
+      typeof decoded.name !== "string"
+    ) {
       return null;
     }
     return decoded;
@@ -233,12 +283,18 @@ function registerConfirmUrl(token: string): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
   // EXPO_PUBLIC_DOMAIN may be a bare host or a full URL; normalize to https.
   const base = domain
-    ? (domain.startsWith("http") ? domain : `https://${domain}`)
+    ? domain.startsWith("http")
+      ? domain
+      : `https://${domain}`
     : "http://localhost:5000";
   return `${base.replace(/\/$/, "")}/api/auth/register/confirm?token=${encodeURIComponent(token)}`;
 }
 
-async function sendRegisterConfirmEmail(email: string, name: string, token: string): Promise<void> {
+async function sendRegisterConfirmEmail(
+  email: string,
+  name: string,
+  token: string,
+): Promise<void> {
   const resendApiKey = process.env.RESEND_API_KEY;
   const url = registerConfirmUrl(token);
   if (!resendApiKey) {
@@ -267,7 +323,10 @@ async function sendRegisterConfirmEmail(email: string, name: string, token: stri
       `,
     });
   } catch (emailError) {
-    console.error("Failed to send registration confirmation email:", emailError);
+    console.error(
+      "Failed to send registration confirmation email:",
+      emailError,
+    );
   }
 }
 
@@ -333,7 +392,8 @@ function renderConfirmationPage(opts: { title: string; body: string }): string {
 const GENERIC_REGISTER_RESPONSE = {
   success: true,
   confirmationRequired: true,
-  message: "If the email is valid, a confirmation link has been sent. Check your inbox to finish creating your account.",
+  message:
+    "If the email is valid, a confirmation link has been sent. Check your inbox to finish creating your account.",
 } as const;
 
 router.post("/register", authLimiter, async (req: Request, res: Response) => {
@@ -341,15 +401,23 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
     const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(400).json({ error: "Email, password, and name are required" });
+      return res
+        .status(400)
+        .json({ error: "Email, password, and name are required" });
     }
-    if (typeof email !== "string" || typeof password !== "string" || typeof name !== "string") {
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      typeof name !== "string"
+    ) {
       return res.status(400).json({ error: "Invalid input" });
     }
 
     // Validate email format and length (RFC 5321 caps at 254).
     if (!EMAIL_REGEX.test(email) || email.length > 254) {
-      return res.status(400).json({ error: "Please enter a valid email address" });
+      return res
+        .status(400)
+        .json({ error: "Please enter a valid email address" });
     }
 
     // Validate password strength
@@ -380,7 +448,11 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
         passwordHash,
         name: normalizedName,
       });
-      sendRegisterConfirmEmail(normalizedEmail, normalizedName, confirmToken).catch(() => {});
+      sendRegisterConfirmEmail(
+        normalizedEmail,
+        normalizedName,
+        confirmToken,
+      ).catch(() => {});
     }
 
     return res.status(202).json(GENERIC_REGISTER_RESPONSE);
@@ -398,53 +470,63 @@ const registerConfirmLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.get("/register/confirm", registerConfirmLimiter, async (req: Request, res: Response) => {
-  const token = typeof req.query.token === "string" ? req.query.token : "";
-  const payload = token ? verifyRegisterConfirmToken(token) : null;
+router.get(
+  "/register/confirm",
+  registerConfirmLimiter,
+  async (req: Request, res: Response) => {
+    const token = typeof req.query.token === "string" ? req.query.token : "";
+    const payload = token ? verifyRegisterConfirmToken(token) : null;
 
-  if (!payload) {
-    return res.status(400).type("html").send(
-      renderConfirmationPage({
-        title: "Link expired",
-        body: `<p>This confirmation link is invalid or has expired. Open the Gbolo app and tap <strong>Create Account</strong> again to receive a new link.</p>`,
-      }),
-    );
-  }
-
-  try {
-    const existing = await getUserByEmail(payload.email);
-    if (!existing) {
-      try {
-        await createUser({
-          email: payload.email,
-          passwordHash: payload.passwordHash,
-          name: payload.name,
-        });
-      } catch (createError: any) {
-        // 23505 = unique_violation. Treat as "another request just created
-        // this account" — confirmation is idempotent from the user's POV.
-        if (createError?.code !== "23505") throw createError;
-      }
+    if (!payload) {
+      return res
+        .status(400)
+        .type("html")
+        .send(
+          renderConfirmationPage({
+            title: "Link expired",
+            body: `<p>This confirmation link is invalid or has expired. Open the Gbolo app and tap <strong>Create Account</strong> again to receive a new link.</p>`,
+          }),
+        );
     }
 
-    return res.type("html").send(
-      renderConfirmationPage({
-        title: "Account confirmed",
-        body: `<p>Your Gbolo Fitness and Nutrition account is ready. Sign in with your email and password to continue.</p>
+    try {
+      const existing = await getUserByEmail(payload.email);
+      if (!existing) {
+        try {
+          await createUser({
+            email: payload.email,
+            passwordHash: payload.passwordHash,
+            name: payload.name,
+          });
+        } catch (createError: any) {
+          // 23505 = unique_violation. Treat as "another request just created
+          // this account" — confirmation is idempotent from the user's POV.
+          if (createError?.code !== "23505") throw createError;
+        }
+      }
+
+      return res.type("html").send(
+        renderConfirmationPage({
+          title: "Account confirmed",
+          body: `<p>Your Gbolo Fitness and Nutrition account is ready. Sign in with your email and password to continue.</p>
                <a class="button" href="/login">Sign In</a>
                <p style="margin-top: 24px; font-size: 13px; color: #888;">Have the mobile app? Open it and sign in there instead.</p>`,
-      }),
-    );
-  } catch (error) {
-    console.error("Registration confirmation error:", error);
-    return res.status(500).type("html").send(
-      renderConfirmationPage({
-        title: "Something went wrong",
-        body: `<p>We couldn't confirm your account right now. Please try the link again in a few minutes, or contact support if the problem continues.</p>`,
-      }),
-    );
-  }
-});
+        }),
+      );
+    } catch (error) {
+      console.error("Registration confirmation error:", error);
+      return res
+        .status(500)
+        .type("html")
+        .send(
+          renderConfirmationPage({
+            title: "Something went wrong",
+            body: `<p>We couldn't confirm your account right now. Please try the link again in a few minutes, or contact support if the problem continues.</p>`,
+          }),
+        );
+    }
+  },
+);
 
 router.post("/login", authLimiter, async (req: Request, res: Response) => {
   try {
@@ -457,8 +539,8 @@ router.post("/login", authLimiter, async (req: Request, res: Response) => {
     // Check if account is locked
     const lockStatus = await isAccountLocked(email);
     if (lockStatus.locked) {
-      return res.status(429).json({ 
-        error: `Account temporarily locked. Please try again in ${lockStatus.remainingMinutes} minutes.` 
+      return res.status(429).json({
+        error: `Account temporarily locked. Please try again in ${lockStatus.remainingMinutes} minutes.`,
       });
     }
 
@@ -545,26 +627,63 @@ router.get("/me", async (req: Request, res: Response) => {
 
 router.put("/profile", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { name, age, sex, heightCm, weightKg, weightGoalKg, experience, goal, activityLevel } = req.body;
+    const {
+      name,
+      age,
+      sex,
+      heightCm,
+      weightKg,
+      weightGoalKg,
+      experience,
+      goal,
+      activityLevel,
+    } = req.body;
     const userId = (req as any).userId;
 
-    if (name !== undefined && (typeof name !== "string" || name.trim().length === 0 || name.length > 255)) {
-      return res.status(400).json({ error: "Name must be between 1 and 255 characters" });
+    if (
+      name !== undefined &&
+      (typeof name !== "string" ||
+        name.trim().length === 0 ||
+        name.length > 255)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Name must be between 1 and 255 characters" });
     }
-    if (age !== undefined && (typeof age !== "number" || age < 13 || age > 120)) {
+    if (
+      age !== undefined &&
+      (typeof age !== "number" || age < 13 || age > 120)
+    ) {
       return res.status(400).json({ error: "Age must be between 13 and 120" });
     }
     if (sex !== undefined && !["male", "female", "other"].includes(sex)) {
       return res.status(400).json({ error: "Invalid sex value" });
     }
-    if (heightCm !== undefined && (typeof heightCm !== "number" || heightCm < 50 || heightCm > 300)) {
-      return res.status(400).json({ error: "Height must be between 50 and 300 cm" });
+    if (
+      heightCm !== undefined &&
+      (typeof heightCm !== "number" || heightCm < 50 || heightCm > 300)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Height must be between 50 and 300 cm" });
     }
-    if (weightKg !== undefined && (typeof weightKg !== "number" || weightKg < 20 || weightKg > 500)) {
-      return res.status(400).json({ error: "Weight must be between 20 and 500 kg" });
+    if (
+      weightKg !== undefined &&
+      (typeof weightKg !== "number" || weightKg < 20 || weightKg > 500)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Weight must be between 20 and 500 kg" });
     }
-    if (weightGoalKg !== undefined && (typeof weightGoalKg !== "number" || weightGoalKg < 20 || weightGoalKg > 500)) {
-      return res.status(400).json({ error: "Weight goal must be between 20 and 500 kg" });
+    if (
+      weightGoalKg !== undefined &&
+      (typeof weightGoalKg !== "number" ||
+        weightGoalKg < 20 ||
+        weightGoalKg > 500)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Weight goal must be between 20 and 500 kg" });
     }
 
     const updated = await updateUserProfile(userId, {
@@ -605,37 +724,48 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
 const resetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 3,
-  message: { error: "Too many reset attempts. Please try again in 15 minutes." },
+  message: {
+    error: "Too many reset attempts. Please try again in 15 minutes.",
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-router.post("/forgot-password", resetLimiter, async (req: Request, res: Response) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
-    if (!EMAIL_REGEX.test(email)) {
-      return res.status(400).json({ error: "Please enter a valid email address" });
-    }
+router.post(
+  "/forgot-password",
+  resetLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: "Email is required" });
+      }
+      if (!EMAIL_REGEX.test(email)) {
+        return res
+          .status(400)
+          .json({ error: "Please enter a valid email address" });
+      }
 
-    const user = await getUserByEmail(email);
-    if (!user) {
-      return res.json({ success: true, message: "If an account exists with that email, a reset code has been sent." });
-    }
+      const user = await getUserByEmail(email);
+      if (!user) {
+        return res.json({
+          success: true,
+          message:
+            "If an account exists with that email, a reset code has been sent.",
+        });
+      }
 
-    const code = await createPasswordResetCode(user.id);
+      const code = await createPasswordResetCode(user.id);
 
-    const resendApiKey = process.env.RESEND_API_KEY;
-    if (resendApiKey) {
-      try {
-        const resend = new Resend(resendApiKey);
-        await resend.emails.send({
-          from: "Gbolo Fitness and Nutrition <support@gbolo.fit>",
-          to: [email.toLowerCase()],
-          subject: "Your Gbolo Password Reset Code",
-          html: `
+      const resendApiKey = process.env.RESEND_API_KEY;
+      if (resendApiKey) {
+        try {
+          const resend = new Resend(resendApiKey);
+          await resend.emails.send({
+            from: "Gbolo Fitness and Nutrition <support@gbolo.fit>",
+            to: [email.toLowerCase()],
+            subject: "Your Gbolo Password Reset Code",
+            html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
               <h2 style="color: #1A1A1A; font-size: 20px;">Password Reset</h2>
               <p style="color: #333; line-height: 1.6;">You requested a password reset. Enter this code in the app:</p>
@@ -645,70 +775,85 @@ router.post("/forgot-password", resetLimiter, async (req: Request, res: Response
               <p style="color: #666; font-size: 14px;">This code expires in 15 minutes. If you didn't request this, you can safely ignore this email.</p>
             </div>
           `,
-        });
-      } catch (emailError) {
-        console.error("Failed to send reset email:", emailError);
+          });
+        } catch (emailError) {
+          console.error("Failed to send reset email:", emailError);
+        }
+      } else {
+        console.log(`[DEV] Password reset code for ${email}: ${code}`);
       }
-    } else {
-      console.log(`[DEV] Password reset code for ${email}: ${code}`);
+
+      res.json({
+        success: true,
+        message:
+          "If an account exists with that email, a reset code has been sent.",
+      });
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process reset request" });
     }
+  },
+);
 
-    res.json({ success: true, message: "If an account exists with that email, a reset code has been sent." });
-  } catch (error) {
-    console.error("Forgot password error:", error);
-    res.status(500).json({ error: "Failed to process reset request" });
-  }
-});
+router.post(
+  "/reset-password",
+  resetLimiter,
+  async (req: Request, res: Response) => {
+    try {
+      const { email, code, newPassword } = req.body;
+      if (!email || !code || !newPassword) {
+        return res
+          .status(400)
+          .json({ error: "Email, code, and new password are required" });
+      }
 
-router.post("/reset-password", resetLimiter, async (req: Request, res: Response) => {
-  try {
-    const { email, code, newPassword } = req.body;
-    if (!email || !code || !newPassword) {
-      return res.status(400).json({ error: "Email, code, and new password are required" });
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
+        return res.status(400).json({ error: passwordValidation.message });
+      }
+
+      const verification = await verifyPasswordResetCode(email, code);
+      if (!verification.valid || !verification.userId) {
+        return res.status(400).json({ error: "Invalid or expired reset code" });
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+      await updateUserPassword(verification.userId, passwordHash);
+      await markResetCodeUsed(email, code);
+      await clearFailedAttempts(email);
+
+      await pool.query(
+        "DELETE FROM session WHERE (sess::jsonb)->>'userId' = $1",
+        [String(verification.userId)],
+      );
+
+      res.json({
+        success: true,
+        message: "Password has been reset successfully",
+      });
+    } catch (error) {
+      console.error("Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
     }
-
-    const passwordValidation = validatePassword(newPassword);
-    if (!passwordValidation.valid) {
-      return res.status(400).json({ error: passwordValidation.message });
-    }
-
-    const verification = await verifyPasswordResetCode(email, code);
-    if (!verification.valid || !verification.userId) {
-      return res.status(400).json({ error: "Invalid or expired reset code" });
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, 12);
-    await updateUserPassword(verification.userId, passwordHash);
-    await markResetCodeUsed(email, code);
-    await clearFailedAttempts(email);
-
-    await pool.query(
-      "DELETE FROM session WHERE (sess::jsonb)->>'userId' = $1",
-      [String(verification.userId)],
-    );
-
-    res.json({ success: true, message: "Password has been reset successfully" });
-  } catch (error) {
-    console.error("Reset password error:", error);
-    res.status(500).json({ error: "Failed to reset password" });
-  }
-});
+  },
+);
 
 router.delete("/account", requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    
+
     const deleted = await deleteUser(userId);
-    
+
     if (!deleted) {
       return res.status(404).json({ error: "User not found" });
     }
-    
+
     req.session.destroy((err) => {
-      if (err) console.error("Session destroy failed during account delete:", err);
+      if (err)
+        console.error("Session destroy failed during account delete:", err);
     });
     res.clearCookie("connect.sid");
-    
+
     res.json({ success: true, message: "Account deleted successfully" });
   } catch (error) {
     console.error("Delete account error:", error);

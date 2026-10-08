@@ -21,13 +21,10 @@ export function SegmentedControl({
   onChange,
 }: SegmentedControlProps) {
   const { theme } = useTheme();
-  
+
   return (
     <View
-      style={[
-        styles.container,
-        { backgroundColor: theme.backgroundDefault },
-      ]}
+      style={[styles.container, { backgroundColor: theme.backgroundDefault }]}
     >
       {options.map((option, index) => {
         const isSelected = index === selectedIndex;

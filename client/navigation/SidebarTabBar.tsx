@@ -12,7 +12,11 @@ export const SIDEBAR_WIDTH = 240;
 // Vertical sidebar that replaces the bottom tab bar on desktop web. Receives
 // the same BottomTabBarProps the default bar gets, so navigation state and
 // dispatch flow through unchanged — only the visual is different.
-export function SidebarTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function SidebarTabBar({
+  state,
+  descriptors,
+  navigation,
+}: BottomTabBarProps) {
   const { theme } = useTheme();
 
   return (
@@ -20,7 +24,10 @@ export function SidebarTabBar({ state, descriptors, navigation }: BottomTabBarPr
       accessibilityRole={"tablist" as any}
       style={[
         styles.container,
-        { backgroundColor: theme.backgroundCard, borderRightColor: theme.border },
+        {
+          backgroundColor: theme.backgroundCard,
+          borderRightColor: theme.border,
+        },
       ]}
     >
       <View style={styles.header}>
@@ -29,15 +36,20 @@ export function SidebarTabBar({ state, descriptors, navigation }: BottomTabBarPr
         </ThemedText>
       </View>
 
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+      <ScrollView
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+      >
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const label =
             typeof options.tabBarLabel === "string"
               ? options.tabBarLabel
-              : options.title ?? route.name;
+              : (options.title ?? route.name);
           const isActive = state.index === index;
-          const iconColor = isActive ? Colors.light.primary : theme.tabIconDefault;
+          const iconColor = isActive
+            ? Colors.light.primary
+            : theme.tabIconDefault;
 
           // Mirror the default bottom-tabs behavior for "press while active":
           // emit a tabPress event so nested stacks can pop to top.
@@ -65,14 +77,20 @@ export function SidebarTabBar({ state, descriptors, navigation }: BottomTabBarPr
                   backgroundColor: isActive
                     ? Colors.light.primary + "1A"
                     : hovered || pressed
-                    ? theme.backgroundDefault
-                    : "transparent",
+                      ? theme.backgroundDefault
+                      : "transparent",
                 },
               ]}
             >
-              {options.tabBarIcon
-                ? options.tabBarIcon({ focused: isActive, color: iconColor, size: 22 })
-                : <Feather name="circle" size={22} color={iconColor} />}
+              {options.tabBarIcon ? (
+                options.tabBarIcon({
+                  focused: isActive,
+                  color: iconColor,
+                  size: 22,
+                })
+              ) : (
+                <Feather name="circle" size={22} color={iconColor} />
+              )}
               <ThemedText
                 type="body"
                 style={{

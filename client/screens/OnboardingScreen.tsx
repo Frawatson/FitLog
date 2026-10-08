@@ -16,14 +16,26 @@ import { SegmentedControl } from "@/components/SegmentedControl";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { UserProfile, Sex, TrainingExperience, FitnessGoal, ActivityLevel, MacroTargets, UnitSystem } from "@/types";
+import type {
+  UserProfile,
+  Sex,
+  TrainingExperience,
+  FitnessGoal,
+  ActivityLevel,
+  MacroTargets,
+  UnitSystem,
+} from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { lbsToKg, feetInchesToCm, kgToLbs, cmToFeetInches } from "@/lib/units";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const GOALS: { value: FitnessGoal; label: string; icon: keyof typeof Feather.glyphMap }[] = [
+const GOALS: {
+  value: FitnessGoal;
+  label: string;
+  icon: keyof typeof Feather.glyphMap;
+}[] = [
   { value: "lose_fat", label: "Lose Fat", icon: "trending-down" },
   { value: "gain_muscle", label: "Gain Muscle", icon: "trending-up" },
   { value: "recomposition", label: "Recomposition", icon: "refresh-cw" },
@@ -35,7 +47,7 @@ export default function OnboardingScreen() {
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
   const { user, register, updateProfile } = useAuth();
-  
+
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -57,19 +69,19 @@ export default function OnboardingScreen() {
   const [macros, setMacros] = useState<MacroTargets | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  
+
   const needsAccountCreation = !user;
-  
+
   // Skip step 1 entirely if user is already logged in - go directly to step 2
   useEffect(() => {
     if (user && step === 1) {
       setStep(2);
     }
   }, [user, step]);
-  
+
   const handleNext = async () => {
     setError("");
-    
+
     if (step === 1 && needsAccountCreation) {
       if (!name.trim()) {
         setError("Please enter your name");
@@ -103,7 +115,7 @@ export default function OnboardingScreen() {
         setError("Passwords do not match");
         return;
       }
-      
+
       setLoading(true);
       try {
         const result = await register(email.trim(), password, name.trim());
@@ -111,10 +123,8 @@ export default function OnboardingScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         // The server sent a confirmation email; the user finishes onboarding
         // only after confirming and signing in. Send them to Login.
-        webSafeAlert(
-          "Check your email",
-          result.message,
-          () => navigation.replace("Login"),
+        webSafeAlert("Check your email", result.message, () =>
+          navigation.replace("Login"),
         );
         return;
       } catch (err: any) {
@@ -123,19 +133,29 @@ export default function OnboardingScreen() {
         return;
       }
     }
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (step === 4) {
-      const computedHeightCm = unitSystem === "imperial" 
-        ? feetInchesToCm(parseInt(heightFeet) || 0, parseInt(heightInches) || 0)
-        : parseInt(heightCm) || 170;
-      const computedWeightKg = unitSystem === "imperial"
-        ? lbsToKg(parseFloat(weightLbs) || 0)
-        : parseFloat(weightKg) || 70;
-      const computedWeightGoalKg = unitSystem === "imperial"
-        ? (weightGoalLbs ? lbsToKg(parseFloat(weightGoalLbs)) : undefined)
-        : (weightGoalKg ? parseFloat(weightGoalKg) : undefined);
-      
+      const computedHeightCm =
+        unitSystem === "imperial"
+          ? feetInchesToCm(
+              parseInt(heightFeet) || 0,
+              parseInt(heightInches) || 0,
+            )
+          : parseInt(heightCm) || 170;
+      const computedWeightKg =
+        unitSystem === "imperial"
+          ? lbsToKg(parseFloat(weightLbs) || 0)
+          : parseFloat(weightKg) || 70;
+      const computedWeightGoalKg =
+        unitSystem === "imperial"
+          ? weightGoalLbs
+            ? lbsToKg(parseFloat(weightGoalLbs))
+            : undefined
+          : weightGoalKg
+            ? parseFloat(weightGoalKg)
+            : undefined;
+
       const profile: UserProfile = {
         id: uuidv4(),
         name: name.trim() || user?.name || "User",
@@ -157,20 +177,27 @@ export default function OnboardingScreen() {
     }
     setStep(step + 1);
   };
-  
+
   const handleFinish = async () => {
     setLoading(true);
-    
-    const computedHeightCm = unitSystem === "imperial" 
-      ? feetInchesToCm(parseInt(heightFeet) || 0, parseInt(heightInches) || 0)
-      : parseInt(heightCm) || 170;
-    const computedWeightKg = unitSystem === "imperial"
-      ? lbsToKg(parseFloat(weightLbs) || 0)
-      : parseFloat(weightKg) || 70;
-    const computedWeightGoalKg = unitSystem === "imperial"
-      ? (weightGoalLbs ? lbsToKg(parseFloat(weightGoalLbs)) : undefined)
-      : (weightGoalKg ? parseFloat(weightGoalKg) : undefined);
-    
+
+    const computedHeightCm =
+      unitSystem === "imperial"
+        ? feetInchesToCm(parseInt(heightFeet) || 0, parseInt(heightInches) || 0)
+        : parseInt(heightCm) || 170;
+    const computedWeightKg =
+      unitSystem === "imperial"
+        ? lbsToKg(parseFloat(weightLbs) || 0)
+        : parseFloat(weightKg) || 70;
+    const computedWeightGoalKg =
+      unitSystem === "imperial"
+        ? weightGoalLbs
+          ? lbsToKg(parseFloat(weightGoalLbs))
+          : undefined
+        : weightGoalKg
+          ? parseFloat(weightGoalKg)
+          : undefined;
+
     try {
       await updateProfile({
         name: name.trim() || user?.name,
@@ -186,7 +213,7 @@ export default function OnboardingScreen() {
     } catch (err) {
       console.log("Failed to update profile in database:", err);
     }
-    
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     const profile: UserProfile = {
       id: uuidv4(),
@@ -218,24 +245,31 @@ export default function OnboardingScreen() {
       routes: [{ name: "Main" }],
     });
   };
-  
+
   const renderStep1 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
         {needsAccountCreation ? "Create Your Account" : "Welcome Back"}
       </ThemedText>
       <ThemedText type="body" style={styles.stepDescription}>
-        {needsAccountCreation ? "Set up your login credentials" : "Let's complete your profile setup"}
+        {needsAccountCreation
+          ? "Set up your login credentials"
+          : "Let's complete your profile setup"}
       </ThemedText>
-      
+
       {error ? (
-        <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+        <View
+          style={[
+            styles.errorBox,
+            { backgroundColor: Colors.light.error + "20" },
+          ]}
+        >
           <ThemedText type="small" style={{ color: Colors.light.error }}>
             {error}
           </ThemedText>
         </View>
       ) : null}
-      
+
       {needsAccountCreation ? (
         <>
           <Input
@@ -245,7 +279,7 @@ export default function OnboardingScreen() {
             onChangeText={setName}
             autoCapitalize="words"
           />
-          
+
           <Input
             label="Email"
             placeholder="john@example.com"
@@ -254,7 +288,7 @@ export default function OnboardingScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          
+
           <Input
             label="Password"
             placeholder="Create a password (min 8 characters)"
@@ -262,7 +296,7 @@ export default function OnboardingScreen() {
             onChangeText={setPassword}
             secureTextEntry
           />
-          
+
           <Input
             label="Confirm Password"
             placeholder="Confirm your password"
@@ -273,7 +307,9 @@ export default function OnboardingScreen() {
         </>
       ) : (
         <View style={styles.welcomeBack}>
-          <View style={[styles.avatar, { backgroundColor: Colors.light.primary }]}>
+          <View
+            style={[styles.avatar, { backgroundColor: Colors.light.primary }]}
+          >
             <Feather name="user" size={40} color="#FFFFFF" />
           </View>
           <ThemedText type="h3" style={{ marginTop: Spacing.md }}>
@@ -286,7 +322,7 @@ export default function OnboardingScreen() {
       )}
     </View>
   );
-  
+
   const renderStep2 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
@@ -295,7 +331,7 @@ export default function OnboardingScreen() {
       <ThemedText type="body" style={styles.stepDescription}>
         This helps us calculate your targets
       </ThemedText>
-      
+
       <ThemedText type="small" style={styles.fieldLabel}>
         Unit System
       </ThemedText>
@@ -304,9 +340,9 @@ export default function OnboardingScreen() {
         selectedIndex={unitSystem === "imperial" ? 0 : 1}
         onChange={(index) => setUnitSystem(index === 0 ? "imperial" : "metric")}
       />
-      
+
       <View style={styles.spacer} />
-      
+
       <Input
         label="Age"
         placeholder="25"
@@ -314,7 +350,7 @@ export default function OnboardingScreen() {
         value={age}
         onChangeText={setAge}
       />
-      
+
       <ThemedText type="small" style={styles.fieldLabel}>
         Sex
       </ThemedText>
@@ -323,9 +359,9 @@ export default function OnboardingScreen() {
         selectedIndex={sex === "male" ? 0 : 1}
         onChange={(index) => setSex(index === 0 ? "male" : "female")}
       />
-      
+
       <View style={styles.spacer} />
-      
+
       {unitSystem === "imperial" ? (
         <View style={styles.heightRow}>
           <View style={styles.heightInput}>
@@ -356,7 +392,7 @@ export default function OnboardingScreen() {
           onChangeText={setHeightCm}
         />
       )}
-      
+
       {unitSystem === "imperial" ? (
         <>
           <Input
@@ -366,7 +402,7 @@ export default function OnboardingScreen() {
             value={weightLbs}
             onChangeText={setWeightLbs}
           />
-          
+
           <Input
             label="Goal Weight (lbs)"
             placeholder="143"
@@ -384,7 +420,7 @@ export default function OnboardingScreen() {
             value={weightKg}
             onChangeText={setWeightKg}
           />
-          
+
           <Input
             label="Goal Weight (kg)"
             placeholder="65"
@@ -394,31 +430,37 @@ export default function OnboardingScreen() {
           />
         </>
       )}
-      
+
       <ThemedText type="small" style={styles.fieldLabel}>
         Training Experience
       </ThemedText>
       <SegmentedControl
         options={["Beginner", "Intermediate", "Advanced"]}
-        selectedIndex={experience === "beginner" ? 0 : experience === "intermediate" ? 1 : 2}
+        selectedIndex={
+          experience === "beginner" ? 0 : experience === "intermediate" ? 1 : 2
+        }
         onChange={(index) =>
           setExperience(
-            index === 0 ? "beginner" : index === 1 ? "intermediate" : "advanced"
+            index === 0
+              ? "beginner"
+              : index === 1
+                ? "intermediate"
+                : "advanced",
           )
         }
       />
     </View>
   );
-  
+
   const renderStep3 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
-        What's your goal?
+        What&apos;s your goal?
       </ThemedText>
       <ThemedText type="body" style={styles.stepDescription}>
-        We'll adjust your nutrition targets accordingly
+        We&apos;ll adjust your nutrition targets accordingly
       </ThemedText>
-      
+
       <View style={styles.goalGrid}>
         {GOALS.map((g) => {
           const isSelected = goal === g.value;
@@ -459,7 +501,7 @@ export default function OnboardingScreen() {
       </View>
     </View>
   );
-  
+
   const renderStep4 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
@@ -468,7 +510,7 @@ export default function OnboardingScreen() {
       <ThemedText type="body" style={styles.stepDescription}>
         This affects your calorie targets
       </ThemedText>
-      
+
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
@@ -478,7 +520,9 @@ export default function OnboardingScreen() {
           styles.activityCard,
           {
             backgroundColor:
-              activityLevel === "1-2" ? Colors.light.primary : theme.backgroundDefault,
+              activityLevel === "1-2"
+                ? Colors.light.primary
+                : theme.backgroundDefault,
             borderColor:
               activityLevel === "1-2" ? Colors.light.primary : theme.border,
           },
@@ -502,7 +546,7 @@ export default function OnboardingScreen() {
           Light training volume
         </ThemedText>
       </Pressable>
-      
+
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
@@ -512,7 +556,9 @@ export default function OnboardingScreen() {
           styles.activityCard,
           {
             backgroundColor:
-              activityLevel === "3-4" ? Colors.light.primary : theme.backgroundDefault,
+              activityLevel === "3-4"
+                ? Colors.light.primary
+                : theme.backgroundDefault,
             borderColor:
               activityLevel === "3-4" ? Colors.light.primary : theme.border,
           },
@@ -536,7 +582,7 @@ export default function OnboardingScreen() {
           Moderate training volume
         </ThemedText>
       </Pressable>
-      
+
       <Pressable
         onPress={() => {
           Haptics.selectionAsync();
@@ -546,7 +592,9 @@ export default function OnboardingScreen() {
           styles.activityCard,
           {
             backgroundColor:
-              activityLevel === "5-6" ? Colors.light.primary : theme.backgroundDefault,
+              activityLevel === "5-6"
+                ? Colors.light.primary
+                : theme.backgroundDefault,
             borderColor:
               activityLevel === "5-6" ? Colors.light.primary : theme.border,
           },
@@ -572,7 +620,7 @@ export default function OnboardingScreen() {
       </Pressable>
     </View>
   );
-  
+
   const renderStep5 = () => (
     <View style={styles.stepContent}>
       <ThemedText type="h1" style={styles.stepTitle}>
@@ -581,28 +629,48 @@ export default function OnboardingScreen() {
       <ThemedText type="body" style={styles.stepDescription}>
         Based on your profile, here are your daily targets
       </ThemedText>
-      
+
       {macros ? (
         <View style={styles.macroGrid}>
-          <View style={[styles.macroCard, { backgroundColor: theme.backgroundDefault }]}>
+          <View
+            style={[
+              styles.macroCard,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
             <ThemedText type="h1" style={{ color: Colors.light.primary }}>
               {macros.calories}
             </ThemedText>
             <ThemedText type="small">Calories</ThemedText>
           </View>
-          <View style={[styles.macroCard, { backgroundColor: theme.backgroundDefault }]}>
+          <View
+            style={[
+              styles.macroCard,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
             <ThemedText type="h1" style={{ color: Colors.light.success }}>
               {macros.protein}g
             </ThemedText>
             <ThemedText type="small">Protein</ThemedText>
           </View>
-          <View style={[styles.macroCard, { backgroundColor: theme.backgroundDefault }]}>
+          <View
+            style={[
+              styles.macroCard,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
             <ThemedText type="h1" style={{ color: Colors.light.macroCarbs }}>
               {macros.carbs}g
             </ThemedText>
             <ThemedText type="small">Carbs</ThemedText>
           </View>
-          <View style={[styles.macroCard, { backgroundColor: theme.backgroundDefault }]}>
+          <View
+            style={[
+              styles.macroCard,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
             <ThemedText type="h1" style={{ color: Colors.light.macroFat }}>
               {macros.fat}g
             </ThemedText>
@@ -610,15 +678,17 @@ export default function OnboardingScreen() {
           </View>
         </View>
       ) : null}
-      
+
       <ThemedText type="small" style={styles.disclaimer}>
         You can adjust these targets anytime in Settings
       </ThemedText>
     </View>
   );
-  
+
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing["2xl"] }]}>
+    <ThemedView
+      style={[styles.container, { paddingTop: insets.top + Spacing["2xl"] }]}
+    >
       <View style={styles.progressContainer}>
         {[1, 2, 3, 4, 5].map((s) => (
           <View
@@ -633,7 +703,7 @@ export default function OnboardingScreen() {
           />
         ))}
       </View>
-      
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -644,8 +714,10 @@ export default function OnboardingScreen() {
         {step === 4 && renderStep4()}
         {step === 5 && renderStep5()}
       </ScrollView>
-      
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+      >
         <View style={styles.footerButtons}>
           {step > 1 ? (
             <Pressable
@@ -658,13 +730,25 @@ export default function OnboardingScreen() {
               <Feather name="arrow-left" size={24} color={theme.text} />
             </Pressable>
           ) : null}
-          
+
           {step < 5 ? (
-            <Button onPress={handleNext} disabled={loading} style={[styles.button, step > 1 ? styles.buttonWithBack : null]}>
-              {loading ? "Creating Account..." : (step === 1 && needsAccountCreation ? "Create Account & Continue" : "Next")}
+            <Button
+              onPress={handleNext}
+              disabled={loading}
+              style={[styles.button, step > 1 ? styles.buttonWithBack : null]}
+            >
+              {loading
+                ? "Creating Account..."
+                : step === 1 && needsAccountCreation
+                  ? "Create Account & Continue"
+                  : "Next"}
             </Button>
           ) : (
-            <Button onPress={handleFinish} disabled={loading} style={[styles.button, step > 1 ? styles.buttonWithBack : null]}>
+            <Button
+              onPress={handleFinish}
+              disabled={loading}
+              style={[styles.button, step > 1 ? styles.buttonWithBack : null]}
+            >
               {loading ? "Saving..." : "Start Training"}
             </Button>
           )}

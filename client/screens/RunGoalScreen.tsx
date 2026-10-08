@@ -43,17 +43,23 @@ export default function RunGoalScreen() {
     })();
   }, []);
 
-  const distanceUnitShort: "mi" | "km" = unitSystem === "imperial" ? "mi" : "km";
+  const distanceUnitShort: "mi" | "km" =
+    unitSystem === "imperial" ? "mi" : "km";
   const distanceUnitWord = unitSystem === "imperial" ? "Mile" : "Kilometer";
 
   const handleStartRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-    const goal = goalType === "free"
-      ? undefined
-      : goalType === "distance"
-        ? { type: "distance" as const, value: selectedDistance, unit: distanceUnitShort }
-        : { type: "time" as const, value: selectedTime };
+    const goal =
+      goalType === "free"
+        ? undefined
+        : goalType === "distance"
+          ? {
+              type: "distance" as const,
+              value: selectedDistance,
+              unit: distanceUnitShort,
+            }
+          : { type: "time" as const, value: selectedTime };
 
     navigation.navigate("RunTracker", { goal });
   };
@@ -62,7 +68,13 @@ export default function RunGoalScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.content, { paddingTop: headerHeight + Spacing.xl, paddingBottom: insets.bottom + Spacing.xl }]}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: headerHeight + Spacing.xl,
+            paddingBottom: insets.bottom + Spacing.xl,
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.goalTypeContainer}>
@@ -74,9 +86,13 @@ export default function RunGoalScreen() {
             style={[
               styles.goalTypeCard,
               {
-                backgroundColor: goalType === "free" ? Colors.light.primary : theme.backgroundSecondary,
-                borderColor: goalType === "free" ? Colors.light.primary : theme.border,
-              }
+                backgroundColor:
+                  goalType === "free"
+                    ? Colors.light.primary
+                    : theme.backgroundSecondary,
+                borderColor:
+                  goalType === "free" ? Colors.light.primary : theme.border,
+              },
             ]}
           >
             <Feather
@@ -86,13 +102,21 @@ export default function RunGoalScreen() {
             />
             <ThemedText
               type="h4"
-              style={[styles.goalTypeText, { color: goalType === "free" ? "#fff" : theme.text }]}
+              style={[
+                styles.goalTypeText,
+                { color: goalType === "free" ? "#fff" : theme.text },
+              ]}
             >
               Free Run
             </ThemedText>
             <ThemedText
               type="small"
-              style={{ color: goalType === "free" ? "rgba(255,255,255,0.8)" : theme.textSecondary }}
+              style={{
+                color:
+                  goalType === "free"
+                    ? "rgba(255,255,255,0.8)"
+                    : theme.textSecondary,
+              }}
             >
               No goal, just run
             </ThemedText>
@@ -107,9 +131,15 @@ export default function RunGoalScreen() {
               style={[
                 styles.goalTypeCardSmall,
                 {
-                  backgroundColor: goalType === "distance" ? Colors.light.primary : theme.backgroundSecondary,
-                  borderColor: goalType === "distance" ? Colors.light.primary : theme.border,
-                }
+                  backgroundColor:
+                    goalType === "distance"
+                      ? Colors.light.primary
+                      : theme.backgroundSecondary,
+                  borderColor:
+                    goalType === "distance"
+                      ? Colors.light.primary
+                      : theme.border,
+                },
               ]}
             >
               <Feather
@@ -119,7 +149,13 @@ export default function RunGoalScreen() {
               />
               <ThemedText
                 type="body"
-                style={[styles.goalTypeText, { color: goalType === "distance" ? "#fff" : theme.text, fontWeight: "600" }]}
+                style={[
+                  styles.goalTypeText,
+                  {
+                    color: goalType === "distance" ? "#fff" : theme.text,
+                    fontWeight: "600",
+                  },
+                ]}
               >
                 Distance
               </ThemedText>
@@ -133,9 +169,13 @@ export default function RunGoalScreen() {
               style={[
                 styles.goalTypeCardSmall,
                 {
-                  backgroundColor: goalType === "time" ? Colors.light.primary : theme.backgroundSecondary,
-                  borderColor: goalType === "time" ? Colors.light.primary : theme.border,
-                }
+                  backgroundColor:
+                    goalType === "time"
+                      ? Colors.light.primary
+                      : theme.backgroundSecondary,
+                  borderColor:
+                    goalType === "time" ? Colors.light.primary : theme.border,
+                },
               ]}
             >
               <Feather
@@ -145,7 +185,13 @@ export default function RunGoalScreen() {
               />
               <ThemedText
                 type="body"
-                style={[styles.goalTypeText, { color: goalType === "time" ? "#fff" : theme.text, fontWeight: "600" }]}
+                style={[
+                  styles.goalTypeText,
+                  {
+                    color: goalType === "time" ? "#fff" : theme.text,
+                    fontWeight: "600",
+                  },
+                ]}
               >
                 Time
               </ThemedText>
@@ -169,20 +215,33 @@ export default function RunGoalScreen() {
                   style={[
                     styles.optionButton,
                     {
-                      backgroundColor: selectedDistance === dist ? Colors.light.primary : theme.backgroundSecondary,
-                      borderColor: selectedDistance === dist ? Colors.light.primary : theme.border,
-                    }
+                      backgroundColor:
+                        selectedDistance === dist
+                          ? Colors.light.primary
+                          : theme.backgroundSecondary,
+                      borderColor:
+                        selectedDistance === dist
+                          ? Colors.light.primary
+                          : theme.border,
+                    },
                   ]}
                 >
                   <ThemedText
                     type="h3"
-                    style={{ color: selectedDistance === dist ? "#fff" : theme.text }}
+                    style={{
+                      color: selectedDistance === dist ? "#fff" : theme.text,
+                    }}
                   >
                     {dist}
                   </ThemedText>
                   <ThemedText
                     type="small"
-                    style={{ color: selectedDistance === dist ? "rgba(255,255,255,0.8)" : theme.textSecondary }}
+                    style={{
+                      color:
+                        selectedDistance === dist
+                          ? "rgba(255,255,255,0.8)"
+                          : theme.textSecondary,
+                    }}
                   >
                     {distanceUnitShort}
                   </ThemedText>
@@ -208,20 +267,33 @@ export default function RunGoalScreen() {
                   style={[
                     styles.optionButton,
                     {
-                      backgroundColor: selectedTime === time ? Colors.light.primary : theme.backgroundSecondary,
-                      borderColor: selectedTime === time ? Colors.light.primary : theme.border,
-                    }
+                      backgroundColor:
+                        selectedTime === time
+                          ? Colors.light.primary
+                          : theme.backgroundSecondary,
+                      borderColor:
+                        selectedTime === time
+                          ? Colors.light.primary
+                          : theme.border,
+                    },
                   ]}
                 >
                   <ThemedText
                     type="h3"
-                    style={{ color: selectedTime === time ? "#fff" : theme.text }}
+                    style={{
+                      color: selectedTime === time ? "#fff" : theme.text,
+                    }}
                   >
                     {time}
                   </ThemedText>
                   <ThemedText
                     type="small"
-                    style={{ color: selectedTime === time ? "rgba(255,255,255,0.8)" : theme.textSecondary }}
+                    style={{
+                      color:
+                        selectedTime === time
+                          ? "rgba(255,255,255,0.8)"
+                          : theme.textSecondary,
+                    }}
                   >
                     min
                   </ThemedText>
@@ -240,8 +312,7 @@ export default function RunGoalScreen() {
                   ? "Start Free Run"
                   : goalType === "distance"
                     ? `Start ${selectedDistance} ${distanceUnitWord}${selectedDistance === 1 ? "" : "s"} Run`
-                    : `Start ${selectedTime} Min Run`
-                }
+                    : `Start ${selectedTime} Min Run`}
               </ThemedText>
             </View>
           </Button>

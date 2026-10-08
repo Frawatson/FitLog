@@ -58,7 +58,9 @@ export default function App() {
                     documentTitle={{
                       formatter: (options, route) => {
                         const label = options?.title ?? route?.name;
-                        return label ? `${label} · Gbolo` : "Gbolo Fitness and Nutrition";
+                        return label
+                          ? `${label} · Gbolo`
+                          : "Gbolo Fitness and Nutrition";
                       },
                     }}
                   >

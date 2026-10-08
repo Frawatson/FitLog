@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { View, StyleSheet, ScrollView, TextInput, Alert, Pressable, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TextInput,
+  Alert,
+  Pressable,
+  Platform,
+} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight, HeaderButton } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { HeaderButton } from "@react-navigation/elements";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { v4 as uuidv4 } from "uuid";
@@ -18,7 +25,13 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { ExerciseInfoModal } from "@/components/ExerciseInfoModal";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Routine, Workout, WorkoutExercise, WorkoutSet, UnitSystem } from "@/types";
+import type {
+  Routine,
+  Workout,
+  WorkoutExercise,
+  WorkoutSet,
+  UnitSystem,
+} from "@/types";
 import * as storage from "@/lib/storage";
 import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -32,7 +45,7 @@ export default function ActiveWorkoutScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const { theme } = useTheme();
-  
+
   const [routine, setRoutine] = useState<Routine | null>(null);
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [startTime] = useState(new Date());
@@ -40,17 +53,19 @@ export default function ActiveWorkoutScreen() {
   const [isResting, setIsResting] = useState(false);
   const [restDuration, setRestDuration] = useState(90);
   const [showRestPicker, setShowRestPicker] = useState(false);
-  const [restingExerciseIndex, setRestingExerciseIndex] = useState<number | null>(null);
+  const [restingExerciseIndex, setRestingExerciseIndex] = useState<
+    number | null
+  >(null);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [showExerciseInfo, setShowExerciseInfo] = useState(false);
   const [selectedExerciseName, setSelectedExerciseName] = useState("");
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   useEffect(() => {
     loadUnitSystem();
     loadRestDuration();
     loadRoutine();
-    
+
     navigation.setOptions({
       headerLeft: () => (
         <HeaderButton onPress={handleCancel}>
@@ -58,14 +73,14 @@ export default function ActiveWorkoutScreen() {
         </HeaderButton>
       ),
     });
-    
+
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
     };
   }, []);
-  
+
   const loadUnitSystem = async () => {
     const profile = await storage.getUserProfile();
     if (profile?.unitSystem) {
@@ -91,11 +106,13 @@ export default function ActiveWorkoutScreen() {
     const found = routines.find((r) => r.id === route.params.routineId);
     if (found) {
       setRoutine(found);
-      
+
       // Initialize exercises with empty sets
       const workoutExercises: WorkoutExercise[] = await Promise.all(
         found.exercises.map(async (ex) => {
-          const lastSets = await storage.getLastWorkoutForExercise(ex.exerciseId);
+          const lastSets = await storage.getLastWorkoutForExercise(
+            ex.exerciseId,
+          );
           const initialSets: WorkoutSet[] = lastSets
             ? lastSets.map((s) => ({
                 id: uuidv4(),
@@ -108,26 +125,29 @@ export default function ActiveWorkoutScreen() {
                 { id: uuidv4(), weight: 0, reps: 0, completed: false },
                 { id: uuidv4(), weight: 0, reps: 0, completed: false },
               ];
-          
+
           return {
             exerciseId: ex.exerciseId,
             exerciseName: ex.exerciseName,
             sets: initialSets,
           };
-        })
+        }),
       );
-      
+
       setExercises(workoutExercises);
     }
   };
-  
+
   const handleCancel = () => {
     // Alert.alert is a no-op on react-native-web, so the X button felt
     // dead on the web build — user tapped, nothing happened. Native uses
     // the proper Alert; web falls back to window.confirm.
     const proceed = () => navigation.goBack();
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm("Cancel this workout? Progress will be lost.")) {
+      if (
+        typeof window !== "undefined" &&
+        window.confirm("Cancel this workout? Progress will be lost.")
+      ) {
         proceed();
       }
       return;
@@ -142,16 +162,21 @@ export default function ActiveWorkoutScreen() {
           style: "destructive",
           onPress: proceed,
         },
-      ]
+      ],
     );
   };
-  
+
   // Outer bounds match the TextInput maxLength (4 chars weight, 3 reps).
   // Defensive: paste / autofill could in theory bypass maxLength.
   const MAX_WEIGHT = 9999;
   const MAX_REPS = 999;
 
-  const updateSet = (exerciseIndex: number, setIndex: number, field: "weight" | "reps", value: string) => {
+  const updateSet = (
+    exerciseIndex: number,
+    setIndex: number,
+    field: "weight" | "reps",
+    value: string,
+  ) => {
     const updated = [...exercises];
     const parsed = parseInt(value, 10);
     const safe = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
@@ -159,21 +184,23 @@ export default function ActiveWorkoutScreen() {
     updated[exerciseIndex].sets[setIndex][field] = Math.min(safe, max);
     setExercises(updated);
   };
-  
+
   const toggleSetComplete = (exerciseIndex: number, setIndex: number) => {
     const updated = [...exercises];
-    updated[exerciseIndex].sets[setIndex].completed = !updated[exerciseIndex].sets[setIndex].completed;
+    updated[exerciseIndex].sets[setIndex].completed =
+      !updated[exerciseIndex].sets[setIndex].completed;
     setExercises(updated);
-    
+
     if (updated[exerciseIndex].sets[setIndex].completed) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       startRestTimer(exerciseIndex);
     }
   };
-  
+
   const addSet = (exerciseIndex: number) => {
     const updated = [...exercises];
-    const lastSet = updated[exerciseIndex].sets[updated[exerciseIndex].sets.length - 1];
+    const lastSet =
+      updated[exerciseIndex].sets[updated[exerciseIndex].sets.length - 1];
     updated[exerciseIndex].sets.push({
       id: uuidv4(),
       weight: lastSet?.weight || 0,
@@ -183,14 +210,14 @@ export default function ActiveWorkoutScreen() {
     setExercises(updated);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-  
+
   const removeSet = (exerciseIndex: number, setIndex: number) => {
     if (exercises[exerciseIndex].sets.length <= 1) return;
     const updated = [...exercises];
     updated[exerciseIndex].sets.splice(setIndex, 1);
     setExercises(updated);
   };
-  
+
   const startRestTimer = (exerciseIndex: number) => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -211,7 +238,7 @@ export default function ActiveWorkoutScreen() {
       });
     }, 1000);
   };
-  
+
   const stopRestTimer = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -220,13 +247,15 @@ export default function ActiveWorkoutScreen() {
     setRestingExerciseIndex(null);
     setRestTimer(0);
   };
-  
+
   const finishWorkout = async () => {
     if (!routine) return;
-    
+
     const endTime = new Date();
-    const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-    
+    const durationMinutes = Math.round(
+      (endTime.getTime() - startTime.getTime()) / 60000,
+    );
+
     const workout: Workout = {
       id: uuidv4(),
       routineId: routine.id,
@@ -236,23 +265,26 @@ export default function ActiveWorkoutScreen() {
       completedAt: endTime.toISOString(),
       durationMinutes,
     };
-    
+
     await storage.saveWorkout(workout);
-    
+
     // Update routine's last completed date
-    const updatedRoutine = { ...routine, lastCompletedAt: endTime.toISOString() };
+    const updatedRoutine = {
+      ...routine,
+      lastCompletedAt: endTime.toISOString(),
+    };
     await storage.saveRoutine(updatedRoutine);
-    
+
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.replace("WorkoutComplete", { workoutId: workout.id });
   };
-  
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  
+
   if (!routine) {
     return (
       <ThemedView style={[styles.container, { paddingTop: headerHeight }]}>
@@ -260,12 +292,19 @@ export default function ActiveWorkoutScreen() {
       </ThemedView>
     );
   }
-  
+
   return (
     <ThemedView style={styles.container}>
       {showRestPicker ? (
-        <View style={[styles.restPickerOverlay, { backgroundColor: theme.backgroundDefault }]}>
-          <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>Rest Duration</ThemedText>
+        <View
+          style={[
+            styles.restPickerOverlay,
+            { backgroundColor: theme.backgroundDefault },
+          ]}
+        >
+          <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
+            Rest Duration
+          </ThemedText>
           <View style={styles.restPickerRow}>
             {[30, 60, 90, 120, 180].map((seconds) => (
               <Pressable
@@ -274,9 +313,10 @@ export default function ActiveWorkoutScreen() {
                 style={[
                   styles.restPickerOption,
                   {
-                    backgroundColor: restDuration === seconds
-                      ? Colors.light.primary
-                      : theme.backgroundSecondary,
+                    backgroundColor:
+                      restDuration === seconds
+                        ? Colors.light.primary
+                        : theme.backgroundSecondary,
                   },
                 ]}
               >
@@ -292,12 +332,17 @@ export default function ActiveWorkoutScreen() {
               </Pressable>
             ))}
           </View>
-          <AnimatedPress onPress={() => setShowRestPicker(false)} style={{ marginTop: Spacing.md }}>
-            <ThemedText type="small" style={{ color: Colors.light.primary }}>Done</ThemedText>
+          <AnimatedPress
+            onPress={() => setShowRestPicker(false)}
+            style={{ marginTop: Spacing.md }}
+          >
+            <ThemedText type="small" style={{ color: Colors.light.primary }}>
+              Done
+            </ThemedText>
           </AnimatedPress>
         </View>
       ) : null}
-      
+
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -311,10 +356,16 @@ export default function ActiveWorkoutScreen() {
         <ThemedText type="h2" style={styles.routineName}>
           {routine.name}
         </ThemedText>
-        
+
         {exercises.map((exercise, exerciseIndex) => (
           <Card key={exercise.exerciseId} style={styles.exerciseCard}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: Spacing.sm,
+              }}
+            >
               <Pressable
                 onPress={() => {
                   setSelectedExerciseName(exercise.exerciseName);
@@ -325,23 +376,38 @@ export default function ActiveWorkoutScreen() {
                 <Feather name="info" size={18} color={Colors.light.primary} />
               </Pressable>
               <Pressable
-                onPress={() => navigation.navigate("ExerciseHistory", {
-                  exerciseId: exercise.exerciseId,
-                  exerciseName: exercise.exerciseName,
-                })}
+                onPress={() =>
+                  navigation.navigate("ExerciseHistory", {
+                    exerciseId: exercise.exerciseId,
+                    exerciseName: exercise.exerciseName,
+                  })
+                }
                 style={{ flex: 1 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.xs }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: Spacing.xs,
+                  }}
+                >
                   <ThemedText type="h4" style={styles.exerciseName}>
                     {exercise.exerciseName}
                   </ThemedText>
-                  <Feather name="chevron-right" size={16} color={theme.textSecondary} />
+                  <Feather
+                    name="chevron-right"
+                    size={16}
+                    color={theme.textSecondary}
+                  />
                 </View>
               </Pressable>
             </View>
-            
+
             <View style={styles.setHeader}>
-              <ThemedText type="small" style={[styles.headerCell, { flex: 0.5 }]}>
+              <ThemedText
+                type="small"
+                style={[styles.headerCell, { flex: 0.5 }]}
+              >
                 Set
               </ThemedText>
               <ThemedText type="small" style={styles.headerCell}>
@@ -352,10 +418,13 @@ export default function ActiveWorkoutScreen() {
               </ThemedText>
               <View style={{ width: 44 }} />
             </View>
-            
+
             {exercise.sets.map((set, setIndex) => (
               <View key={set.id} style={styles.setRow}>
-                <ThemedText type="body" style={[styles.setNumber, { flex: 0.5 }]}>
+                <ThemedText
+                  type="body"
+                  style={[styles.setNumber, { flex: 0.5 }]}
+                >
                   {setIndex + 1}
                 </ThemedText>
                 <TextInput
@@ -373,7 +442,9 @@ export default function ActiveWorkoutScreen() {
                   // the box and stores nonsense in the workout history.
                   maxLength={4}
                   value={set.weight > 0 ? set.weight.toString() : ""}
-                  onChangeText={(v) => updateSet(exerciseIndex, setIndex, "weight", v)}
+                  onChangeText={(v) =>
+                    updateSet(exerciseIndex, setIndex, "weight", v)
+                  }
                   placeholder="0"
                   placeholderTextColor={theme.textSecondary}
                 />
@@ -389,7 +460,9 @@ export default function ActiveWorkoutScreen() {
                   keyboardType="number-pad"
                   maxLength={3}
                   value={set.reps > 0 ? set.reps.toString() : ""}
-                  onChangeText={(v) => updateSet(exerciseIndex, setIndex, "reps", v)}
+                  onChangeText={(v) =>
+                    updateSet(exerciseIndex, setIndex, "reps", v)
+                  }
                   placeholder="0"
                   placeholderTextColor={theme.textSecondary}
                 />
@@ -412,33 +485,77 @@ export default function ActiveWorkoutScreen() {
                 </AnimatedPress>
               </View>
             ))}
-            
+
             <View style={styles.cardFooter}>
               <AnimatedPress
                 onPress={() => addSet(exerciseIndex)}
                 style={styles.addSetButton}
               >
                 <Feather name="plus" size={18} color={Colors.light.primary} />
-                <ThemedText type="small" style={{ color: Colors.light.primary, marginLeft: Spacing.xs }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    color: Colors.light.primary,
+                    marginLeft: Spacing.xs,
+                  }}
+                >
                   Add Set
                 </ThemedText>
               </AnimatedPress>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: Spacing.sm,
+                }}
+              >
                 {isResting && restingExerciseIndex === exerciseIndex ? (
-                  <View style={[styles.restTimerInline, { backgroundColor: Colors.light.primary }]}>
+                  <View
+                    style={[
+                      styles.restTimerInline,
+                      { backgroundColor: Colors.light.primary },
+                    ]}
+                  >
                     <Feather name="clock" size={14} color="#FFFFFF" />
-                    <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "700", marginLeft: Spacing.xs }}>
+                    <ThemedText
+                      type="body"
+                      style={{
+                        color: "#FFFFFF",
+                        fontWeight: "700",
+                        marginLeft: Spacing.xs,
+                      }}
+                    >
                       {formatTime(restTimer)}
                     </ThemedText>
-                    <AnimatedPress onPress={stopRestTimer} style={styles.skipButtonInline}>
-                      <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600" }}>Skip</ThemedText>
+                    <AnimatedPress
+                      onPress={stopRestTimer}
+                      style={styles.skipButtonInline}
+                    >
+                      <ThemedText
+                        type="caption"
+                        style={{ color: "#FFFFFF", fontWeight: "600" }}
+                      >
+                        Skip
+                      </ThemedText>
                     </AnimatedPress>
                   </View>
                 ) : null}
-                <AnimatedPress onPress={() => setShowRestPicker(!showRestPicker)} style={styles.restSettingsButton}>
-                  <Feather name="clock" size={18} color={Colors.light.primary} />
-                  <ThemedText type="small" style={{ color: Colors.light.primary }}>
-                    {restDuration < 60 ? `${restDuration}s` : `${restDuration / 60}m`}
+                <AnimatedPress
+                  onPress={() => setShowRestPicker(!showRestPicker)}
+                  style={styles.restSettingsButton}
+                >
+                  <Feather
+                    name="clock"
+                    size={18}
+                    color={Colors.light.primary}
+                  />
+                  <ThemedText
+                    type="small"
+                    style={{ color: Colors.light.primary }}
+                  >
+                    {restDuration < 60
+                      ? `${restDuration}s`
+                      : `${restDuration / 60}m`}
                   </ThemedText>
                 </AnimatedPress>
               </View>
@@ -446,8 +563,10 @@ export default function ActiveWorkoutScreen() {
           </Card>
         ))}
       </ScrollView>
-      
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+      >
         <Button onPress={finishWorkout} style={styles.finishButton}>
           Finish Workout
         </Button>

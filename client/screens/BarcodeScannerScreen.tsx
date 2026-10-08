@@ -1,5 +1,11 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -32,10 +38,12 @@ export default function BarcodeScannerScreen() {
   const [isLooking, setIsLooking] = useState(false);
   const scannedRef = useRef(false);
 
-  const lookupBarcode = async (barcode: string): Promise<ScannedFood | null> => {
+  const lookupBarcode = async (
+    barcode: string,
+  ): Promise<ScannedFood | null> => {
     try {
       const response = await fetch(
-        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+        `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
       );
       if (!response.ok) return null;
 
@@ -49,9 +57,13 @@ export default function BarcodeScannerScreen() {
         name: product.product_name || product.generic_name || "Unknown Product",
         brand: product.brands || undefined,
         servingSize: product.serving_size || product.quantity || undefined,
-        calories: Math.round(nutrients["energy-kcal_100g"] || nutrients["energy-kcal"] || 0),
+        calories: Math.round(
+          nutrients["energy-kcal_100g"] || nutrients["energy-kcal"] || 0,
+        ),
         protein: Math.round(nutrients.proteins_100g || nutrients.proteins || 0),
-        carbs: Math.round(nutrients.carbohydrates_100g || nutrients.carbohydrates || 0),
+        carbs: Math.round(
+          nutrients.carbohydrates_100g || nutrients.carbohydrates || 0,
+        ),
         fat: Math.round(nutrients.fat_100g || nutrients.fat || 0),
       };
     } catch {
@@ -59,7 +71,12 @@ export default function BarcodeScannerScreen() {
     }
   };
 
-  const handleBarcodeScanned = async ({ data }: { type: string; data: string }) => {
+  const handleBarcodeScanned = async ({
+    data,
+  }: {
+    type: string;
+    data: string;
+  }) => {
     if (scannedRef.current || isLooking) return;
     scannedRef.current = true;
     setIsLooking(true);
@@ -116,7 +133,10 @@ export default function BarcodeScannerScreen() {
     return (
       <View style={[styles.center, { backgroundColor: theme.backgroundRoot }]}>
         <Feather name="camera-off" size={48} color={theme.textSecondary} />
-        <ThemedText type="body" style={{ textAlign: "center", marginTop: Spacing.lg }}>
+        <ThemedText
+          type="body"
+          style={{ textAlign: "center", marginTop: Spacing.lg }}
+        >
           Camera access is needed to scan barcodes
         </ThemedText>
         <Button onPress={requestPermission} style={{ marginTop: Spacing.xl }}>

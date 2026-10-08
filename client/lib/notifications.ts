@@ -1,7 +1,11 @@
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
-import { syncToServer, syncWithRetry, isAuthenticated } from "@/lib/syncService";
+import {
+  syncToServer,
+  syncWithRetry,
+  isAuthenticated,
+} from "@/lib/syncService";
 
 const NOTIFICATION_SETTINGS_KEY = "@merge_notification_settings";
 // Tracks the scheduled-notification ids per type so we can cancel each
@@ -13,7 +17,9 @@ const NOTIFICATION_IDS_KEY = "@merge_notification_ids";
 
 type ScheduledKey = "workout" | "streak";
 
-async function getScheduledIds(): Promise<Partial<Record<ScheduledKey, string>>> {
+async function getScheduledIds(): Promise<
+  Partial<Record<ScheduledKey, string>>
+> {
   try {
     const data = await AsyncStorage.getItem(NOTIFICATION_IDS_KEY);
     return data ? JSON.parse(data) : {};
@@ -101,7 +107,10 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
             minute: result.data.reminderMinute ?? 0,
           },
         };
-        await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+        await AsyncStorage.setItem(
+          NOTIFICATION_SETTINGS_KEY,
+          JSON.stringify(settings),
+        );
         return settings;
       }
     }
@@ -115,9 +124,14 @@ export async function getNotificationSettings(): Promise<NotificationSettings> {
   return defaultSettings;
 }
 
-export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {
+export async function saveNotificationSettings(
+  settings: NotificationSettings,
+): Promise<void> {
   try {
-    await AsyncStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(settings));
+    await AsyncStorage.setItem(
+      NOTIFICATION_SETTINGS_KEY,
+      JSON.stringify(settings),
+    );
 
     if (await isAuthenticated()) {
       await syncWithRetry("/api/notification-prefs", "POST", {
@@ -132,7 +146,10 @@ export async function saveNotificationSettings(settings: NotificationSettings): 
   }
 }
 
-export async function scheduleWorkoutReminder(hour: number, minute: number): Promise<string | null> {
+export async function scheduleWorkoutReminder(
+  hour: number,
+  minute: number,
+): Promise<string | null> {
   if (Platform.OS === "web") {
     return null;
   }
@@ -172,7 +189,10 @@ export async function cancelWorkoutReminder(): Promise<void> {
 // a single time. A future iteration could check whether the user
 // actually logged something today before firing (needs a background
 // task), but the daily ping at least respects the toggle.
-export async function scheduleStreakReminder(hour: number, minute: number): Promise<string | null> {
+export async function scheduleStreakReminder(
+  hour: number,
+  minute: number,
+): Promise<string | null> {
   if (Platform.OS === "web") return null;
   try {
     await cancelOne("streak");
@@ -200,7 +220,9 @@ export async function cancelStreakReminder(): Promise<void> {
   await cancelOne("streak");
 }
 
-export async function sendStreakReminderNotification(currentStreak: number): Promise<void> {
+export async function sendStreakReminderNotification(
+  currentStreak: number,
+): Promise<void> {
   if (Platform.OS === "web") {
     return;
   }
@@ -245,7 +267,10 @@ export async function clearScheduledNotifications(): Promise<void> {
     }
   }
   try {
-    await AsyncStorage.multiRemove([NOTIFICATION_IDS_KEY, NOTIFICATION_SETTINGS_KEY]);
+    await AsyncStorage.multiRemove([
+      NOTIFICATION_IDS_KEY,
+      NOTIFICATION_SETTINGS_KEY,
+    ]);
   } catch {
     // best-effort
   }

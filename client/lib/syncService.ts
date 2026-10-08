@@ -23,7 +23,7 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 async function getAuthHeaders(): Promise<HeadersInit> {
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
   return token
-    ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
+    ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
     : { "Content-Type": "application/json" };
 }
 
@@ -35,7 +35,7 @@ export async function isAuthenticated(): Promise<boolean> {
 export async function syncToServer<T>(
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE",
-  data?: any
+  data?: any,
 ): Promise<{ success: boolean; data?: T; error?: string; status?: number }> {
   try {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
@@ -63,7 +63,11 @@ export async function syncToServer<T>(
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        return { success: false, error: errorData.error || `HTTP ${response.status}`, status: response.status };
+        return {
+          success: false,
+          error: errorData.error || `HTTP ${response.status}`,
+          status: response.status,
+        };
       }
 
       const responseData = await response.json().catch(() => ({}));
@@ -85,7 +89,7 @@ export async function syncToServer<T>(
 export async function addToSyncQueue(
   endpoint: string,
   method: "POST" | "PUT" | "DELETE",
-  data: any
+  data: any,
 ): Promise<void> {
   try {
     let queue = await getSyncQueue();
@@ -147,7 +151,9 @@ async function processSyncQueue(): Promise<void> {
 
     if (!isRetryableError(result.status)) {
       // Client error (4xx except 429) — don't retry
-      console.log(`Dropping sync for ${item.endpoint}: ${result.error} (non-retryable)`);
+      console.log(
+        `Dropping sync for ${item.endpoint}: ${result.error} (non-retryable)`,
+      );
       continue;
     }
 
@@ -155,7 +161,9 @@ async function processSyncQueue(): Promise<void> {
     if (item.retryCount < MAX_RETRIES) {
       remainingItems.push(item);
     } else {
-      console.log(`Giving up on sync for ${item.endpoint} after ${MAX_RETRIES} retries`);
+      console.log(
+        `Giving up on sync for ${item.endpoint} after ${MAX_RETRIES} retries`,
+      );
     }
   }
 
@@ -163,7 +171,7 @@ async function processSyncQueue(): Promise<void> {
 
   if (remainingItems.length > 0) {
     // Schedule next retry with exponential backoff based on max retry count in queue
-    const maxRetryCount = Math.max(...remainingItems.map(i => i.retryCount));
+    const maxRetryCount = Math.max(...remainingItems.map((i) => i.retryCount));
     scheduleRetry(maxRetryCount);
   } else {
     stopRetryTimer();
@@ -200,7 +208,7 @@ export async function syncWithRetry<T>(
   endpoint: string,
   method: "POST" | "PUT" | "DELETE",
   data: any,
-  onLocalFallback?: () => Promise<void>
+  onLocalFallback?: () => Promise<void>,
 ): Promise<boolean> {
   const result = await syncToServer<T>(endpoint, method, data);
 

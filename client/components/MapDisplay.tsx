@@ -70,12 +70,15 @@ function WebMap({ currentLocation, route }: MapDisplayProps) {
         zoomControl: true,
       });
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-        // Required by OSM/CARTO tile usage policies.
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      }).addTo(map);
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        {
+          maxZoom: 19,
+          // Required by OSM/CARTO tile usage policies.
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        },
+      ).addTo(map);
 
       mapInstanceRef.current = map;
 
@@ -86,7 +89,9 @@ function WebMap({ currentLocation, route }: MapDisplayProps) {
       }
 
       if (path.length > 1) {
-        const latLngs = path.map(point => [point.latitude, point.longitude] as [number, number]);
+        const latLngs = path.map(
+          (point) => [point.latitude, point.longitude] as [number, number],
+        );
         routeLayerRef.current = L.polyline(latLngs, {
           color: ACCENT_COLOR,
           weight: 4,
@@ -114,8 +119,14 @@ function WebMap({ currentLocation, route }: MapDisplayProps) {
     if (!L || !mapInstanceRef.current) return;
 
     if (currentLocation && markerRef.current) {
-      markerRef.current.setLatLng([currentLocation.latitude, currentLocation.longitude]);
-      mapInstanceRef.current.panTo([currentLocation.latitude, currentLocation.longitude]);
+      markerRef.current.setLatLng([
+        currentLocation.latitude,
+        currentLocation.longitude,
+      ]);
+      mapInstanceRef.current.panTo([
+        currentLocation.latitude,
+        currentLocation.longitude,
+      ]);
     } else if (currentLocation && !markerRef.current) {
       markerRef.current = L.marker(
         [currentLocation.latitude, currentLocation.longitude],
@@ -131,19 +142,21 @@ function WebMap({ currentLocation, route }: MapDisplayProps) {
 
     if (route.length > 1) {
       if (routeLayerRef.current) {
-        routeLayerRef.current.setLatLngs(route.map(point => [point.latitude, point.longitude]));
+        routeLayerRef.current.setLatLngs(
+          route.map((point) => [point.latitude, point.longitude]),
+        );
       } else {
         routeLayerRef.current = L.polyline(
-          route.map(point => [point.latitude, point.longitude]),
-          { color: ACCENT_COLOR, weight: 4, opacity: 0.8 }
+          route.map((point) => [point.latitude, point.longitude]),
+          { color: ACCENT_COLOR, weight: 4, opacity: 0.8 },
         ).addTo(mapInstanceRef.current);
       }
     }
   }, [currentLocation, route]);
 
   return (
-    <div 
-      ref={mapContainerRef} 
+    <div
+      ref={mapContainerRef}
       style={{ width: "100%", height: "100%", backgroundColor: "#0D1117" }}
     />
   );
@@ -160,11 +173,17 @@ function NativePlaceholder() {
   );
 }
 
-export function MapDisplay({ currentLocation, route, mapRef }: MapDisplayProps) {
+export function MapDisplay({
+  currentLocation,
+  route,
+  mapRef,
+}: MapDisplayProps) {
   if (Platform.OS === "web") {
-    return <WebMap currentLocation={currentLocation} route={route} mapRef={mapRef} />;
+    return (
+      <WebMap currentLocation={currentLocation} route={route} mapRef={mapRef} />
+    );
   }
-  
+
   return <NativePlaceholder />;
 }
 

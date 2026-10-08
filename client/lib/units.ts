@@ -55,14 +55,21 @@ export function formatWeightValue(kg: number, unitSystem: UnitSystem): number {
   return kg;
 }
 
-export function parseWeightInput(value: number, unitSystem: UnitSystem): number {
+export function parseWeightInput(
+  value: number,
+  unitSystem: UnitSystem,
+): number {
   if (unitSystem === "imperial") {
     return lbsToKg(value);
   }
   return value;
 }
 
-export function parseHeightInput(feet: number, inches: number, unitSystem: UnitSystem): number {
+export function parseHeightInput(
+  feet: number,
+  inches: number,
+  unitSystem: UnitSystem,
+): number {
   if (unitSystem === "imperial") {
     return feetInchesToCm(feet, inches);
   }
@@ -87,7 +94,10 @@ export function formatDistance(km: number, unitSystem: UnitSystem): string {
   return `${km.toFixed(2)} km`;
 }
 
-export function formatDistanceValue(km: number, unitSystem: UnitSystem): number {
+export function formatDistanceValue(
+  km: number,
+  unitSystem: UnitSystem,
+): number {
   if (unitSystem === "imperial") {
     return kmToMiles(km);
   }
@@ -98,9 +108,14 @@ export function formatDistanceUnit(unitSystem: UnitSystem): string {
   return unitSystem === "imperial" ? "mi" : "km";
 }
 
-export function formatPace(paceMinPerKm: number, unitSystem: UnitSystem): string {
-  if (!isFinite(paceMinPerKm) || paceMinPerKm <= 0 || paceMinPerKm > 30) return "--:--";
-  const pace = unitSystem === "imperial" ? paceMinPerKm / KM_TO_MILES : paceMinPerKm;
+export function formatPace(
+  paceMinPerKm: number,
+  unitSystem: UnitSystem,
+): string {
+  if (!isFinite(paceMinPerKm) || paceMinPerKm <= 0 || paceMinPerKm > 30)
+    return "--:--";
+  const pace =
+    unitSystem === "imperial" ? paceMinPerKm / KM_TO_MILES : paceMinPerKm;
   const mins = Math.floor(pace);
   const secs = Math.round((pace - mins) * 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
@@ -110,12 +125,16 @@ export function formatPaceUnit(unitSystem: UnitSystem): string {
   return unitSystem === "imperial" ? "/mi" : "/km";
 }
 
-export function formatSpeedValue(km: number, durationSeconds: number, unitSystem: UnitSystem): number {
+export function formatSpeedValue(
+  km: number,
+  durationSeconds: number,
+  unitSystem: UnitSystem,
+): number {
   if (durationSeconds <= 0 || km <= 0) return 0;
   if (unitSystem === "imperial") {
-    return Math.round(kmToMiles(km) / (durationSeconds / 3600) * 100) / 100;
+    return Math.round((kmToMiles(km) / (durationSeconds / 3600)) * 100) / 100;
   }
-  return Math.round(km / (durationSeconds / 3600) * 100) / 100;
+  return Math.round((km / (durationSeconds / 3600)) * 100) / 100;
 }
 
 export function formatSpeedUnit(unitSystem: UnitSystem): string {
@@ -128,7 +147,7 @@ export function weightLabel(unitSystem: UnitSystem): string {
 
 export function simplifyRoute(
   route: { latitude: number; longitude: number }[],
-  maxPoints: number = 80
+  maxPoints: number = 80,
 ): { latitude: number; longitude: number }[] {
   if (!route || route.length === 0) return [];
   if (route.length <= maxPoints) return route;

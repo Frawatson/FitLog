@@ -1,5 +1,13 @@
 import React, { useState } from "react";
-import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Pressable, ActivityIndicator } from "react-native";
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -67,10 +75,8 @@ export default function RegisterScreen() {
 
     try {
       const result = await register(email.trim(), password, name.trim());
-      webSafeAlert(
-        "Check your email",
-        result.message,
-        () => navigation.goBack(),
+      webSafeAlert("Check your email", result.message, () =>
+        navigation.goBack(),
       );
     } catch (err: any) {
       setError(err.message || "Registration failed");
@@ -88,15 +94,25 @@ export default function RegisterScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
-            { paddingTop: insets.top + Spacing["2xl"], paddingBottom: insets.bottom + Spacing.xl },
+            {
+              paddingTop: insets.top + Spacing["2xl"],
+              paddingBottom: insets.bottom + Spacing.xl,
+            },
           ]}
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <View style={[styles.iconContainer, { backgroundColor: Colors.light.primary }]}>
+            <View
+              style={[
+                styles.iconContainer,
+                { backgroundColor: Colors.light.primary },
+              ]}
+            >
               <Feather name="user-plus" size={40} color="#FFFFFF" />
             </View>
-            <ThemedText type="h1" style={styles.title}>Create Account</ThemedText>
+            <ThemedText type="h1" style={styles.title}>
+              Create Account
+            </ThemedText>
             <ThemedText type="body" style={styles.subtitle}>
               Start your fitness journey today
             </ThemedText>
@@ -104,7 +120,12 @@ export default function RegisterScreen() {
 
           <View style={styles.form}>
             {error ? (
-              <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+              <View
+                style={[
+                  styles.errorBox,
+                  { backgroundColor: Colors.light.error + "20" },
+                ]}
+              >
                 <ThemedText type="small" style={{ color: Colors.light.error }}>
                   {error}
                 </ThemedText>
@@ -165,8 +186,12 @@ export default function RegisterScreen() {
                 Already have an account?
               </ThemedText>
               <Pressable onPress={() => navigation.goBack()}>
-                <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
-                  {" "}Log In
+                <ThemedText
+                  type="body"
+                  style={{ color: Colors.light.primary, fontWeight: "600" }}
+                >
+                  {" "}
+                  Log In
                 </ThemedText>
               </Pressable>
             </View>

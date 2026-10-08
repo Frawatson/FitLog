@@ -16,7 +16,13 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
-import { formatDistanceValue, formatDistanceUnit, formatPace, formatPaceUnit, simplifyRoute } from "@/lib/units";
+import {
+  formatDistanceValue,
+  formatDistanceUnit,
+  formatPace,
+  formatPaceUnit,
+  simplifyRoute,
+} from "@/lib/units";
 import { getZoneColor, getZoneName } from "@/lib/heartRateZones";
 import { RunStackParamList } from "@/navigation/RunStackNavigator";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -61,7 +67,8 @@ export default function RunDetailScreen() {
     };
     showSystemMenu({
       title: "Delete Run",
-      message: "Are you sure you want to delete this run? This action cannot be undone.",
+      message:
+        "Are you sure you want to delete this run? This action cannot be undone.",
       options: [
         { label: "Delete", destructive: true, onPress: doDelete },
         { label: "Cancel", cancel: true },
@@ -89,7 +96,10 @@ export default function RunDetailScreen() {
     }
   };
 
-  const distanceDisplay = formatDistanceValue(run.distanceKm, unitSystem).toFixed(2);
+  const distanceDisplay = formatDistanceValue(
+    run.distanceKm,
+    unitSystem,
+  ).toFixed(2);
   const distUnit = formatDistanceUnit(unitSystem);
   const paceDisplay = formatPace(run.paceMinPerKm, unitSystem);
   const paceUnit = formatPaceUnit(unitSystem);
@@ -124,7 +134,12 @@ export default function RunDetailScreen() {
           />
         </View>
       ) : (
-        <View style={[styles.noMapContainer, { backgroundColor: theme.backgroundSecondary }]}>
+        <View
+          style={[
+            styles.noMapContainer,
+            { backgroundColor: theme.backgroundSecondary },
+          ]}
+        >
           <Feather name="map" size={32} color={theme.textSecondary} />
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
             No route data available
@@ -135,40 +150,54 @@ export default function RunDetailScreen() {
       {/* Date & Time */}
       <View style={styles.dateSection}>
         <ThemedText type="h4">{dateStr}</ThemedText>
-        <ThemedText type="small" style={{ opacity: 0.6 }}>{timeStr}</ThemedText>
+        <ThemedText type="small" style={{ opacity: 0.6 }}>
+          {timeStr}
+        </ThemedText>
       </View>
 
       {/* Main Stats */}
       <Card style={styles.statsCard}>
         <View style={styles.mainStatsRow}>
           <View style={styles.mainStat}>
-            <ThemedText style={[styles.bigValue, { color: Colors.light.primary }]}>
+            <ThemedText
+              style={[styles.bigValue, { color: Colors.light.primary }]}
+            >
               {distanceDisplay}
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>{distUnit}</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              {distUnit}
+            </ThemedText>
           </View>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <View style={styles.mainStat}>
             <ThemedText style={[styles.bigValue, { color: theme.text }]}>
               {formatDuration(run.durationSeconds)}
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>duration</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              duration
+            </ThemedText>
           </View>
         </View>
 
-        <View style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}>
+        <View
+          style={[styles.secondaryStatsRow, { borderTopColor: theme.border }]}
+        >
           <View style={styles.secondaryStat}>
             <ThemedText style={[styles.mediumValue, { color: theme.text }]}>
               {paceDisplay}
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>pace {paceUnit}</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              pace {paceUnit}
+            </ThemedText>
           </View>
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <View style={styles.secondaryStat}>
             <ThemedText style={[styles.mediumValue, { color: theme.text }]}>
               {calories}
             </ThemedText>
-            <ThemedText type="small" style={{ opacity: 0.6 }}>calories</ThemedText>
+            <ThemedText type="small" style={{ opacity: 0.6 }}>
+              calories
+            </ThemedText>
           </View>
         </View>
       </Card>
@@ -178,7 +207,9 @@ export default function RunDetailScreen() {
         <Card style={styles.hrCard}>
           <View style={styles.hrHeader}>
             <Feather name="flag" size={20} color={Colors.light.primary} />
-            <ThemedText type="h4" style={{ marginLeft: Spacing.sm }}>Splits</ThemedText>
+            <ThemedText type="h4" style={{ marginLeft: Spacing.sm }}>
+              Splits
+            </ThemedText>
           </View>
           {run.splits.map((time, i) => (
             <View key={i} style={styles.splitRow}>
@@ -197,28 +228,67 @@ export default function RunDetailScreen() {
       {run.avgHeartRate ? (
         <Card style={styles.hrCard}>
           <View style={styles.hrHeader}>
-            <Feather name="heart" size={20} color={run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary} />
-            <ThemedText type="h4" style={{ marginLeft: Spacing.sm }}>Heart Rate</ThemedText>
+            <Feather
+              name="heart"
+              size={20}
+              color={
+                run.heartRateZone
+                  ? getZoneColor(run.heartRateZone)
+                  : Colors.light.primary
+              }
+            />
+            <ThemedText type="h4" style={{ marginLeft: Spacing.sm }}>
+              Heart Rate
+            </ThemedText>
           </View>
           <View style={styles.hrStatsRow}>
             <View style={styles.hrStat}>
-              <ThemedText style={[styles.hrValue, { color: run.heartRateZone ? getZoneColor(run.heartRateZone) : theme.text }]}>
+              <ThemedText
+                style={[
+                  styles.hrValue,
+                  {
+                    color: run.heartRateZone
+                      ? getZoneColor(run.heartRateZone)
+                      : theme.text,
+                  },
+                ]}
+              >
                 {run.avgHeartRate}
               </ThemedText>
-              <ThemedText type="small" style={{ opacity: 0.6 }}>avg bpm</ThemedText>
+              <ThemedText type="small" style={{ opacity: 0.6 }}>
+                avg bpm
+              </ThemedText>
             </View>
             {run.maxHeartRate ? (
               <View style={styles.hrStat}>
                 <ThemedText style={[styles.hrValue, { color: theme.text }]}>
                   {run.maxHeartRate}
                 </ThemedText>
-                <ThemedText type="small" style={{ opacity: 0.6 }}>max bpm</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.6 }}>
+                  max bpm
+                </ThemedText>
               </View>
             ) : null}
             {run.heartRateZone ? (
-              <View style={[styles.zoneBadge, { backgroundColor: getZoneColor(run.heartRateZone) + "20" }]}>
-                <View style={[styles.zoneDot, { backgroundColor: getZoneColor(run.heartRateZone) }]} />
-                <ThemedText type="body" style={{ color: getZoneColor(run.heartRateZone), fontWeight: "600" }}>
+              <View
+                style={[
+                  styles.zoneBadge,
+                  { backgroundColor: getZoneColor(run.heartRateZone) + "20" },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.zoneDot,
+                    { backgroundColor: getZoneColor(run.heartRateZone) },
+                  ]}
+                />
+                <ThemedText
+                  type="body"
+                  style={{
+                    color: getZoneColor(run.heartRateZone),
+                    fontWeight: "600",
+                  }}
+                >
                   {getZoneName(run.heartRateZone)}
                 </ThemedText>
               </View>
@@ -230,10 +300,16 @@ export default function RunDetailScreen() {
       {/* Share to Community */}
       <AnimatedPress
         onPress={handleShare}
-        style={[styles.deleteButton, { backgroundColor: Colors.light.primary + "10" }]}
+        style={[
+          styles.deleteButton,
+          { backgroundColor: Colors.light.primary + "10" },
+        ]}
       >
         <Feather name="users" size={18} color={Colors.light.primary} />
-        <ThemedText type="body" style={{ color: Colors.light.primary, marginLeft: Spacing.sm }}>
+        <ThemedText
+          type="body"
+          style={{ color: Colors.light.primary, marginLeft: Spacing.sm }}
+        >
           Share to Community
         </ThemedText>
       </AnimatedPress>
@@ -241,10 +317,16 @@ export default function RunDetailScreen() {
       {/* Delete */}
       <AnimatedPress
         onPress={handleDelete}
-        style={[styles.deleteButton, { backgroundColor: theme.backgroundDefault }]}
+        style={[
+          styles.deleteButton,
+          { backgroundColor: theme.backgroundDefault },
+        ]}
       >
         <Feather name="trash-2" size={18} color={Colors.light.error} />
-        <ThemedText type="body" style={{ color: Colors.light.error, marginLeft: Spacing.sm }}>
+        <ThemedText
+          type="body"
+          style={{ color: Colors.light.error, marginLeft: Spacing.sm }}
+        >
           Delete Run
         </ThemedText>
       </AnimatedPress>

@@ -1,5 +1,12 @@
 import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Animated, Easing, Dimensions, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  Animated,
+  Easing,
+  Dimensions,
+  Platform,
+} from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 
@@ -10,7 +17,14 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const ACCENT_COLOR = "#D4AF37"; // Brand.gold — celebratory accent for run-complete moment
-const CONFETTI_COLORS = ["#1B3A27", "#D4AF37", "#2D4D38", "#FFD700", "#7CFC00", "#00D084"];
+const CONFETTI_COLORS = [
+  "#1B3A27",
+  "#D4AF37",
+  "#2D4D38",
+  "#FFD700",
+  "#7CFC00",
+  "#00D084",
+];
 
 interface RunCompleteAnimationProps {
   visible: boolean;
@@ -41,23 +55,26 @@ export function RunCompleteAnimation({
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const checkmarkScale = useRef(new Animated.Value(0)).current;
   const confettiPieces = useRef<ConfettiPiece[]>([]);
-  
+
   useEffect(() => {
     if (visible) {
       if (Platform.OS !== "web") {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
-      
-      const initialPositions = Array(20).fill(0).map(() => Math.random() * SCREEN_WIDTH);
+
+      const initialPositions = Array(20)
+        .fill(0)
+        .map(() => Math.random() * SCREEN_WIDTH);
       confettiPieces.current = initialPositions.map((startX) => ({
         x: new Animated.Value(startX),
         y: new Animated.Value(-50),
         rotation: new Animated.Value(0),
         scale: new Animated.Value(Math.random() * 0.5 + 0.5),
-        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+        color:
+          CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
         startX,
       }));
-      
+
       Animated.parallel([
         Animated.timing(opacityAnim, {
           toValue: 1,
@@ -71,7 +88,7 @@ export function RunCompleteAnimation({
           useNativeDriver: true,
         }),
       ]).start();
-      
+
       setTimeout(() => {
         Animated.spring(checkmarkScale, {
           toValue: 1,
@@ -80,7 +97,7 @@ export function RunCompleteAnimation({
           useNativeDriver: true,
         }).start();
       }, 200);
-      
+
       confettiPieces.current.forEach((piece, index) => {
         const delay = index * 50;
         Animated.parallel([
@@ -111,25 +128,26 @@ export function RunCompleteAnimation({
       checkmarkScale.setValue(0);
     }
   }, [visible]);
-  
+
   if (!visible) return null;
-  
+
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  
-  const pace = durationSeconds > 0 && distanceMiles > 0 
-    ? (durationSeconds / 60) / distanceMiles 
-    : 0;
+
+  const pace =
+    durationSeconds > 0 && distanceMiles > 0
+      ? durationSeconds / 60 / distanceMiles
+      : 0;
   const formatPace = (paceMinPerMile: number): string => {
     if (!isFinite(paceMinPerMile) || paceMinPerMile === 0) return "--:--";
     const mins = Math.floor(paceMinPerMile);
     const secs = Math.round((paceMinPerMile - mins) * 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-  
+
   return (
     <Animated.View style={[styles.overlay, { opacity: opacityAnim }]}>
       {confettiPieces.current.map((piece, index) => (
@@ -142,21 +160,23 @@ export function RunCompleteAnimation({
               transform: [
                 { translateX: piece.x },
                 { translateY: piece.y },
-                { rotate: piece.rotation.interpolate({
-                  inputRange: [0, 10],
-                  outputRange: ["0deg", "3600deg"],
-                })},
+                {
+                  rotate: piece.rotation.interpolate({
+                    inputRange: [0, 10],
+                    outputRange: ["0deg", "3600deg"],
+                  }),
+                },
                 { scale: piece.scale },
               ],
             },
           ]}
         />
       ))}
-      
+
       <Animated.View
         style={[
           styles.card,
-          { 
+          {
             backgroundColor: theme.backgroundDefault,
             transform: [{ scale: scaleAnim }],
           },
@@ -165,22 +185,25 @@ export function RunCompleteAnimation({
         <Animated.View
           style={[
             styles.checkmarkContainer,
-            { transform: [{ scale: checkmarkScale }] }
+            { transform: [{ scale: checkmarkScale }] },
           ]}
         >
           <View style={styles.checkmarkCircle}>
             <Feather name="check" size={48} color="#FFFFFF" />
           </View>
         </Animated.View>
-        
+
         <ThemedText type="h1" style={styles.title}>
           {goalReached ? "Goal Reached!" : "Run Complete!"}
         </ThemedText>
-        
-        <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
+
+        <ThemedText
+          type="body"
+          style={[styles.subtitle, { color: theme.textSecondary }]}
+        >
           {goalReached ? "You crushed it!" : "Great workout!"}
         </ThemedText>
-        
+
         <View style={styles.statsContainer}>
           <View style={styles.stat}>
             <ThemedText type="h2" style={styles.statValue}>
@@ -190,9 +213,11 @@ export function RunCompleteAnimation({
               miles
             </ThemedText>
           </View>
-          
-          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-          
+
+          <View
+            style={[styles.statDivider, { backgroundColor: theme.border }]}
+          />
+
           <View style={styles.stat}>
             <ThemedText type="h2" style={styles.statValue}>
               {formatDuration(durationSeconds)}
@@ -201,9 +226,11 @@ export function RunCompleteAnimation({
               duration
             </ThemedText>
           </View>
-          
-          <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
-          
+
+          <View
+            style={[styles.statDivider, { backgroundColor: theme.border }]}
+          />
+
           <View style={styles.stat}>
             <ThemedText type="h2" style={styles.statValue}>
               {formatPace(pace)}
@@ -213,7 +240,7 @@ export function RunCompleteAnimation({
             </ThemedText>
           </View>
         </View>
-        
+
         <Button onPress={onDismiss} style={styles.doneButton}>
           Done
         </Button>

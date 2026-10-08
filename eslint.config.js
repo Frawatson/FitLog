@@ -7,6 +7,7 @@ module.exports = defineConfig([
   expoConfig,
   eslintPluginPrettierRecommended,
   {
-    ignores: ["dist/*"],
+    // Build outputs and native OTA bundles — never lint generated code.
+    ignores: ["dist/*", "server_dist/*", "static-build/*"],
   },
 ]);

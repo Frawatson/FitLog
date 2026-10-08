@@ -11,7 +11,7 @@ interface InputProps extends TextInputProps {
 
 export function Input({ label, error, style, ...props }: InputProps) {
   const { theme } = useTheme();
-  
+
   return (
     <View style={styles.container}>
       {label ? (

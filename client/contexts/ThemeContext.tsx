@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import { useColorScheme as useSystemColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "@/constants/theme";
@@ -19,7 +25,8 @@ const THEME_STORAGE_KEY = "@merge_theme_preference";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useSystemColorScheme();
-  const [themePreference, setThemePreferenceState] = useState<ThemePreference>("system");
+  const [themePreference, setThemePreferenceState] =
+    useState<ThemePreference>("system");
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -29,7 +36,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const loadThemePreference = async () => {
     try {
       const stored = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (stored && (stored === "system" || stored === "light" || stored === "dark")) {
+      if (
+        stored &&
+        (stored === "system" || stored === "light" || stored === "dark")
+      ) {
         setThemePreferenceState(stored);
       }
     } catch (error) {
@@ -64,7 +74,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, isDark, themePreference, setThemePreference }}>
+    <ThemeContext.Provider
+      value={{ theme, isDark, themePreference, setThemePreference }}
+    >
       {children}
     </ThemeContext.Provider>
   );

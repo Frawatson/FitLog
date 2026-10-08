@@ -50,13 +50,25 @@ export default function RunHistoryScreen() {
   };
 
   // Reload on focus so a delete from RunDetail is reflected immediately.
-  useFocusEffect(useCallback(() => { load(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, []),
+  );
 
   const distanceUnit = formatDistanceUnit(unitSystem);
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight + Spacing.lg }]}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            paddingTop: headerHeight + Spacing.lg,
+          },
+        ]}
+      >
         <SkeletonLoader variant="card" />
         <SkeletonLoader variant="card" />
         <SkeletonLoader variant="card" />
@@ -96,22 +108,37 @@ export default function RunHistoryScreen() {
           </View>
           <View style={styles.historyStats}>
             <View style={styles.historyStat}>
-              <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
+              <ThemedText
+                type="body"
+                style={[styles.historyValue, { color: Colors.light.primary }]}
+              >
                 {formatDistanceValue(run.distanceKm, unitSystem).toFixed(2)}
               </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>{distanceUnit}</ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                {distanceUnit}
+              </ThemedText>
             </View>
             <View style={styles.historyStat}>
-              <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
+              <ThemedText
+                type="body"
+                style={[styles.historyValue, { color: Colors.light.primary }]}
+              >
                 {formatDuration(run.durationSeconds)}
               </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>time</ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                time
+              </ThemedText>
             </View>
             <View style={styles.historyStat}>
-              <ThemedText type="body" style={[styles.historyValue, { color: Colors.light.primary }]}>
+              <ThemedText
+                type="body"
+                style={[styles.historyValue, { color: Colors.light.primary }]}
+              >
                 {run.calories || Math.round(run.distanceKm * 60)}
               </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>kcal</ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                kcal
+              </ThemedText>
             </View>
             {run.avgHeartRate ? (
               <View style={styles.historyStat}>
@@ -119,20 +146,33 @@ export default function RunHistoryScreen() {
                   <Feather
                     name="heart"
                     size={12}
-                    color={run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary}
+                    color={
+                      run.heartRateZone
+                        ? getZoneColor(run.heartRateZone)
+                        : Colors.light.primary
+                    }
                     style={{ marginRight: 4 }}
                   />
                   <ThemedText
                     type="body"
                     style={[
                       styles.historyValue,
-                      { color: run.heartRateZone ? getZoneColor(run.heartRateZone) : Colors.light.primary },
+                      {
+                        color: run.heartRateZone
+                          ? getZoneColor(run.heartRateZone)
+                          : Colors.light.primary,
+                      },
                     ]}
                   >
                     {run.avgHeartRate}
                   </ThemedText>
                 </View>
-                <ThemedText type="caption" style={{ color: theme.textSecondary }}>bpm</ThemedText>
+                <ThemedText
+                  type="caption"
+                  style={{ color: theme.textSecondary }}
+                >
+                  bpm
+                </ThemedText>
               </View>
             ) : null}
           </View>
@@ -140,8 +180,16 @@ export default function RunHistoryScreen() {
       )}
       ListEmptyComponent={
         <View style={styles.empty}>
-          <Feather name="map-pin" size={48} color={theme.textSecondary} style={{ opacity: 0.4, marginBottom: Spacing.lg }} />
-          <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+          <Feather
+            name="map-pin"
+            size={48}
+            color={theme.textSecondary}
+            style={{ opacity: 0.4, marginBottom: Spacing.lg }}
+          />
+          <ThemedText
+            type="body"
+            style={{ color: theme.textSecondary, textAlign: "center" }}
+          >
             No runs yet.
           </ThemedText>
         </View>

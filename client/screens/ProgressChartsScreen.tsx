@@ -1,5 +1,11 @@
 import React, { useState, useCallback, useRef } from "react";
-import { View, StyleSheet, ScrollView, Dimensions, Pressable } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  Pressable,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useFocusEffect } from "@react-navigation/native";
@@ -11,11 +17,15 @@ import { Card } from "@/components/Card";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { BodyWeightEntry, Workout, MacroTargets } from "@/types";
+import type {
+  BodyWeightEntry,
+  Workout,
+  MacroTargets,
+  UnitSystem,
+} from "@/types";
 import * as storage from "@/lib/storage";
 import { formatWeight } from "@/lib/units";
 import { getLocalDateString } from "@/lib/dateUtils";
-import type { UnitSystem } from "@/types";
 
 const screenWidth = Dimensions.get("window").width;
 type Period = "7d" | "30d" | "90d" | "all";
@@ -37,7 +47,9 @@ export default function ProgressChartsScreen() {
   const [bodyWeights, setBodyWeights] = useState<BodyWeightEntry[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [macroTargets, setMacroTargets] = useState<MacroTargets | null>(null);
-  const [dailyCalories, setDailyCalories] = useState<{ date: string; calories: number }[]>([]);
+  const [dailyCalories, setDailyCalories] = useState<
+    { date: string; calories: number }[]
+  >([]);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [isLoading, setIsLoading] = useState(true);
   const hasLoadedRef = useRef(false);
@@ -69,10 +81,15 @@ export default function ProgressChartsScreen() {
         // new Date(ymd) would parse as UTC midnight and exclude entries
         // near the cutoff in negative-UTC zones. Compare in local tz.
         .filter((w) => parseLocalDate(w.date) >= cutoff)
-        .sort((a, b) => parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime())
+        .sort(
+          (a, b) =>
+            parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime(),
+        ),
     );
     setWorkouts(
-      allWorkouts.filter((w) => w.completedAt && new Date(w.completedAt) >= cutoff)
+      allWorkouts.filter(
+        (w) => w.completedAt && new Date(w.completedAt) >= cutoff,
+      ),
     );
 
     if (!hasLoadedRef.current) {
@@ -95,7 +112,7 @@ export default function ProgressChartsScreen() {
       return getLocalDateString(d);
     });
     const allTotals = await Promise.all(
-      dateStrs.map((dateStr) => storage.getDailyTotals(dateStr))
+      dateStrs.map((dateStr) => storage.getDailyTotals(dateStr)),
     );
     // Same race guard as the first await — a newer load may have
     // started while these N calorie fetches were in flight.
@@ -109,26 +126,37 @@ export default function ProgressChartsScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [period])
+    }, [period]),
   );
 
   const getCutoffDate = (p: Period): Date => {
     const now = new Date();
     switch (p) {
-      case "7d": now.setDate(now.getDate() - 7); break;
-      case "30d": now.setDate(now.getDate() - 30); break;
-      case "90d": now.setDate(now.getDate() - 90); break;
-      case "all": return new Date(0);
+      case "7d":
+        now.setDate(now.getDate() - 7);
+        break;
+      case "30d":
+        now.setDate(now.getDate() - 30);
+        break;
+      case "90d":
+        now.setDate(now.getDate() - 90);
+        break;
+      case "all":
+        return new Date(0);
     }
     return now;
   };
 
   const getDaysInPeriod = (p: Period): number => {
     switch (p) {
-      case "7d": return 7;
-      case "30d": return 30;
-      case "90d": return 90;
-      case "all": return 365;
+      case "7d":
+        return 7;
+      case "30d":
+        return 30;
+      case "90d":
+        return 90;
+      case "all":
+        return 365;
     }
   };
 
@@ -162,35 +190,45 @@ export default function ProgressChartsScreen() {
   // so "see body weight over 90 days" actually rendered only 7 points.
   const weightWindow = (() => {
     switch (period) {
-      case "7d": return 7;
-      case "30d": return 30;
-      case "90d": return 90;
-      case "all": return bodyWeights.length;
+      case "7d":
+        return 7;
+      case "30d":
+        return 30;
+      case "90d":
+        return 90;
+      case "all":
+        return bodyWeights.length;
     }
   })();
 
   // Body weight chart data — sliced to the period's window so the
   // selector actually drives what's plotted.
   const weightSlice = bodyWeights.slice(-weightWindow);
-  const weightChartData = weightSlice.length >= 2
-    ? {
-        labels: weightSlice.map((w) => parseLocalDateLabel(w.date)),
-        datasets: [{
-          data: weightSlice.map((w) =>
-            unitSystem === "imperial" ? Math.round(w.weightKg * 2.20462 * 10) / 10 : w.weightKg
-          ),
-        }],
-      }
-    : null;
+  const weightChartData =
+    weightSlice.length >= 2
+      ? {
+          labels: weightSlice.map((w) => parseLocalDateLabel(w.date)),
+          datasets: [
+            {
+              data: weightSlice.map((w) =>
+                unitSystem === "imperial"
+                  ? Math.round(w.weightKg * 2.20462 * 10) / 10
+                  : w.weightKg,
+              ),
+            },
+          ],
+        }
+      : null;
 
   // Weekly workout volume chart
   const weeklyVolumes = getWeeklyVolumes(workouts);
-  const volumeChartData = weeklyVolumes.length >= 2
-    ? {
-        labels: weeklyVolumes.slice(-6).map((w) => w.label),
-        datasets: [{ data: weeklyVolumes.slice(-6).map((w) => w.volume) }],
-      }
-    : null;
+  const volumeChartData =
+    weeklyVolumes.length >= 2
+      ? {
+          labels: weeklyVolumes.slice(-6).map((w) => w.label),
+          datasets: [{ data: weeklyVolumes.slice(-6).map((w) => w.volume) }],
+        }
+      : null;
 
   const exerciseFrequency = getExerciseFrequency(workouts);
 
@@ -212,7 +250,10 @@ export default function ProgressChartsScreen() {
             style={[
               styles.periodButton,
               {
-                backgroundColor: period === p ? Colors.light.primary : theme.backgroundSecondary,
+                backgroundColor:
+                  period === p
+                    ? Colors.light.primary
+                    : theme.backgroundSecondary,
               },
             ]}
           >
@@ -240,7 +281,11 @@ export default function ProgressChartsScreen() {
           {/* Body Weight Trend */}
           <Card style={styles.chartCard}>
             <View style={styles.chartHeader}>
-              <Feather name="trending-up" size={20} color={Colors.light.success} />
+              <Feather
+                name="trending-up"
+                size={20}
+                color={Colors.light.success}
+              />
               <ThemedText type="h4">Body Weight Trend</ThemedText>
             </View>
             {weightChartData ? (
@@ -265,8 +310,15 @@ export default function ProgressChartsScreen() {
               />
             ) : (
               <View style={styles.emptyChart}>
-                <Feather name="bar-chart-2" size={32} color={theme.textSecondary} />
-                <ThemedText type="small" style={{ opacity: 0.6, marginTop: Spacing.sm }}>
+                <Feather
+                  name="bar-chart-2"
+                  size={32}
+                  color={theme.textSecondary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{ opacity: 0.6, marginTop: Spacing.sm }}
+                >
                   Log at least 2 body weights to see trends
                 </ThemedText>
               </View>
@@ -276,7 +328,11 @@ export default function ProgressChartsScreen() {
           {/* Workout Volume */}
           <Card style={styles.chartCard}>
             <View style={styles.chartHeader}>
-              <Feather name="bar-chart-2" size={20} color={Colors.light.primary} />
+              <Feather
+                name="bar-chart-2"
+                size={20}
+                color={Colors.light.primary}
+              />
               <ThemedText type="h4">Weekly Volume</ThemedText>
             </View>
             {volumeChartData ? (
@@ -292,8 +348,15 @@ export default function ProgressChartsScreen() {
               />
             ) : (
               <View style={styles.emptyChart}>
-                <Feather name="bar-chart-2" size={32} color={theme.textSecondary} />
-                <ThemedText type="small" style={{ opacity: 0.6, marginTop: Spacing.sm }}>
+                <Feather
+                  name="bar-chart-2"
+                  size={32}
+                  color={theme.textSecondary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{ opacity: 0.6, marginTop: Spacing.sm }}
+                >
                   Complete workouts to see volume trends
                 </ThemedText>
               </View>
@@ -312,11 +375,22 @@ export default function ProgressChartsScreen() {
                   labels: dailyCalories.slice(-7).map((d) =>
                     // d.date is YYYY-MM-DD from getLocalDateString;
                     // parseLocalDate avoids the UTC-midnight shift.
-                    parseLocalDate(d.date).toLocaleDateString("en-US", { day: "numeric" })
+                    parseLocalDate(d.date).toLocaleDateString("en-US", {
+                      day: "numeric",
+                    }),
                   ),
                   datasets: [
-                    { data: dailyCalories.slice(-7).map((d) => d.calories), color: () => "#FFA500" },
-                    { data: dailyCalories.slice(-7).map(() => macroTargets.calories), color: () => theme.textSecondary, withDots: false },
+                    {
+                      data: dailyCalories.slice(-7).map((d) => d.calories),
+                      color: () => "#FFA500",
+                    },
+                    {
+                      data: dailyCalories
+                        .slice(-7)
+                        .map(() => macroTargets.calories),
+                      color: () => theme.textSecondary,
+                      withDots: false,
+                    },
                   ],
                   legend: ["Actual", "Target"],
                 }}
@@ -336,8 +410,15 @@ export default function ProgressChartsScreen() {
               />
             ) : (
               <View style={styles.emptyChart}>
-                <Feather name="bar-chart-2" size={32} color={theme.textSecondary} />
-                <ThemedText type="small" style={{ opacity: 0.6, marginTop: Spacing.sm }}>
+                <Feather
+                  name="bar-chart-2"
+                  size={32}
+                  color={theme.textSecondary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{ opacity: 0.6, marginTop: Spacing.sm }}
+                >
                   Log food for at least 2 days to see trends
                 </ThemedText>
               </View>
@@ -357,13 +438,16 @@ export default function ProgressChartsScreen() {
               <View style={styles.muscleList}>
                 {exerciseFrequency.map((mg, i) => {
                   const maxCount = exerciseFrequency[0].count;
-                  const barWidth = maxCount > 0 ? (mg.count / maxCount) * 100 : 0;
+                  const barWidth =
+                    maxCount > 0 ? (mg.count / maxCount) * 100 : 0;
                   // Under-trained is "less than once per week within the
                   // selected window". For "all" the window is the entire
                   // lifetime of the account — a 52-week target makes
                   // nearly everything look under-trained, so skip the flag.
-                  const weeksInPeriod = period === "all" ? null : getDaysInPeriod(period) / 7;
-                  const isUnderTrained = weeksInPeriod !== null && mg.count < weeksInPeriod;
+                  const weeksInPeriod =
+                    period === "all" ? null : getDaysInPeriod(period) / 7;
+                  const isUnderTrained =
+                    weeksInPeriod !== null && mg.count < weeksInPeriod;
                   return (
                     <View key={i} style={styles.muscleRow}>
                       <ThemedText
@@ -375,13 +459,20 @@ export default function ProgressChartsScreen() {
                       >
                         {mg.name}
                       </ThemedText>
-                      <View style={[styles.muscleBar, { backgroundColor: theme.backgroundSecondary }]}>
+                      <View
+                        style={[
+                          styles.muscleBar,
+                          { backgroundColor: theme.backgroundSecondary },
+                        ]}
+                      >
                         <View
                           style={[
                             styles.muscleBarFill,
                             {
                               width: `${barWidth}%`,
-                              backgroundColor: isUnderTrained ? "#FFA500" : Colors.light.primary,
+                              backgroundColor: isUnderTrained
+                                ? "#FFA500"
+                                : Colors.light.primary,
                             },
                           ]}
                         />
@@ -395,8 +486,15 @@ export default function ProgressChartsScreen() {
               </View>
             ) : (
               <View style={styles.emptyChart}>
-                <Feather name="bar-chart-2" size={32} color={theme.textSecondary} />
-                <ThemedText type="small" style={{ opacity: 0.6, marginTop: Spacing.sm }}>
+                <Feather
+                  name="bar-chart-2"
+                  size={32}
+                  color={theme.textSecondary}
+                />
+                <ThemedText
+                  type="small"
+                  style={{ opacity: 0.6, marginTop: Spacing.sm }}
+                >
                   Complete workouts to see exercise data
                 </ThemedText>
               </View>
@@ -408,7 +506,9 @@ export default function ProgressChartsScreen() {
   );
 }
 
-function getWeeklyVolumes(workouts: Workout[]): { label: string; volume: number }[] {
+function getWeeklyVolumes(
+  workouts: Workout[],
+): { label: string; volume: number }[] {
   const weeks: Record<string, number> = {};
   for (const w of workouts) {
     if (!w.completedAt) continue;
@@ -416,9 +516,15 @@ function getWeeklyVolumes(workouts: Workout[]): { label: string; volume: number 
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
     const key = getLocalDateString(weekStart);
-    const volume = w.exercises.reduce((acc, ex) =>
-      acc + ex.sets.reduce((s, set) =>
-        s + (set.completed ? set.weight * set.reps : 0), 0), 0);
+    const volume = w.exercises.reduce(
+      (acc, ex) =>
+        acc +
+        ex.sets.reduce(
+          (s, set) => s + (set.completed ? set.weight * set.reps : 0),
+          0,
+        ),
+      0,
+    );
     weeks[key] = (weeks[key] || 0) + volume;
   }
   return Object.entries(weeks)
@@ -430,13 +536,18 @@ function getWeeklyVolumes(workouts: Workout[]): { label: string; volume: number 
       const [y, m, d] = date.split("-").map(Number);
       const local = new Date(y, (m || 1) - 1, d || 1);
       return {
-        label: local.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        label: local.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
         volume: Math.round(volume),
       };
     });
 }
 
-function getExerciseFrequency(workouts: Workout[]): { name: string; count: number }[] {
+function getExerciseFrequency(
+  workouts: Workout[],
+): { name: string; count: number }[] {
   const freq: Record<string, number> = {};
   for (const w of workouts) {
     if (!w.completedAt) continue;

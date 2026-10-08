@@ -43,10 +43,7 @@ export function Button({
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
   }));
 
   const handlePressIn = () => {
@@ -90,7 +87,10 @@ export function Button({
       ) : (
         <ThemedText
           type="body"
-          style={[styles.buttonText, { color: isOutline ? theme.link : theme.buttonText }]}
+          style={[
+            styles.buttonText,
+            { color: isOutline ? theme.link : theme.buttonText },
+          ]}
         >
           {children}
         </ThemedText>

@@ -1,5 +1,13 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { View, StyleSheet, ScrollView, Pressable, Modal, Platform, Switch } from "react-native";
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Modal,
+  Platform,
+  Switch,
+} from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -48,7 +56,10 @@ export default function SettingsScreen() {
       const outcome = await exportUserDataCsv();
       if (!outcome.ok) {
         if (outcome.reason === "sharing-unavailable") {
-          webSafeAlert("Not available", "Sharing isn't available on this device.");
+          webSafeAlert(
+            "Not available",
+            "Sharing isn't available on this device.",
+          );
         } else {
           webSafeAlert("Export failed", outcome.message || "Please try again.");
         }
@@ -82,18 +93,27 @@ export default function SettingsScreen() {
     pendingTimeRef.current = null;
     await notifications.saveNotificationSettings(pending);
     if (pending.workoutReminders) {
-      await notifications.scheduleWorkoutReminder(pending.reminderTime.hour, pending.reminderTime.minute);
+      await notifications.scheduleWorkoutReminder(
+        pending.reminderTime.hour,
+        pending.reminderTime.minute,
+      );
     }
     if (pending.streakAlerts) {
-      await notifications.scheduleStreakReminder(pending.reminderTime.hour, pending.reminderTime.minute);
+      await notifications.scheduleStreakReminder(
+        pending.reminderTime.hour,
+        pending.reminderTime.minute,
+      );
     }
   }, []);
 
   // Flush any pending change on unmount so a quick close-modal-then-
   // navigate-away doesn't drop the last tap.
-  useEffect(() => () => {
-    flushTimeChange();
-  }, [flushTimeChange]);
+  useEffect(
+    () => () => {
+      flushTimeChange();
+    },
+    [flushTimeChange],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -103,7 +123,7 @@ export default function SettingsScreen() {
         setIsLoading(false);
       };
       load();
-    }, [])
+    }, []),
   );
 
   const handleToggleWorkoutReminders = async (value: boolean) => {
@@ -125,7 +145,10 @@ export default function SettingsScreen() {
         // scheduleX swallows internal errors and returns null. Without
         // this check, the toggle would flip ON and the prefs would
         // persist enabled even though nothing was actually scheduled.
-        const id = await notifications.scheduleWorkoutReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
+        const id = await notifications.scheduleWorkoutReminder(
+          notifSettings.reminderTime.hour,
+          notifSettings.reminderTime.minute,
+        );
         if (!id) {
           webSafeAlert("Couldn't enable reminder", "Please try again.");
           return;
@@ -164,7 +187,10 @@ export default function SettingsScreen() {
         // Previously this toggle ONLY persisted to AsyncStorage —
         // no scheduling, no reminder ever fired. Now schedules a daily
         // notification at the same hour:minute as the workout reminder.
-        const id = await notifications.scheduleStreakReminder(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute);
+        const id = await notifications.scheduleStreakReminder(
+          notifSettings.reminderTime.hour,
+          notifSettings.reminderTime.minute,
+        );
         if (!id) {
           webSafeAlert("Couldn't enable streak alert", "Please try again.");
           return;
@@ -218,25 +244,41 @@ export default function SettingsScreen() {
         ) : (
           <>
             <Card style={styles.sectionCard}>
-              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Appearance</ThemedText>
+              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>
+                Appearance
+              </ThemedText>
 
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
-                  <Feather name={isDark ? "moon" : "sun"} size={20} color={theme.text} />
+                  <Feather
+                    name={isDark ? "moon" : "sun"}
+                    size={20}
+                    color={theme.text}
+                  />
                   <View style={styles.settingText}>
                     <ThemedText type="body">Dark Mode</ThemedText>
                     <ThemedText type="small" style={{ opacity: 0.6 }}>
-                      {themePreference === "system" ? "Following system" : themePreference === "dark" ? "Always dark" : "Always light"}
+                      {themePreference === "system"
+                        ? "Following system"
+                        : themePreference === "dark"
+                          ? "Always dark"
+                          : "Always light"}
                     </ThemedText>
                   </View>
                 </View>
                 <Switch
-                  value={themePreference === "dark" || (themePreference === "system" && isDark)}
+                  value={
+                    themePreference === "dark" ||
+                    (themePreference === "system" && isDark)
+                  }
                   onValueChange={(value) => {
                     setThemePreference(value ? "dark" : "light");
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   }}
-                  trackColor={{ false: theme.border, true: Colors.light.primary }}
+                  trackColor={{
+                    false: theme.border,
+                    true: Colors.light.primary,
+                  }}
                   thumbColor="#FFFFFF"
                 />
               </View>
@@ -248,18 +290,42 @@ export default function SettingsScreen() {
                 }}
                 style={[
                   styles.systemThemeButton,
-                  { backgroundColor: themePreference === "system" ? Colors.light.primary + "20" : "transparent" },
+                  {
+                    backgroundColor:
+                      themePreference === "system"
+                        ? Colors.light.primary + "20"
+                        : "transparent",
+                  },
                 ]}
               >
-                <Feather name="smartphone" size={16} color={themePreference === "system" ? Colors.light.primary : theme.textSecondary} />
-                <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: themePreference === "system" ? Colors.light.primary : theme.textSecondary }}>
+                <Feather
+                  name="smartphone"
+                  size={16}
+                  color={
+                    themePreference === "system"
+                      ? Colors.light.primary
+                      : theme.textSecondary
+                  }
+                />
+                <ThemedText
+                  type="small"
+                  style={{
+                    marginLeft: Spacing.sm,
+                    color:
+                      themePreference === "system"
+                        ? Colors.light.primary
+                        : theme.textSecondary,
+                  }}
+                >
                   Use System Setting
                 </ThemedText>
               </AnimatedPress>
             </Card>
 
             <Card style={styles.sectionCard}>
-              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Notifications</ThemedText>
+              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>
+                Notifications
+              </ThemedText>
 
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
@@ -267,7 +333,11 @@ export default function SettingsScreen() {
                   <View style={styles.settingText}>
                     <ThemedText type="body">Workout Reminders</ThemedText>
                     <ThemedText type="small" style={{ opacity: 0.6 }}>
-                      Daily reminder at {formatTime(notifSettings.reminderTime.hour, notifSettings.reminderTime.minute)}
+                      Daily reminder at{" "}
+                      {formatTime(
+                        notifSettings.reminderTime.hour,
+                        notifSettings.reminderTime.minute,
+                      )}
                     </ThemedText>
                   </View>
                 </View>
@@ -275,7 +345,10 @@ export default function SettingsScreen() {
                   value={notifSettings.workoutReminders}
                   onValueChange={handleToggleWorkoutReminders}
                   disabled={togglingWorkout}
-                  trackColor={{ false: theme.border, true: Colors.light.primary }}
+                  trackColor={{
+                    false: theme.border,
+                    true: Colors.light.primary,
+                  }}
                   thumbColor="#FFFFFF"
                 />
               </View>
@@ -284,12 +357,22 @@ export default function SettingsScreen() {
                 onPress={() => setShowTimePicker(true)}
                 style={[
                   styles.timePickerButton,
-                  { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)" },
+                  {
+                    backgroundColor: isDark
+                      ? "rgba(255,255,255,0.06)"
+                      : "rgba(0,0,0,0.04)",
+                  },
                 ]}
                 testID="button-change-reminder-time"
               >
                 <Feather name="clock" size={16} color={Colors.light.primary} />
-                <ThemedText type="small" style={{ marginLeft: Spacing.sm, color: Colors.light.primary }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    marginLeft: Spacing.sm,
+                    color: Colors.light.primary,
+                  }}
+                >
                   Change Reminder Time
                 </ThemedText>
               </AnimatedPress>
@@ -308,23 +391,37 @@ export default function SettingsScreen() {
                   value={notifSettings.streakAlerts}
                   onValueChange={handleToggleStreakAlerts}
                   disabled={togglingStreak}
-                  trackColor={{ false: theme.border, true: Colors.light.primary }}
+                  trackColor={{
+                    false: theme.border,
+                    true: Colors.light.primary,
+                  }}
                   thumbColor="#FFFFFF"
                 />
               </View>
 
               {Platform.OS === "web" ? (
-                <ThemedText type="small" style={{ opacity: 0.5, marginTop: Spacing.md, fontStyle: "italic" }}>
+                <ThemedText
+                  type="small"
+                  style={{
+                    opacity: 0.5,
+                    marginTop: Spacing.md,
+                    fontStyle: "italic",
+                  }}
+                >
                   Notifications only work on mobile devices via Expo Go
                 </ThemedText>
               ) : null}
             </Card>
 
             <Card style={styles.sectionCard}>
-              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Legal</ThemedText>
+              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>
+                Legal
+              </ThemedText>
 
               <AnimatedPress
-                onPress={() => WebBrowser.openBrowserAsync("https://gbolo.fit/privacy")}
+                onPress={() =>
+                  WebBrowser.openBrowserAsync("https://gbolo.fit/privacy")
+                }
                 style={styles.settingRow}
               >
                 <View style={styles.settingInfo}>
@@ -333,11 +430,17 @@ export default function SettingsScreen() {
                     <ThemedText type="body">Privacy Policy</ThemedText>
                   </View>
                 </View>
-                <Feather name="external-link" size={18} color={theme.textSecondary} />
+                <Feather
+                  name="external-link"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </AnimatedPress>
 
               <AnimatedPress
-                onPress={() => WebBrowser.openBrowserAsync("https://gbolo.fit/terms")}
+                onPress={() =>
+                  WebBrowser.openBrowserAsync("https://gbolo.fit/terms")
+                }
                 style={[styles.settingRow, { marginTop: Spacing.lg }]}
               >
                 <View style={styles.settingInfo}>
@@ -346,12 +449,18 @@ export default function SettingsScreen() {
                     <ThemedText type="body">Terms of Service</ThemedText>
                   </View>
                 </View>
-                <Feather name="external-link" size={18} color={theme.textSecondary} />
+                <Feather
+                  name="external-link"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </AnimatedPress>
             </Card>
 
             <Card style={styles.sectionCard}>
-              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>Privacy & Data</ThemedText>
+              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>
+                Privacy & Data
+              </ThemedText>
 
               <AnimatedPress
                 onPress={() => navigation.navigate("BlockedUsers")}
@@ -363,24 +472,38 @@ export default function SettingsScreen() {
                     <ThemedText type="body">Blocked Users</ThemedText>
                   </View>
                 </View>
-                <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </AnimatedPress>
 
               <AnimatedPress
                 onPress={handleExportData}
                 disabled={isExporting}
-                style={[styles.settingRow, { marginTop: Spacing.lg, opacity: isExporting ? 0.5 : 1 }]}
+                style={[
+                  styles.settingRow,
+                  { marginTop: Spacing.lg, opacity: isExporting ? 0.5 : 1 },
+                ]}
               >
                 <View style={styles.settingInfo}>
                   <Feather name="download" size={20} color={theme.text} />
                   <View style={styles.settingText}>
-                    <ThemedText type="body">{isExporting ? "Exporting…" : "Export Data"}</ThemedText>
+                    <ThemedText type="body">
+                      {isExporting ? "Exporting…" : "Export Data"}
+                    </ThemedText>
                     <ThemedText type="small" style={{ opacity: 0.6 }}>
-                      Download a CSV of your workouts, runs, body weight, and nutrition history.
+                      Download a CSV of your workouts, runs, body weight, and
+                      nutrition history.
                     </ThemedText>
                   </View>
                 </View>
-                <Feather name="chevron-right" size={18} color={theme.textSecondary} />
+                <Feather
+                  name="chevron-right"
+                  size={18}
+                  color={theme.textSecondary}
+                />
               </AnimatedPress>
             </Card>
           </>
@@ -391,91 +514,184 @@ export default function SettingsScreen() {
         visible={showTimePicker}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => { flushTimeChange(); setShowTimePicker(false); }}
+        onRequestClose={() => {
+          flushTimeChange();
+          setShowTimePicker(false);
+        }}
       >
         {/* Outer Pressable dismisses on overlay tap; inner Pressable
             absorbs touches so chevron / Done presses don't bubble up. */}
         <Pressable
           style={styles.modalOverlay}
-          onPress={() => { flushTimeChange(); setShowTimePicker(false); }}
+          onPress={() => {
+            flushTimeChange();
+            setShowTimePicker(false);
+          }}
         >
           <Pressable
-            style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
             onPress={() => {}}
           >
-            <ThemedText type="h3" style={styles.modalTitle}>Set Reminder Time</ThemedText>
+            <ThemedText type="h3" style={styles.modalTitle}>
+              Set Reminder Time
+            </ThemedText>
 
             <View style={styles.timePickerContainer}>
               <View style={styles.timeColumn}>
-                <Pressable onPress={() => {
-                  const newHour = (notifSettings.reminderTime.hour + 1) % 24;
-                  handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-                }}>
+                <Pressable
+                  onPress={() => {
+                    const newHour = (notifSettings.reminderTime.hour + 1) % 24;
+                    handleReminderTimeChange(
+                      newHour,
+                      notifSettings.reminderTime.minute,
+                    );
+                  }}
+                >
                   <Feather name="chevron-up" size={28} color={theme.text} />
                 </Pressable>
-                <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
+                <View
+                  style={[
+                    styles.timeDisplay,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(0,0,0,0.05)",
+                    },
+                  ]}
+                >
                   <ThemedText type="h2">
-                    {(notifSettings.reminderTime.hour === 0 ? 12 : notifSettings.reminderTime.hour > 12 ? notifSettings.reminderTime.hour - 12 : notifSettings.reminderTime.hour).toString().padStart(2, "0")}
+                    {(notifSettings.reminderTime.hour === 0
+                      ? 12
+                      : notifSettings.reminderTime.hour > 12
+                        ? notifSettings.reminderTime.hour - 12
+                        : notifSettings.reminderTime.hour
+                    )
+                      .toString()
+                      .padStart(2, "0")}
                   </ThemedText>
                 </View>
-                <Pressable onPress={() => {
-                  const newHour = (notifSettings.reminderTime.hour - 1 + 24) % 24;
-                  handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-                }}>
+                <Pressable
+                  onPress={() => {
+                    const newHour =
+                      (notifSettings.reminderTime.hour - 1 + 24) % 24;
+                    handleReminderTimeChange(
+                      newHour,
+                      notifSettings.reminderTime.minute,
+                    );
+                  }}
+                >
                   <Feather name="chevron-down" size={28} color={theme.text} />
                 </Pressable>
-                <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>Hour</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>
+                  Hour
+                </ThemedText>
               </View>
 
-              <ThemedText type="h2" style={{ marginHorizontal: Spacing.sm }}>:</ThemedText>
+              <ThemedText type="h2" style={{ marginHorizontal: Spacing.sm }}>
+                :
+              </ThemedText>
 
               <View style={styles.timeColumn}>
-                <Pressable onPress={() => {
-                  const newMin = (notifSettings.reminderTime.minute + 15) % 60;
-                  handleReminderTimeChange(notifSettings.reminderTime.hour, newMin);
-                }}>
+                <Pressable
+                  onPress={() => {
+                    const newMin =
+                      (notifSettings.reminderTime.minute + 15) % 60;
+                    handleReminderTimeChange(
+                      notifSettings.reminderTime.hour,
+                      newMin,
+                    );
+                  }}
+                >
                   <Feather name="chevron-up" size={28} color={theme.text} />
                 </Pressable>
-                <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
+                <View
+                  style={[
+                    styles.timeDisplay,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(0,0,0,0.05)",
+                    },
+                  ]}
+                >
                   <ThemedText type="h2">
-                    {notifSettings.reminderTime.minute.toString().padStart(2, "0")}
+                    {notifSettings.reminderTime.minute
+                      .toString()
+                      .padStart(2, "0")}
                   </ThemedText>
                 </View>
-                <Pressable onPress={() => {
-                  const newMin = (notifSettings.reminderTime.minute - 15 + 60) % 60;
-                  handleReminderTimeChange(notifSettings.reminderTime.hour, newMin);
-                }}>
+                <Pressable
+                  onPress={() => {
+                    const newMin =
+                      (notifSettings.reminderTime.minute - 15 + 60) % 60;
+                    handleReminderTimeChange(
+                      notifSettings.reminderTime.hour,
+                      newMin,
+                    );
+                  }}
+                >
                   <Feather name="chevron-down" size={28} color={theme.text} />
                 </Pressable>
-                <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>Minute</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>
+                  Minute
+                </ThemedText>
               </View>
 
               <View style={[styles.timeColumn, { marginLeft: Spacing.md }]}>
-                <Pressable onPress={() => {
-                  const currentHour = notifSettings.reminderTime.hour;
-                  const newHour = currentHour >= 12 ? currentHour - 12 : currentHour + 12;
-                  handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-                }}>
+                <Pressable
+                  onPress={() => {
+                    const currentHour = notifSettings.reminderTime.hour;
+                    const newHour =
+                      currentHour >= 12 ? currentHour - 12 : currentHour + 12;
+                    handleReminderTimeChange(
+                      newHour,
+                      notifSettings.reminderTime.minute,
+                    );
+                  }}
+                >
                   <Feather name="chevron-up" size={28} color={theme.text} />
                 </Pressable>
-                <View style={[styles.timeDisplay, { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" }]}>
+                <View
+                  style={[
+                    styles.timeDisplay,
+                    {
+                      backgroundColor: isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(0,0,0,0.05)",
+                    },
+                  ]}
+                >
                   <ThemedText type="h2">
                     {notifSettings.reminderTime.hour >= 12 ? "PM" : "AM"}
                   </ThemedText>
                 </View>
-                <Pressable onPress={() => {
-                  const currentHour = notifSettings.reminderTime.hour;
-                  const newHour = currentHour >= 12 ? currentHour - 12 : currentHour + 12;
-                  handleReminderTimeChange(newHour, notifSettings.reminderTime.minute);
-                }}>
+                <Pressable
+                  onPress={() => {
+                    const currentHour = notifSettings.reminderTime.hour;
+                    const newHour =
+                      currentHour >= 12 ? currentHour - 12 : currentHour + 12;
+                    handleReminderTimeChange(
+                      newHour,
+                      notifSettings.reminderTime.minute,
+                    );
+                  }}
+                >
                   <Feather name="chevron-down" size={28} color={theme.text} />
                 </Pressable>
-                <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>AM/PM</ThemedText>
+                <ThemedText type="small" style={{ opacity: 0.5, marginTop: 4 }}>
+                  AM/PM
+                </ThemedText>
               </View>
             </View>
 
             <Pressable
-              onPress={() => { flushTimeChange(); setShowTimePicker(false); }}
+              onPress={() => {
+                flushTimeChange();
+                setShowTimePicker(false);
+              }}
               style={({ pressed }) => ({
                 backgroundColor: Colors.light.primary,
                 marginTop: Spacing.lg,
@@ -489,7 +705,9 @@ export default function SettingsScreen() {
                 opacity: pressed ? 0.8 : 1,
               })}
             >
-              <ThemedText type="body" style={{ color: "#FFFFFF" }}>Done</ThemedText>
+              <ThemedText type="body" style={{ color: "#FFFFFF" }}>
+                Done
+              </ThemedText>
             </Pressable>
           </Pressable>
         </Pressable>

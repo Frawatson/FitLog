@@ -2,7 +2,9 @@ import React, { useState, useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import type { NavigatorScreenParams } from "@react-navigation/native";
-import MainTabNavigator, { type MainTabParamList } from "@/navigation/MainTabNavigator";
+import MainTabNavigator, {
+  type MainTabParamList,
+} from "@/navigation/MainTabNavigator";
 import OnboardingScreen from "@/screens/OnboardingScreen";
 import EditRoutineScreen from "@/screens/EditRoutineScreen";
 import SelectRoutineScreen from "@/screens/SelectRoutineScreen";
@@ -38,7 +40,6 @@ import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useAuth } from "@/contexts/AuthContext";
 import * as storage from "@/lib/storage";
 
-
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
@@ -46,13 +47,32 @@ export type RootStackParamList = {
   ResetPassword: { email: string };
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
   Onboarding: undefined;
-  EditRoutine: { routineId?: string; prefillExercise?: { id: string; name: string; muscleGroup: string } };
+  EditRoutine: {
+    routineId?: string;
+    prefillExercise?: { id: string; name: string; muscleGroup: string };
+  };
   SelectRoutine: undefined;
   ActiveWorkout: { routineId: string };
   WorkoutComplete: { workoutId: string };
   RunComplete: { runId: string };
-  AddFood: { prefill?: { name: string; calories: string; protein: string; carbs: string; fat: string; serving?: string } } | undefined;
-  PhotoReview: { foods: any[]; imageUri: string; imageBase64?: string; mode?: string };
+  AddFood:
+    | {
+        prefill?: {
+          name: string;
+          calories: string;
+          protein: string;
+          carbs: string;
+          fat: string;
+          serving?: string;
+        };
+      }
+    | undefined;
+  PhotoReview: {
+    foods: any[];
+    imageUri: string;
+    imageBase64?: string;
+    mode?: string;
+  };
   FoodDetail: { entry: import("@/types").FoodLogEntry };
   WorkoutHistory: undefined;
   WorkoutDetail: { workoutId: string };
@@ -65,7 +85,15 @@ export type RootStackParamList = {
   ExerciseLibrary: undefined;
   BarcodeScanner: undefined;
   SocialFeed: undefined;
-  CreatePost: { prefill?: { postType: import("@/types").PostType; referenceId?: string; referenceData?: any } } | undefined;
+  CreatePost:
+    | {
+        prefill?: {
+          postType: import("@/types").PostType;
+          referenceId?: string;
+          referenceData?: any;
+        };
+      }
+    | undefined;
   PostDetail: { postId: number };
   SocialProfile: { userId: number };
   FollowList: { userId: number; mode: "followers" | "following" };
@@ -79,12 +107,14 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { user, loading } = useAuth();
-  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
-  
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(
+    null,
+  );
+
   useEffect(() => {
     checkOnboarding();
   }, [user]);
-  
+
   const checkOnboarding = async () => {
     if (!user) {
       setOnboardingComplete(null);
@@ -95,7 +125,7 @@ export default function RootStackNavigator() {
     // Also verify that the database user has completed their profile (has goal and activityLevel)
     const localProfileMatchesUser = profile?.email === user.email;
     const dbProfileComplete = user.goal && user.activityLevel;
-    
+
     if (localProfileMatchesUser && profile?.onboardingCompleted) {
       setOnboardingComplete(true);
     } else if (dbProfileComplete) {
@@ -105,7 +135,7 @@ export default function RootStackNavigator() {
       setOnboardingComplete(false);
     }
   };
-  
+
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -113,7 +143,7 @@ export default function RootStackNavigator() {
       </View>
     );
   }
-  
+
   if (!user) {
     return (
       <Stack.Navigator screenOptions={screenOptions}>
@@ -145,7 +175,7 @@ export default function RootStackNavigator() {
       </Stack.Navigator>
     );
   }
-  
+
   if (onboardingComplete === null) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -153,7 +183,7 @@ export default function RootStackNavigator() {
       </View>
     );
   }
-  
+
   return (
     <Stack.Navigator
       screenOptions={screenOptions}

@@ -1,0 +1,5 @@
+# Build outputs — generated code is never formatted.
+dist/
+server_dist/
+static-build/
+package-lock.json

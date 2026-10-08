@@ -18,24 +18,24 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 export function FAB({ onPress, icon = "play" }: FABProps) {
   const scale = useSharedValue(1);
-  
+
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
-  
+
   const handlePressIn = () => {
     scale.value = withSpring(0.92);
   };
-  
+
   const handlePressOut = () => {
     scale.value = withSpring(1);
   };
-  
+
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onPress();
   };
-  
+
   return (
     <AnimatedPressable
       onPress={handlePress}

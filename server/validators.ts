@@ -55,7 +55,10 @@ export function requireString(
     return { ok: false, error: `${field} must be a string` };
   }
   if (value.length > maxLen) {
-    return { ok: false, error: `${field} must be ${maxLen} characters or fewer` };
+    return {
+      ok: false,
+      error: `${field} must be ${maxLen} characters or fewer`,
+    };
   }
   if (!opts.allowEmpty && value.trim().length === 0) {
     return { ok: false, error: `${field} is required` };
@@ -68,7 +71,8 @@ export function optionalString(
   field: string,
   maxLen: number,
 ): ValidationResult<string | undefined> {
-  if (value === undefined || value === null) return { ok: true, value: undefined };
+  if (value === undefined || value === null)
+    return { ok: true, value: undefined };
   return requireString(value, field, maxLen, { allowEmpty: true });
 }
 
@@ -78,7 +82,10 @@ export function requireEnum<T extends string>(
   allowed: Set<T>,
 ): ValidationResult<T> {
   if (typeof value !== "string" || !allowed.has(value as T)) {
-    return { ok: false, error: `${field} must be one of: ${[...allowed].join(", ")}` };
+    return {
+      ok: false,
+      error: `${field} must be one of: ${[...allowed].join(", ")}`,
+    };
   }
   return { ok: true, value: value as T };
 }
@@ -88,7 +95,8 @@ export function optionalEnum<T extends string>(
   field: string,
   allowed: Set<T>,
 ): ValidationResult<T | undefined> {
-  if (value === undefined || value === null) return { ok: true, value: undefined };
+  if (value === undefined || value === null)
+    return { ok: true, value: undefined };
   return requireEnum(value, field, allowed);
 }
 
@@ -183,7 +191,8 @@ export function optionalBoolean(
   value: unknown,
   field: string,
 ): ValidationResult<boolean | undefined> {
-  if (value === undefined || value === null) return { ok: true, value: undefined };
+  if (value === undefined || value === null)
+    return { ok: true, value: undefined };
   return requireBoolean(value, field);
 }
 
@@ -221,4 +230,3 @@ export function delimitUserContent(tag: string, text: string): string {
   const cleaned = text.split(openTag).join("").split(closeTag).join("");
   return `${openTag}${cleaned}${closeTag}`;
 }
-

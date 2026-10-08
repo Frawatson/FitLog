@@ -30,14 +30,16 @@ export default function RoutineTemplatesScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
-  
+
   const [filter, setFilter] = useState<FilterCategory>("all");
-  const [selectedTemplate, setSelectedTemplate] = useState<RoutineTemplate | null>(null);
-  
-  const filteredTemplates = filter === "all"
-    ? ROUTINE_TEMPLATES
-    : ROUTINE_TEMPLATES.filter((t) => t.category === filter);
-  
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<RoutineTemplate | null>(null);
+
+  const filteredTemplates =
+    filter === "all"
+      ? ROUTINE_TEMPLATES
+      : ROUTINE_TEMPLATES.filter((t) => t.category === filter);
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "beginner":
@@ -50,7 +52,7 @@ export default function RoutineTemplatesScreen() {
         return theme.text;
     }
   };
-  
+
   const handleAddTemplate = async (template: RoutineTemplate) => {
     // Derive the saved routine's exerciseIds from the exercise name so
     // history (getLastWorkoutForExercise, ExerciseHistoryScreen) matches
@@ -88,7 +90,7 @@ export default function RoutineTemplatesScreen() {
     }
     await doAdd();
   };
-  
+
   const renderFilter = (category: FilterCategory, label: string) => (
     <AnimatedPress
       onPress={() => {
@@ -98,21 +100,27 @@ export default function RoutineTemplatesScreen() {
       style={[
         styles.filterChip,
         {
-          backgroundColor: filter === category ? Colors.light.primary : theme.backgroundElevated,
+          backgroundColor:
+            filter === category
+              ? Colors.light.primary
+              : theme.backgroundElevated,
         },
       ]}
     >
       <ThemedText
         type="small"
-        style={{ color: filter === category ? "#FFFFFF" : theme.text, fontWeight: "600" }}
+        style={{
+          color: filter === category ? "#FFFFFF" : theme.text,
+          fontWeight: "600",
+        }}
       >
         {label}
       </ThemedText>
     </AnimatedPress>
   );
-  
+
   const renderTemplate = ({ item }: { item: RoutineTemplate }) => (
-    <Card 
+    <Card
       style={styles.templateCard}
       onPress={() => {
         Haptics.selectionAsync();
@@ -120,68 +128,80 @@ export default function RoutineTemplatesScreen() {
       }}
     >
       <View style={styles.templateHeader}>
-          <View style={styles.templateTitleRow}>
-            <ThemedText type="h3">{item.name}</ThemedText>
-            <View
-              style={[
-                styles.difficultyBadge,
-                { backgroundColor: getDifficultyColor(item.difficulty) + "20" },
-              ]}
+        <View style={styles.templateTitleRow}>
+          <ThemedText type="h3">{item.name}</ThemedText>
+          <View
+            style={[
+              styles.difficultyBadge,
+              { backgroundColor: getDifficultyColor(item.difficulty) + "20" },
+            ]}
+          >
+            <ThemedText
+              type="small"
+              style={{
+                color: getDifficultyColor(item.difficulty),
+                fontWeight: "600",
+              }}
             >
-              <ThemedText
-                type="small"
-                style={{ color: getDifficultyColor(item.difficulty), fontWeight: "600" }}
-              >
-                {item.difficulty.charAt(0).toUpperCase() + item.difficulty.slice(1)}
-              </ThemedText>
-            </View>
-          </View>
-          <ThemedText type="body" style={styles.templateDescription}>
-            {item.description}
-          </ThemedText>
-          <View style={styles.templateMeta}>
-            <View style={styles.metaItem}>
-              <Feather name="calendar" size={14} color={theme.textSecondary} />
-              <ThemedText type="small" style={styles.metaText}>
-                {item.daysPerWeek} days/week
-              </ThemedText>
-            </View>
-            <View style={styles.metaItem}>
-              <Feather name="list" size={14} color={theme.textSecondary} />
-              <ThemedText type="small" style={styles.metaText}>
-                {item.exercises.length} exercises
-              </ThemedText>
-            </View>
+              {item.difficulty.charAt(0).toUpperCase() +
+                item.difficulty.slice(1)}
+            </ThemedText>
           </View>
         </View>
-        
-        {selectedTemplate?.id === item.id ? (
-          <View style={styles.expandedSection}>
-            <View style={[styles.divider, { backgroundColor: theme.border }]} />
-            <ThemedText type="h4" style={styles.exercisesTitle}>
-              Exercises
+        <ThemedText type="body" style={styles.templateDescription}>
+          {item.description}
+        </ThemedText>
+        <View style={styles.templateMeta}>
+          <View style={styles.metaItem}>
+            <Feather name="calendar" size={14} color={theme.textSecondary} />
+            <ThemedText type="small" style={styles.metaText}>
+              {item.daysPerWeek} days/week
             </ThemedText>
-            {item.exercises.map((exercise, index) => (
-              <View key={exercise.exerciseId} style={styles.exerciseRow}>
-                <View style={[styles.exerciseNumber, { backgroundColor: Colors.light.primary }]}>
-                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>
-                    {index + 1}
-                  </ThemedText>
-                </View>
-                <ThemedText type="body">{exercise.exerciseName}</ThemedText>
-              </View>
-            ))}
-            <Button
-              onPress={() => handleAddTemplate(item)}
-              style={styles.addButton}
-            >
-              Add to My Workouts
-            </Button>
           </View>
-        ) : null}
+          <View style={styles.metaItem}>
+            <Feather name="list" size={14} color={theme.textSecondary} />
+            <ThemedText type="small" style={styles.metaText}>
+              {item.exercises.length} exercises
+            </ThemedText>
+          </View>
+        </View>
+      </View>
+
+      {selectedTemplate?.id === item.id ? (
+        <View style={styles.expandedSection}>
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <ThemedText type="h4" style={styles.exercisesTitle}>
+            Exercises
+          </ThemedText>
+          {item.exercises.map((exercise, index) => (
+            <View key={exercise.exerciseId} style={styles.exerciseRow}>
+              <View
+                style={[
+                  styles.exerciseNumber,
+                  { backgroundColor: Colors.light.primary },
+                ]}
+              >
+                <ThemedText
+                  type="small"
+                  style={{ color: "#FFFFFF", fontWeight: "600" }}
+                >
+                  {index + 1}
+                </ThemedText>
+              </View>
+              <ThemedText type="body">{exercise.exerciseName}</ThemedText>
+            </View>
+          ))}
+          <Button
+            onPress={() => handleAddTemplate(item)}
+            style={styles.addButton}
+          >
+            Add to My Workouts
+          </Button>
+        </View>
+      ) : null}
     </Card>
   );
-  
+
   return (
     <FlatList
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}

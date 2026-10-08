@@ -39,11 +39,15 @@ export async function exportUserDataCsv(): Promise<ExportOutcome> {
 
     const workoutRows = ["Date,Routine,Duration (min),Exercises,Total Sets"];
     for (const w of workouts) {
-      const exercises = w.exercises?.map((e) => e.exerciseName).join("; ") || "";
-      const totalSets = w.exercises?.reduce((sum, e) => sum + (e.sets?.length || 0), 0) || 0;
+      const exercises =
+        w.exercises?.map((e) => e.exerciseName).join("; ") || "";
+      const totalSets =
+        w.exercises?.reduce((sum, e) => sum + (e.sets?.length || 0), 0) || 0;
       workoutRows.push(
         [
-          escapeCSV(w.startedAt?.split("T")[0] || w.completedAt?.split("T")[0] || ""),
+          escapeCSV(
+            w.startedAt?.split("T")[0] || w.completedAt?.split("T")[0] || "",
+          ),
           escapeCSV(w.routineName || ""),
           w.durationMinutes || 0,
           escapeCSV(exercises),
@@ -55,11 +59,17 @@ export async function exportUserDataCsv(): Promise<ExportOutcome> {
     const runRows = ["Date,Distance (km),Duration (min),Pace (min/km)"];
     for (const r of runs) {
       const durationMin = Math.round((r.durationSeconds || 0) / 60);
-      const pace = r.distanceKm > 0
-        ? ((r.durationSeconds || 0) / 60 / r.distanceKm).toFixed(2)
-        : "";
+      const pace =
+        r.distanceKm > 0
+          ? ((r.durationSeconds || 0) / 60 / r.distanceKm).toFixed(2)
+          : "";
       runRows.push(
-        [escapeCSV(r.startedAt?.split("T")[0] || ""), r.distanceKm.toFixed(2), durationMin, pace].join(","),
+        [
+          escapeCSV(r.startedAt?.split("T")[0] || ""),
+          r.distanceKm.toFixed(2),
+          durationMin,
+          pace,
+        ].join(","),
       );
     }
 
@@ -113,7 +123,9 @@ export async function exportUserDataCsv(): Promise<ExportOutcome> {
     });
 
     if (Platform.OS !== "web") {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
+        () => {},
+      );
     }
 
     return { ok: true, shared: true };

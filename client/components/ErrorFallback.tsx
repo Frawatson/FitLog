@@ -54,16 +54,20 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
       ) : null}
 
       <View style={styles.content}>
-        <View style={[styles.iconContainer, { backgroundColor: Colors.light.primary }]}>
+        <View
+          style={[
+            styles.iconContainer,
+            { backgroundColor: Colors.light.primary },
+          ]}
+        >
           <Feather name="alert-triangle" size={32} color="#FFFFFF" />
         </View>
-        
-        <Text style={styles.title}>
-          Gbolo hit a snag
-        </Text>
+
+        <Text style={styles.title}>Gbolo hit a snag</Text>
 
         <Text style={styles.message}>
-          Don't worry, your workout data is safe. Let's get you back on track.
+          Don&apos;t worry, your workout data is safe. Let&apos;s get you back
+          on track.
         </Text>
 
         <Pressable
@@ -77,9 +81,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
             },
           ]}
         >
-          <Text style={styles.buttonText}>
-            Back to the Gym
-          </Text>
+          <Text style={styles.buttonText}>Back to the Gym</Text>
         </Pressable>
       </View>
 
@@ -93,9 +95,7 @@ export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                  Error Details
-                </Text>
+                <Text style={styles.modalTitle}>Error Details</Text>
                 <Pressable
                   onPress={() => setIsModalVisible(false)}
                   style={({ pressed }) => [

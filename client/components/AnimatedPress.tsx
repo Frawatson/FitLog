@@ -37,10 +37,7 @@ export function AnimatedPress({
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
   }));
 
   const handlePressIn = () => {

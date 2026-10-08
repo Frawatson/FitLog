@@ -1,7 +1,11 @@
 // User Profile Types
 export type Sex = "male" | "female";
 export type TrainingExperience = "beginner" | "intermediate" | "advanced";
-export type FitnessGoal = "lose_fat" | "gain_muscle" | "recomposition" | "maintain";
+export type FitnessGoal =
+  | "lose_fat"
+  | "gain_muscle"
+  | "recomposition"
+  | "maintain";
 export type ActivityLevel = "1-2" | "3-4" | "5-6";
 export type UnitSystem = "metric" | "imperial";
 
@@ -134,8 +138,8 @@ export interface HeartRateZoneInfo {
 }
 
 // Social Types
-export type PostType = 'workout' | 'run' | 'meal' | 'achievement' | 'text';
-export type PostVisibility = 'followers' | 'public';
+export type PostType = "workout" | "run" | "meal" | "achievement" | "text";
+export type PostVisibility = "followers" | "public";
 
 export interface Post {
   id: number;
@@ -194,7 +198,7 @@ export interface FollowUser {
 export interface Notification {
   id: number;
   userId: number;
-  type: 'like' | 'comment' | 'follow';
+  type: "like" | "comment" | "follow";
   actorId: number;
   actorName: string;
   actorAvatarUrl?: string;

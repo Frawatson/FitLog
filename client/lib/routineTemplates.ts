@@ -377,7 +377,7 @@ export const ROUTINE_TEMPLATES: RoutineTemplate[] = [
 ];
 
 export function getTemplatesByDifficulty(
-  difficulty: string
+  difficulty: string,
 ): RoutineTemplate[] {
   return ROUTINE_TEMPLATES.filter((t) => t.difficulty === difficulty);
 }

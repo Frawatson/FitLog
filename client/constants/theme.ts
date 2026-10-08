@@ -8,17 +8,17 @@ import { Platform } from "react-native";
 // types). Plain string lets the existing ThemeContext typeof-Colors.light
 // pattern work unchanged.
 export const Brand = {
-  green: "#1B3A27" as string,        // Primary brand color (CTAs, links, active tabs)
-  greenDeep: "#0A1612" as string,    // Darkest tone — dark-mode root background
+  green: "#1B3A27" as string, // Primary brand color (CTAs, links, active tabs)
+  greenDeep: "#0A1612" as string, // Darkest tone — dark-mode root background
   greenSurface: "#11241A" as string, // Dark-mode default surface
-  greenCard: "#162B1F" as string,    // Dark-mode card background
-  greenElevated: "#1E382A" as string,// Dark-mode raised surface
-  greenBorder: "#2D4D38" as string,  // Dark-mode divider
-  gold: "#D4AF37" as string,         // Accent — used for dark-mode links/highlights
+  greenCard: "#162B1F" as string, // Dark-mode card background
+  greenElevated: "#1E382A" as string, // Dark-mode raised surface
+  greenBorder: "#2D4D38" as string, // Dark-mode divider
+  gold: "#D4AF37" as string, // Accent — used for dark-mode links/highlights
 };
 
 const successGreen = "#00D084"; // Semantic — kept distinct from brand green
-const errorRed = "#D32F2F";     // Semantic
+const errorRed = "#D32F2F"; // Semantic
 // Macro accent colors — same on light + dark so the carbs/fat numbers
 // stay recognizable across the app (rings, food rows, edit forms,
 // onboarding, profile). Calories use Brand.green via Colors.X.primary;

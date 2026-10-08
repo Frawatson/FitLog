@@ -109,8 +109,13 @@ function CollapsibleSection({
         <View style={sectionStyles.headerLeft}>
           <ThemedText type="h4">{title}</ThemedText>
           {badge ? (
-            <View style={[sectionStyles.badge, { backgroundColor: theme.primary }]}>
-              <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+            <View
+              style={[sectionStyles.badge, { backgroundColor: theme.primary }]}
+            >
+              <ThemedText
+                type="caption"
+                style={{ color: "#FFFFFF", fontWeight: "600" }}
+              >
                 {badge}
               </ThemedText>
             </View>
@@ -123,14 +128,19 @@ function CollapsibleSection({
         />
       </AnimatedPress>
       {subtitle && !isExpanded ? (
-        <ThemedText type="caption" style={{ color: theme.textSecondary, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md }}>
+        <ThemedText
+          type="caption"
+          style={{
+            color: theme.textSecondary,
+            paddingHorizontal: Spacing.lg,
+            paddingBottom: Spacing.md,
+          }}
+        >
           {subtitle}
         </ThemedText>
       ) : null}
       {isExpanded ? (
-        <View style={sectionStyles.content}>
-          {children}
-        </View>
+        <View style={sectionStyles.content}>{children}</View>
       ) : null}
     </View>
   );
@@ -174,7 +184,8 @@ export default function GenerateRoutineScreen() {
   const { theme, isDark } = useTheme();
 
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("intermediate");
+  const [selectedDifficulty, setSelectedDifficulty] =
+    useState<string>("intermediate");
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([]);
   const [selectedGoal, setSelectedGoal] = useState<string>("build_muscle");
   const [routineName, setRoutineName] = useState("");
@@ -184,7 +195,9 @@ export default function GenerateRoutineScreen() {
   const [preview, setPreview] = useState<PreviewRoutine | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({
     muscles: true,
     goal: false,
     equipment: false,
@@ -202,7 +215,7 @@ export default function GenerateRoutineScreen() {
     setSelectedMuscles((prev) =>
       prev.includes(muscleId)
         ? prev.filter((id) => id !== muscleId)
-        : [...prev, muscleId]
+        : [...prev, muscleId],
     );
   };
 
@@ -211,7 +224,7 @@ export default function GenerateRoutineScreen() {
     setSelectedEquipment((prev) =>
       prev.includes(equipId)
         ? prev.filter((id) => id !== equipId)
-        : [...prev, equipId]
+        : [...prev, equipId],
     );
   };
 
@@ -228,20 +241,24 @@ export default function GenerateRoutineScreen() {
   const fetchGeneratedRoutine = async (): Promise<PreviewRoutine> => {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
     const apiUrl = getApiUrl();
-    const response = await fetch(new URL("/api/generate-routine", apiUrl).toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    const response = await fetch(
+      new URL("/api/generate-routine", apiUrl).toString(),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          muscleGroups: selectedMuscles,
+          difficulty: selectedDifficulty,
+          name: routineName || undefined,
+          equipment:
+            selectedEquipment.length > 0 ? selectedEquipment : undefined,
+          goal: selectedGoal,
+        }),
       },
-      body: JSON.stringify({
-        muscleGroups: selectedMuscles,
-        difficulty: selectedDifficulty,
-        name: routineName || undefined,
-        equipment: selectedEquipment.length > 0 ? selectedEquipment : undefined,
-        goal: selectedGoal,
-      }),
-    });
+    );
 
     if (!response.ok) {
       const errData = await response.json().catch(() => null);
@@ -250,18 +267,28 @@ export default function GenerateRoutineScreen() {
 
     const data = await response.json();
     const rawExercises = Array.isArray(data.exercises) ? data.exercises : [];
-    const exercises: RoutineExercise[] = rawExercises.map((ex: any, index: number) => ({
-      // Slug-derived id so this exercise's history matches the same lift
-      // saved from a template or the exercise library.
-      exerciseId: typeof ex.name === "string" && ex.name ? exerciseSlug(ex.name) : uuidv4(),
-      exerciseName: ex.name,
-      order: index,
-    }));
+    const exercises: RoutineExercise[] = rawExercises.map(
+      (ex: any, index: number) => ({
+        // Slug-derived id so this exercise's history matches the same lift
+        // saved from a template or the exercise library.
+        exerciseId:
+          typeof ex.name === "string" && ex.name
+            ? exerciseSlug(ex.name)
+            : uuidv4(),
+        exerciseName: ex.name,
+        order: index,
+      }),
+    );
 
     return {
-      defaultName: typeof data.name === "string" && data.name ? data.name : "Generated Workout",
+      defaultName:
+        typeof data.name === "string" && data.name
+          ? data.name
+          : "Generated Workout",
       exercises,
-      partialMuscles: Array.isArray(data.partialMuscles) ? data.partialMuscles : [],
+      partialMuscles: Array.isArray(data.partialMuscles)
+        ? data.partialMuscles
+        : [],
     };
   };
 
@@ -331,10 +358,14 @@ export default function GenerateRoutineScreen() {
     setError(null);
   };
 
-  const musclesBadge = selectedMuscles.length > 0 ? `${selectedMuscles.length}` : undefined;
-  const equipBadge = selectedEquipment.length > 0 ? `${selectedEquipment.length}` : undefined;
+  const musclesBadge =
+    selectedMuscles.length > 0 ? `${selectedMuscles.length}` : undefined;
+  const equipBadge =
+    selectedEquipment.length > 0 ? `${selectedEquipment.length}` : undefined;
   const goalLabel = GOAL_OPTIONS.find((g) => g.id === selectedGoal)?.label;
-  const diffLabel = DIFFICULTY_LEVELS.find((d) => d.id === selectedDifficulty)?.label;
+  const diffLabel = DIFFICULTY_LEVELS.find(
+    (d) => d.id === selectedDifficulty,
+  )?.label;
 
   if (preview) {
     return (
@@ -348,12 +379,20 @@ export default function GenerateRoutineScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
-          <ThemedText type="h2" style={{ marginBottom: Spacing.xs }}>Your workout</ThemedText>
-          <ThemedText type="small" style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}>
+          <ThemedText type="h2" style={{ marginBottom: Spacing.xs }}>
+            Your workout
+          </ThemedText>
+          <ThemedText
+            type="small"
+            style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}
+          >
             Review the exercises below. Rename, regenerate, or save.
           </ThemedText>
 
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}>
+          <ThemedText
+            type="caption"
+            style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}
+          >
             Routine name
           </ThemedText>
           <TextInput
@@ -374,35 +413,73 @@ export default function GenerateRoutineScreen() {
           />
 
           {preview.partialMuscles.length > 0 ? (
-            <View style={[styles.errorContainer, { backgroundColor: "#FFB30022", marginBottom: Spacing.lg }]}>
+            <View
+              style={[
+                styles.errorContainer,
+                { backgroundColor: "#FFB30022", marginBottom: Spacing.lg },
+              ]}
+            >
               <Feather name="alert-triangle" size={18} color="#FFB300" />
-              <ThemedText type="small" style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}>
-                No exercises matched for: {preview.partialMuscles.map((m) => m.replace("_", " ")).join(", ")}.
-                Try regenerating or relaxing equipment filters.
+              <ThemedText
+                type="small"
+                style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}
+              >
+                No exercises matched for:{" "}
+                {preview.partialMuscles
+                  .map((m) => m.replace("_", " "))
+                  .join(", ")}
+                . Try regenerating or relaxing equipment filters.
               </ThemedText>
             </View>
           ) : null}
 
-          <View style={[styles.previewCard, { backgroundColor: theme.backgroundSecondary, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.previewCard,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
-              {preview.exercises.length} exercise{preview.exercises.length === 1 ? "" : "s"}
+              {preview.exercises.length} exercise
+              {preview.exercises.length === 1 ? "" : "s"}
             </ThemedText>
             {preview.exercises.map((ex, index) => (
               <View key={ex.exerciseId} style={styles.previewRow}>
-                <View style={[styles.previewNumber, { backgroundColor: theme.primary }]}>
-                  <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                <View
+                  style={[
+                    styles.previewNumber,
+                    { backgroundColor: theme.primary },
+                  ]}
+                >
+                  <ThemedText
+                    type="small"
+                    style={{ color: "#FFFFFF", fontWeight: "600" }}
+                  >
                     {index + 1}
                   </ThemedText>
                 </View>
-                <ThemedText type="body" style={{ flex: 1 }}>{ex.exerciseName}</ThemedText>
+                <ThemedText type="body" style={{ flex: 1 }}>
+                  {ex.exerciseName}
+                </ThemedText>
               </View>
             ))}
           </View>
 
           {error ? (
-            <View style={[styles.errorContainer, { backgroundColor: `${theme.error}15`, marginTop: Spacing.lg }]}>
+            <View
+              style={[
+                styles.errorContainer,
+                { backgroundColor: `${theme.error}15`, marginTop: Spacing.lg },
+              ]}
+            >
               <Feather name="alert-circle" size={18} color={theme.error} />
-              <ThemedText type="small" style={{ color: theme.error, marginLeft: Spacing.sm, flex: 1 }}>
+              <ThemedText
+                type="small"
+                style={{ color: theme.error, marginLeft: Spacing.sm, flex: 1 }}
+              >
                 {error}
               </ThemedText>
             </View>
@@ -410,18 +487,30 @@ export default function GenerateRoutineScreen() {
 
           <Button
             onPress={savePreviewedRoutine}
-            disabled={isSaving || isGenerating || preview.exercises.length === 0}
+            disabled={
+              isSaving || isGenerating || preview.exercises.length === 0
+            }
             style={styles.generateButton}
           >
             {isSaving ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator color="#FFFFFF" size="small" />
-                <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>Saving...</ThemedText>
+                <ThemedText
+                  style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}
+                >
+                  Saving...
+                </ThemedText>
               </View>
             ) : (
               <View style={styles.loadingContainer}>
                 <Feather name="check" size={20} color="#FFFFFF" />
-                <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm, fontWeight: "700" }}>
+                <ThemedText
+                  style={{
+                    color: "#FFFFFF",
+                    marginLeft: Spacing.sm,
+                    fontWeight: "700",
+                  }}
+                >
                   Save Routine
                 </ThemedText>
               </View>
@@ -433,18 +522,25 @@ export default function GenerateRoutineScreen() {
             disabled={isGenerating || isSaving}
             style={[
               styles.secondaryButton,
-              { borderColor: theme.border, opacity: isGenerating || isSaving ? 0.5 : 1 },
+              {
+                borderColor: theme.border,
+                opacity: isGenerating || isSaving ? 0.5 : 1,
+              },
             ]}
           >
             {isGenerating ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator color={theme.text} size="small" />
-                <ThemedText style={{ marginLeft: Spacing.sm }}>Regenerating...</ThemedText>
+                <ThemedText style={{ marginLeft: Spacing.sm }}>
+                  Regenerating...
+                </ThemedText>
               </View>
             ) : (
               <View style={styles.loadingContainer}>
                 <Feather name="refresh-cw" size={18} color={theme.text} />
-                <ThemedText style={{ marginLeft: Spacing.sm, fontWeight: "600" }}>
+                <ThemedText
+                  style={{ marginLeft: Spacing.sm, fontWeight: "600" }}
+                >
                   Regenerate
                 </ThemedText>
               </View>
@@ -454,7 +550,10 @@ export default function GenerateRoutineScreen() {
           <AnimatedPress
             onPress={backToForm}
             disabled={isSaving || isGenerating}
-            style={[styles.textButton, { opacity: isSaving || isGenerating ? 0.5 : 1 }]}
+            style={[
+              styles.textButton,
+              { opacity: isSaving || isGenerating ? 0.5 : 1 },
+            ]}
           >
             <ThemedText type="small" style={{ color: theme.textSecondary }}>
               Back to settings
@@ -479,9 +578,13 @@ export default function GenerateRoutineScreen() {
       >
         <CollapsibleSection
           title="Muscle Groups"
-          subtitle={selectedMuscles.length > 0
-            ? selectedMuscles.map((id) => MUSCLE_GROUPS.find((m) => m.id === id)?.label).join(", ")
-            : "Tap to select muscles"}
+          subtitle={
+            selectedMuscles.length > 0
+              ? selectedMuscles
+                  .map((id) => MUSCLE_GROUPS.find((m) => m.id === id)?.label)
+                  .join(", ")
+              : "Tap to select muscles"
+          }
           isExpanded={expandedSections.muscles}
           onToggle={() => toggleSection("muscles")}
           badge={musclesBadge}
@@ -496,7 +599,9 @@ export default function GenerateRoutineScreen() {
                   style={[
                     styles.chip,
                     {
-                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      backgroundColor: isSelected
+                        ? theme.primary
+                        : theme.backgroundSecondary,
                       borderColor: isSelected ? theme.primary : theme.border,
                     },
                   ]}
@@ -539,7 +644,9 @@ export default function GenerateRoutineScreen() {
                   style={[
                     styles.chip,
                     {
-                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      backgroundColor: isSelected
+                        ? theme.primary
+                        : theme.backgroundSecondary,
                       borderColor: isSelected ? theme.primary : theme.border,
                     },
                   ]}
@@ -568,15 +675,24 @@ export default function GenerateRoutineScreen() {
 
         <CollapsibleSection
           title="Equipment"
-          subtitle={selectedEquipment.length > 0
-            ? selectedEquipment.map((id) => EQUIPMENT_OPTIONS.find((e) => e.id === id)?.label).join(", ")
-            : "Full gym (default)"}
+          subtitle={
+            selectedEquipment.length > 0
+              ? selectedEquipment
+                  .map(
+                    (id) => EQUIPMENT_OPTIONS.find((e) => e.id === id)?.label,
+                  )
+                  .join(", ")
+              : "Full gym (default)"
+          }
           isExpanded={expandedSections.equipment}
           onToggle={() => toggleSection("equipment")}
           badge={equipBadge}
           theme={theme}
         >
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.md }}>
+          <ThemedText
+            type="caption"
+            style={{ color: theme.textSecondary, marginBottom: Spacing.md }}
+          >
             Leave empty to assume full gym access
           </ThemedText>
           <View style={styles.chipGrid}>
@@ -588,7 +704,9 @@ export default function GenerateRoutineScreen() {
                   style={[
                     styles.chip,
                     {
-                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      backgroundColor: isSelected
+                        ? theme.primary
+                        : theme.backgroundSecondary,
                       borderColor: isSelected ? theme.primary : theme.border,
                     },
                   ]}
@@ -626,7 +744,9 @@ export default function GenerateRoutineScreen() {
                   style={[
                     styles.difficultyCard,
                     {
-                      backgroundColor: isSelected ? theme.primary : theme.backgroundSecondary,
+                      backgroundColor: isSelected
+                        ? theme.primary
+                        : theme.backgroundSecondary,
                       borderColor: isSelected ? theme.primary : theme.border,
                     },
                   ]}
@@ -641,7 +761,11 @@ export default function GenerateRoutineScreen() {
                   </ThemedText>
                   <ThemedText
                     type="caption"
-                    style={{ color: isSelected ? "rgba(255,255,255,0.8)" : theme.textSecondary }}
+                    style={{
+                      color: isSelected
+                        ? "rgba(255,255,255,0.8)"
+                        : theme.textSecondary,
+                    }}
                   >
                     {level.description}
                   </ThemedText>
@@ -658,7 +782,10 @@ export default function GenerateRoutineScreen() {
           onToggle={() => toggleSection("extras")}
           theme={theme}
         >
-          <ThemedText type="caption" style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}>
+          <ThemedText
+            type="caption"
+            style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+          >
             Routine Name
           </ThemedText>
           <TextInput
@@ -680,9 +807,17 @@ export default function GenerateRoutineScreen() {
         </CollapsibleSection>
 
         {error ? (
-          <View style={[styles.errorContainer, { backgroundColor: `${theme.error}15` }]}>
+          <View
+            style={[
+              styles.errorContainer,
+              { backgroundColor: `${theme.error}15` },
+            ]}
+          >
             <Feather name="alert-circle" size={18} color={theme.error} />
-            <ThemedText type="small" style={{ color: theme.error, marginLeft: Spacing.sm, flex: 1 }}>
+            <ThemedText
+              type="small"
+              style={{ color: theme.error, marginLeft: Spacing.sm, flex: 1 }}
+            >
               {error}
             </ThemedText>
           </View>
@@ -704,7 +839,13 @@ export default function GenerateRoutineScreen() {
           ) : (
             <View style={styles.loadingContainer}>
               <Feather name="zap" size={20} color="#FFFFFF" />
-              <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm, fontWeight: "700" }}>
+              <ThemedText
+                style={{
+                  color: "#FFFFFF",
+                  marginLeft: Spacing.sm,
+                  fontWeight: "700",
+                }}
+              >
                 Generate Routine
               </ThemedText>
             </View>

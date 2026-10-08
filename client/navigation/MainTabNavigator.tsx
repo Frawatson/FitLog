@@ -1,16 +1,23 @@
 import React from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, Platform } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import type { NavigatorScreenParams } from "@react-navigation/native";
 import Feather from "@expo/vector-icons/Feather";
 import { BlurView } from "expo-blur";
-import { Platform } from "react-native";
 
 import DashboardScreen from "@/screens/DashboardScreen";
-import RoutinesStackNavigator, { type RoutinesStackParamList } from "@/navigation/RoutinesStackNavigator";
-import RunStackNavigator, { type RunStackParamList } from "@/navigation/RunStackNavigator";
-import NutritionStackNavigator, { type NutritionStackParamList } from "@/navigation/NutritionStackNavigator";
-import ProfileStackNavigator, { type ProfileStackParamList } from "@/navigation/ProfileStackNavigator";
+import RoutinesStackNavigator, {
+  type RoutinesStackParamList,
+} from "@/navigation/RoutinesStackNavigator";
+import RunStackNavigator, {
+  type RunStackParamList,
+} from "@/navigation/RunStackNavigator";
+import NutritionStackNavigator, {
+  type NutritionStackParamList,
+} from "@/navigation/NutritionStackNavigator";
+import ProfileStackNavigator, {
+  type ProfileStackParamList,
+} from "@/navigation/ProfileStackNavigator";
 import { SidebarTabBar } from "@/navigation/SidebarTabBar";
 import { useTheme } from "@/hooks/useTheme";
 import { usePlatform } from "@/hooks/usePlatform";
@@ -36,7 +43,9 @@ export default function MainTabNavigator() {
       // On desktop web, hand the tab bar to our SidebarTabBar component and
       // tell the navigator to lay it out as a left sidebar. On native and
       // mobile/tablet web, fall back to the default bottom bar.
-      tabBar={isDesktopWeb ? (props) => <SidebarTabBar {...props} /> : undefined}
+      tabBar={
+        isDesktopWeb ? (props) => <SidebarTabBar {...props} /> : undefined
+      }
       screenOptions={{
         // Tabs mount on first focus (the default). `lazy: false` previously
         // mounted all 5 tabs at startup, which loaded Leaflet, fetched map
@@ -128,4 +137,3 @@ export default function MainTabNavigator() {
     </Tab.Navigator>
   );
 }
-

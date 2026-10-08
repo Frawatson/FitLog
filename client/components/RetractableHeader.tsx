@@ -51,7 +51,8 @@ export function RetractableHeader({
           // Subtle bottom divider only on non-iOS — iOS users expect a
           // borderless translucent header.
           borderBottomColor: theme.border,
-          borderBottomWidth: Platform.OS === "ios" ? 0 : StyleSheet.hairlineWidth,
+          borderBottomWidth:
+            Platform.OS === "ios" ? 0 : StyleSheet.hairlineWidth,
         },
         animatedStyle,
       ]}
@@ -61,7 +62,11 @@ export function RetractableHeader({
           {logoSource ? (
             <Image
               source={logoSource}
-              style={{ height: logoHeight, width: logoHeight, resizeMode: "contain" }}
+              style={{
+                height: logoHeight,
+                width: logoHeight,
+                resizeMode: "contain",
+              }}
               accessibilityLabel="Gbolo"
             />
           ) : title ? (

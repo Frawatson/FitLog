@@ -32,7 +32,9 @@ export function useRetractableHeader() {
         translateY.value = withTiming(0, { duration: ANIM_MS });
       } else if (delta > SCROLL_DELTA) {
         // Scrolling down (toward more content) — hide.
-        translateY.value = withTiming(-RETRACTABLE_HEADER_HEIGHT, { duration: ANIM_MS });
+        translateY.value = withTiming(-RETRACTABLE_HEADER_HEIGHT, {
+          duration: ANIM_MS,
+        });
       } else if (delta < -SCROLL_DELTA) {
         // Scrolling up (back toward the top) — show.
         translateY.value = withTiming(0, { duration: ANIM_MS });

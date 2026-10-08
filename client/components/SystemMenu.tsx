@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -102,18 +109,28 @@ export function SystemMenuRoot(): React.ReactElement | null {
   const optionBg = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)";
 
   return (
-    <Modal
-      transparent
-      animationType="fade"
-      onRequestClose={dismiss}
-      visible
-    >
-      <Pressable style={styles.backdrop} onPress={dismiss} accessibilityRole="button" accessibilityLabel="Close menu">
+    <Modal transparent animationType="fade" onRequestClose={dismiss} visible>
+      <Pressable
+        style={styles.backdrop}
+        onPress={dismiss}
+        accessibilityRole="button"
+        accessibilityLabel="Close menu"
+      >
         {/* Stop click-through on the sheet itself */}
-        <Pressable style={[styles.sheet, { backgroundColor: theme.backgroundCard }]} onPress={() => {}}>
-          <ThemedText type="h3" style={styles.title}>{menu.title}</ThemedText>
+        <Pressable
+          style={[styles.sheet, { backgroundColor: theme.backgroundCard }]}
+          onPress={() => {}}
+        >
+          <ThemedText type="h3" style={styles.title}>
+            {menu.title}
+          </ThemedText>
           {menu.message ? (
-            <ThemedText type="small" style={[styles.message, { color: theme.textSecondary }]}>{menu.message}</ThemedText>
+            <ThemedText
+              type="small"
+              style={[styles.message, { color: theme.textSecondary }]}
+            >
+              {menu.message}
+            </ThemedText>
           ) : null}
           <View style={styles.options}>
             {menu.options.map((opt, i) => (

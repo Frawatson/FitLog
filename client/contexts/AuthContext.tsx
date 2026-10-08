@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiUrl } from "@/lib/query-client";
 import * as storage from "@/lib/storage";
@@ -24,7 +30,11 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<{ confirmationRequired: true; message: string }>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+  ) => Promise<{ confirmationRequired: true; message: string }>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -64,18 +74,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
-      const response = await fetch(new URL("/api/auth/me", getApiUrl()).toString(), {
-        credentials: "include",
-        headers,
-      });
+      const response = await fetch(
+        new URL("/api/auth/me", getApiUrl()).toString(),
+        {
+          credentials: "include",
+          headers,
+        },
+      );
       if (response.ok) {
         const userData = await response.json();
-        console.log("[AuthContext] Received user data:", JSON.stringify(userData, null, 2));
+        console.log(
+          "[AuthContext] Received user data:",
+          JSON.stringify(userData, null, 2),
+        );
         setUser(userData);
         // Initialize sync service for authenticated user
         initSyncService();
       } else {
-        console.log("[AuthContext] Auth check failed, status:", response.status);
+        console.log(
+          "[AuthContext] Auth check failed, status:",
+          response.status,
+        );
         // Clear invalid token
         if (token) {
           await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
@@ -88,12 +107,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = async (email: string, password: string) => {
-    const response = await fetch(new URL("/api/auth/login", getApiUrl()).toString(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password }),
-    });
+    const response = await fetch(
+      new URL("/api/auth/login", getApiUrl()).toString(),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      },
+    );
 
     if (!response.ok) {
       const error = await response.json();
@@ -128,12 +150,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, name: string) => {
     // Don't clear local data here — register no longer auto-logs in. We'll
     // clear it on the next successful login if it doesn't match the user.
-    const response = await fetch(new URL("/api/auth/register", getApiUrl()).toString(), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ email, password, name }),
-    });
+    const response = await fetch(
+      new URL("/api/auth/register", getApiUrl()).toString(),
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password, name }),
+      },
+    );
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
@@ -178,12 +203,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
     }
-    const response = await fetch(new URL("/api/auth/profile", getApiUrl()).toString(), {
-      method: "PUT",
-      headers,
-      credentials: "include",
-      body: JSON.stringify(data),
-    });
+    const response = await fetch(
+      new URL("/api/auth/profile", getApiUrl()).toString(),
+      {
+        method: "PUT",
+        headers,
+        credentials: "include",
+        body: JSON.stringify(data),
+      },
+    );
 
     if (!response.ok) {
       const error = await response.json();
@@ -192,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const userData = await response.json();
     setUser(userData);
-    
+
     // Also update AsyncStorage so profile data persists across app restarts
     const existingProfile = await storage.getUserProfile();
     await storage.saveUserProfile({
@@ -223,25 +251,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authToken) {
       headers["Authorization"] = `Bearer ${authToken}`;
     }
-    
-    const response = await fetch(new URL("/api/auth/account", getApiUrl()).toString(), {
-      method: "DELETE",
-      headers,
-      credentials: "include",
-    });
-    
+
+    const response = await fetch(
+      new URL("/api/auth/account", getApiUrl()).toString(),
+      {
+        method: "DELETE",
+        headers,
+        credentials: "include",
+      },
+    );
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || "Failed to delete account");
     }
-    
+
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     setAuthToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile, refreshUser, deleteAccount }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        logout,
+        updateProfile,
+        refreshUser,
+        deleteAccount,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

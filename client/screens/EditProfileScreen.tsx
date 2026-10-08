@@ -68,7 +68,11 @@ export default function EditProfileScreen() {
   // Track the original kg values so we can detect "user didn't edit"
   // and skip the lbs→kg round-trip — otherwise kgToLbs(80) → 176.4
   // → lbsToKg(176.4) → 80.01 drifts ~10g per save.
-  const originalRef = useRef<{ weightKg?: number; weightGoalKg?: number; heightCm?: number }>({});
+  const originalRef = useRef<{
+    weightKg?: number;
+    weightGoalKg?: number;
+    heightCm?: number;
+  }>({});
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -112,7 +116,7 @@ export default function EditProfileScreen() {
       setWeight(
         unitSystem === "imperial"
           ? kgToLbs(user.weightKg).toString()
-          : user.weightKg.toString()
+          : user.weightKg.toString(),
       );
     }
 
@@ -120,7 +124,7 @@ export default function EditProfileScreen() {
       setWeightGoal(
         unitSystem === "imperial"
           ? kgToLbs(user.weightGoalKg).toString()
-          : user.weightGoalKg.toString()
+          : user.weightGoalKg.toString(),
       );
     }
 
@@ -176,7 +180,10 @@ export default function EditProfileScreen() {
             : lbsToKg(parseFloat(weight));
         }
         if (weightGoal) {
-          finalWeightGoalKg = lbsUnchanged(weightGoal, originalRef.current.weightGoalKg)
+          finalWeightGoalKg = lbsUnchanged(
+            weightGoal,
+            originalRef.current.weightGoalKg,
+          )
             ? originalRef.current.weightGoalKg
             : lbsToKg(parseFloat(weightGoal));
         }
@@ -219,7 +226,9 @@ export default function EditProfileScreen() {
     onSelect: (value: string) => void,
   ) => (
     <View style={styles.chipGroupContainer}>
-      <ThemedText type="small" style={styles.chipLabel}>{label}</ThemedText>
+      <ThemedText type="small" style={styles.chipLabel}>
+        {label}
+      </ThemedText>
       <View style={styles.chipGrid}>
         {options.map((opt) => {
           const isSelected = selected === opt.value;
@@ -229,7 +238,9 @@ export default function EditProfileScreen() {
               style={[
                 styles.chip,
                 {
-                  backgroundColor: isSelected ? Colors.light.primary : theme.backgroundSecondary,
+                  backgroundColor: isSelected
+                    ? Colors.light.primary
+                    : theme.backgroundSecondary,
                   borderColor: isSelected ? Colors.light.primary : theme.border,
                 },
               ]}
@@ -240,7 +251,10 @@ export default function EditProfileScreen() {
             >
               <ThemedText
                 type="small"
-                style={{ color: isSelected ? "#FFFFFF" : theme.text, fontWeight: isSelected ? "600" : "400" }}
+                style={{
+                  color: isSelected ? "#FFFFFF" : theme.text,
+                  fontWeight: isSelected ? "600" : "400",
+                }}
               >
                 {opt.label}
               </ThemedText>
@@ -261,9 +275,17 @@ export default function EditProfileScreen() {
         }}
       >
         {error ? (
-          <View style={[styles.errorBox, { backgroundColor: Colors.light.error + "20" }]}>
+          <View
+            style={[
+              styles.errorBox,
+              { backgroundColor: Colors.light.error + "20" },
+            ]}
+          >
             <Feather name="alert-circle" size={16} color={Colors.light.error} />
-            <ThemedText type="small" style={{ color: Colors.light.error, flex: 1 }}>
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.error, flex: 1 }}
+            >
               {error}
             </ThemedText>
           </View>
@@ -390,13 +412,32 @@ export default function EditProfileScreen() {
             <ThemedText type="h4">Fitness Profile</ThemedText>
           </View>
 
-          {renderChipGroup("Experience Level", EXPERIENCE_OPTIONS, experience, setExperience)}
+          {renderChipGroup(
+            "Experience Level",
+            EXPERIENCE_OPTIONS,
+            experience,
+            setExperience,
+          )}
           {renderChipGroup("Goal", GOAL_OPTIONS, goal, setGoal)}
-          {renderChipGroup("Activity Level", ACTIVITY_OPTIONS, activityLevel, setActivityLevel)}
+          {renderChipGroup(
+            "Activity Level",
+            ACTIVITY_OPTIONS,
+            activityLevel,
+            setActivityLevel,
+          )}
         </Card>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg, backgroundColor: theme.backgroundRoot, borderTopColor: theme.border }]}>
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: insets.bottom + Spacing.lg,
+            backgroundColor: theme.backgroundRoot,
+            borderTopColor: theme.border,
+          },
+        ]}
+      >
         <Button onPress={handleSave} disabled={loading}>
           {loading ? <ActivityIndicator color="#FFFFFF" /> : "Save Changes"}
         </Button>

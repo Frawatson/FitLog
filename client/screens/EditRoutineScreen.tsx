@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { View, StyleSheet, FlatList, Pressable, Modal, TextInput } from "react-native";
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Pressable,
+  Modal,
+  TextInput,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useHeaderHeight } from "@react-navigation/elements";
+import { useHeaderHeight, HeaderButton } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { HeaderButton } from "@react-navigation/elements";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { v4 as uuidv4 } from "uuid";
@@ -37,10 +43,10 @@ export default function EditRoutineScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const { theme } = useTheme();
-  
+
   const routineId = route.params?.routineId;
   const isNew = !routineId;
-  
+
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<RoutineExercise[]>([]);
   const [existingRoutine, setExistingRoutine] = useState<Routine | null>(null);
@@ -50,11 +56,11 @@ export default function EditRoutineScreen() {
   const [showExerciseInfo, setShowExerciseInfo] = useState(false);
   const [selectedExerciseName, setSelectedExerciseName] = useState("");
   const [exerciseSearch, setExerciseSearch] = useState("");
-  
+
   useEffect(() => {
     loadData();
   }, []);
-  
+
   const handleCancel = () => {
     // Only warn about discarding when something actually changed. In edit
     // mode `name` is always populated, so the old `name || exercises.length`
@@ -91,13 +97,15 @@ export default function EditRoutineScreen() {
         ),
         headerRight: () => (
           <HeaderButton onPress={handleSave}>
-            <ThemedText type="link" style={{ fontWeight: "600" }}>Save</ThemedText>
+            <ThemedText type="link" style={{ fontWeight: "600" }}>
+              Save
+            </ThemedText>
           </HeaderButton>
         ),
       });
     }
   }, [name, exercises, theme, showExerciseList]);
-  
+
   const loadData = async () => {
     // Load the routine being edited FIRST — its name/exercises drive the
     // form. Previously this waited behind the (network) library fetch, so
@@ -118,9 +126,14 @@ export default function EditRoutineScreen() {
     // Also fetch the full library for a comprehensive exercise list
     let libraryExercises: Exercise[] = [];
     try {
-      const libResult = await syncToServer<any[]>("/api/exercises/library", "GET");
+      const libResult = await syncToServer<any[]>(
+        "/api/exercises/library",
+        "GET",
+      );
       if (libResult.success && libResult.data) {
-        const localNames = new Set(localExercises.map(e => e.name.toLowerCase()));
+        const localNames = new Set(
+          localExercises.map((e) => e.name.toLowerCase()),
+        );
         libraryExercises = libResult.data
           .filter((e: any) => !localNames.has(e.name.toLowerCase()))
           .map((e: any) => ({
@@ -139,12 +152,20 @@ export default function EditRoutineScreen() {
     const prefillExercise = route.params?.prefillExercise;
     if (prefillExercise && isNew) {
       setExercises((prev) => {
-        if (prev.some((e) => e.exerciseName === prefillExercise.name)) return prev;
-        return [...prev, { exerciseId: exerciseSlug(prefillExercise.name), exerciseName: prefillExercise.name, order: prev.length }];
+        if (prev.some((e) => e.exerciseName === prefillExercise.name))
+          return prev;
+        return [
+          ...prev,
+          {
+            exerciseId: exerciseSlug(prefillExercise.name),
+            exerciseName: prefillExercise.name,
+            order: prev.length,
+          },
+        ];
       });
     }
   };
-  
+
   const handleSave = async () => {
     if (!name.trim()) {
       // Alert.alert is a silent no-op on react-native-web — the Save
@@ -169,7 +190,7 @@ export default function EditRoutineScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();
   };
-  
+
   const addExercise = (exercise: Exercise) => {
     const newExercise: RoutineExercise = {
       // Slug-derived id so per-exercise history (last weight, PR) stays
@@ -182,33 +203,50 @@ export default function EditRoutineScreen() {
     setShowExerciseList(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-  
+
   const removeExercise = (index: number) => {
     const updated = exercises.filter((_, i) => i !== index);
     setExercises(updated.map((e, i) => ({ ...e, order: i })));
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
-  
+
   const filteredExercises = useMemo(() => {
     if (!exerciseSearch.trim()) return allExercises;
     const q = exerciseSearch.toLowerCase();
     return allExercises.filter(
-      (ex) => ex.name.toLowerCase().includes(q) || ex.muscleGroup.toLowerCase().includes(q)
+      (ex) =>
+        ex.name.toLowerCase().includes(q) ||
+        ex.muscleGroup.toLowerCase().includes(q),
     );
   }, [allExercises, exerciseSearch]);
 
-  const groupedExercises = filteredExercises.reduce((acc, ex) => {
-    if (!acc[ex.muscleGroup]) {
-      acc[ex.muscleGroup] = [];
-    }
-    acc[ex.muscleGroup].push(ex);
-    return acc;
-  }, {} as Record<string, Exercise[]>);
-  
+  const groupedExercises = filteredExercises.reduce(
+    (acc, ex) => {
+      if (!acc[ex.muscleGroup]) {
+        acc[ex.muscleGroup] = [];
+      }
+      acc[ex.muscleGroup].push(ex);
+      return acc;
+    },
+    {} as Record<string, Exercise[]>,
+  );
+
   if (showExerciseList) {
     return (
-      <ThemedView style={[styles.container, { paddingTop: headerHeight + Spacing.xl }]}>
-        <View style={[styles.searchBar, { backgroundColor: theme.backgroundCard, borderColor: theme.border, marginHorizontal: Spacing.lg, marginBottom: Spacing.md }]}>
+      <ThemedView
+        style={[styles.container, { paddingTop: headerHeight + Spacing.xl }]}
+      >
+        <View
+          style={[
+            styles.searchBar,
+            {
+              backgroundColor: theme.backgroundCard,
+              borderColor: theme.border,
+              marginHorizontal: Spacing.lg,
+              marginBottom: Spacing.md,
+            },
+          ]}
+        >
           <Feather name="search" size={18} color={theme.textSecondary} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
@@ -251,9 +289,15 @@ export default function EditRoutineScreen() {
                     }}
                     hitSlop={8}
                   >
-                    <Feather name="info" size={16} color={Colors.light.primary} />
+                    <Feather
+                      name="info"
+                      size={16}
+                      color={Colors.light.primary}
+                    />
                   </Pressable>
-                  <ThemedText type="body" style={{ flex: 1 }}>{ex.name}</ThemedText>
+                  <ThemedText type="body" style={{ flex: 1 }}>
+                    {ex.name}
+                  </ThemedText>
                   <Feather name="plus" size={20} color={Colors.light.primary} />
                 </AnimatedPress>
               ))}
@@ -263,17 +307,17 @@ export default function EditRoutineScreen() {
       </ThemedView>
     );
   }
-  
+
   return (
     <>
-    <KeyboardAwareScrollViewCompat
-      style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
-      contentContainerStyle={{
-        paddingTop: headerHeight + Spacing.xl,
-        paddingBottom: insets.bottom + Spacing.xl,
-        paddingHorizontal: Spacing.lg,
-      }}
-    >
+      <KeyboardAwareScrollViewCompat
+        style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.xl,
+          paddingBottom: insets.bottom + Spacing.xl,
+          paddingHorizontal: Spacing.lg,
+        }}
+      >
         <Input
           label="Routine Name"
           placeholder="e.g., Push Day"
@@ -290,7 +334,10 @@ export default function EditRoutineScreen() {
             {exercises.map((exercise, index) => (
               <View
                 key={`${exercise.exerciseId}-${index}`}
-                style={[styles.exerciseItem, { backgroundColor: theme.backgroundDefault }]}
+                style={[
+                  styles.exerciseItem,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
               >
                 <Pressable
                   onPress={() => {
@@ -306,11 +353,12 @@ export default function EditRoutineScreen() {
                     {index + 1}. {exercise.exerciseName}
                   </ThemedText>
                 </View>
-                <Pressable
-                  onPress={() => removeExercise(index)}
-                  hitSlop={8}
-                >
-                  <Feather name="trash-2" size={18} color={Colors.light.error} />
+                <Pressable onPress={() => removeExercise(index)} hitSlop={8}>
+                  <Feather
+                    name="trash-2"
+                    size={18}
+                    color={Colors.light.error}
+                  />
                 </Pressable>
               </View>
             ))}
@@ -319,16 +367,22 @@ export default function EditRoutineScreen() {
 
         <Button
           onPress={() => setShowExerciseList(true)}
-          style={[styles.addButton, { backgroundColor: theme.backgroundDefault }]}
+          style={[
+            styles.addButton,
+            { backgroundColor: theme.backgroundDefault },
+          ]}
         >
           <View style={styles.addButtonContent}>
             <Feather name="plus" size={20} color={Colors.light.primary} />
-            <ThemedText type="body" style={{ marginLeft: Spacing.sm, color: Colors.light.primary }}>
+            <ThemedText
+              type="body"
+              style={{ marginLeft: Spacing.sm, color: Colors.light.primary }}
+            >
               Add Exercise
             </ThemedText>
           </View>
         </Button>
-    </KeyboardAwareScrollViewCompat>
+      </KeyboardAwareScrollViewCompat>
 
       <Modal
         visible={showDiscardModal}
@@ -340,26 +394,49 @@ export default function EditRoutineScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowDiscardModal(false)}
         >
-          <View style={[styles.modalContent, { backgroundColor: theme.backgroundDefault }]}>
-            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>Discard Changes?</ThemedText>
-            <ThemedText type="body" style={{ opacity: 0.7, marginBottom: Spacing.xl }}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: theme.backgroundDefault },
+            ]}
+          >
+            <ThemedText type="h4" style={{ marginBottom: Spacing.sm }}>
+              Discard Changes?
+            </ThemedText>
+            <ThemedText
+              type="body"
+              style={{ opacity: 0.7, marginBottom: Spacing.xl }}
+            >
               You have unsaved changes. Are you sure you want to leave?
             </ThemedText>
             <View style={styles.modalButtons}>
               <AnimatedPress
                 onPress={() => setShowDiscardModal(false)}
-                style={[styles.modalButton, { backgroundColor: theme.backgroundSecondary }]}
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.backgroundSecondary },
+                ]}
               >
-                <ThemedText type="body" style={{ fontWeight: "600" }}>Stay</ThemedText>
+                <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  Stay
+                </ThemedText>
               </AnimatedPress>
               <AnimatedPress
                 onPress={() => {
                   setShowDiscardModal(false);
                   navigation.goBack();
                 }}
-                style={[styles.modalButton, { backgroundColor: Colors.light.error }]}
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: Colors.light.error },
+                ]}
               >
-                <ThemedText type="body" style={{ fontWeight: "600", color: "#FFFFFF" }}>Discard</ThemedText>
+                <ThemedText
+                  type="body"
+                  style={{ fontWeight: "600", color: "#FFFFFF" }}
+                >
+                  Discard
+                </ThemedText>
               </AnimatedPress>
             </View>
           </View>

@@ -17,5 +17,9 @@ export function webSafeAlert(
     onOk?.();
     return;
   }
-  Alert.alert(title, message, onOk ? [{ text: "OK", onPress: onOk }] : undefined);
+  Alert.alert(
+    title,
+    message,
+    onOk ? [{ text: "OK", onPress: onOk }] : undefined,
+  );
 }

@@ -481,7 +481,7 @@ export async function initializeDatabase(): Promise<void> {
 export async function getUserByEmail(email: string) {
   const result = await pool.query(
     "SELECT id, email, password_hash, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, created_at FROM users WHERE email = $1",
-    [email.toLowerCase()]
+    [email.toLowerCase()],
   );
   return result.rows[0] || null;
 }
@@ -489,7 +489,7 @@ export async function getUserByEmail(email: string) {
 export async function getUserById(id: number) {
   const result = await pool.query(
     "SELECT id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, created_at FROM users WHERE id = $1",
-    [id]
+    [id],
   );
   return result.rows[0] || null;
 }
@@ -503,22 +503,25 @@ export async function createUser(data: {
     `INSERT INTO users (email, password_hash, name) 
      VALUES ($1, $2, $3) 
      RETURNING id, email, name, created_at`,
-    [data.email.toLowerCase(), data.passwordHash, data.name]
+    [data.email.toLowerCase(), data.passwordHash, data.name],
   );
   return result.rows[0];
 }
 
-export async function updateUserProfile(id: number, data: {
-  name?: string;
-  age?: number;
-  sex?: string;
-  heightCm?: number;
-  weightKg?: number;
-  weightGoalKg?: number;
-  experience?: string;
-  goal?: string;
-  activityLevel?: string;
-}) {
+export async function updateUserProfile(
+  id: number,
+  data: {
+    name?: string;
+    age?: number;
+    sex?: string;
+    heightCm?: number;
+    weightKg?: number;
+    weightGoalKg?: number;
+    experience?: string;
+    goal?: string;
+    activityLevel?: string;
+  },
+) {
   const fields: string[] = [];
   const values: any[] = [];
   let paramIndex = 1;
@@ -570,7 +573,7 @@ export async function updateUserProfile(id: number, data: {
   const result = await pool.query(
     `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramIndex} 
      RETURNING id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level`,
-    values
+    values,
   );
   return result.rows[0];
 }
@@ -578,11 +581,13 @@ export async function updateUserProfile(id: number, data: {
 export async function deleteUser(id: number): Promise<boolean> {
   const user = await getUserById(id);
   if (user) {
-    await pool.query("DELETE FROM login_attempts WHERE email = $1", [user.email]);
+    await pool.query("DELETE FROM login_attempts WHERE email = $1", [
+      user.email,
+    ]);
   }
   const result = await pool.query(
     "DELETE FROM users WHERE id = $1 RETURNING id",
-    [id]
+    [id],
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
@@ -595,16 +600,18 @@ export interface BodyWeightEntry {
   createdAt: string;
 }
 
-export async function getBodyWeights(userId: number): Promise<BodyWeightEntry[]> {
+export async function getBodyWeights(
+  userId: number,
+): Promise<BodyWeightEntry[]> {
   const result = await pool.query(
     `SELECT id, user_id, weight_kg, date, created_at 
      FROM body_weights 
      WHERE user_id = $1 
      ORDER BY date DESC 
      LIMIT 100`,
-    [userId]
+    [userId],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     id: row.id,
     userId: row.user_id,
     weightKg: row.weight_kg,
@@ -613,7 +620,11 @@ export async function getBodyWeights(userId: number): Promise<BodyWeightEntry[]>
   }));
 }
 
-export async function addBodyWeight(userId: number, weightKg: number, date: Date): Promise<BodyWeightEntry> {
+export async function addBodyWeight(
+  userId: number,
+  weightKg: number,
+  date: Date,
+): Promise<BodyWeightEntry> {
   // Upsert on (user_id, date::date) — same conflict target as the
   // ux_body_weights_user_date unique index created in schema init. A
   // same-day re-log overwrites the existing row instead of creating
@@ -624,7 +635,7 @@ export async function addBodyWeight(userId: number, weightKg: number, date: Date
      ON CONFLICT (user_id, ((date)::date))
      DO UPDATE SET weight_kg = EXCLUDED.weight_kg, date = EXCLUDED.date
      RETURNING id, user_id, weight_kg, date, created_at`,
-    [userId, weightKg, date]
+    [userId, weightKg, date],
   );
   const row = result.rows[0];
   return {
@@ -636,10 +647,13 @@ export async function addBodyWeight(userId: number, weightKg: number, date: Date
   };
 }
 
-export async function deleteBodyWeight(userId: number, id: number): Promise<boolean> {
+export async function deleteBodyWeight(
+  userId: number,
+  id: number,
+): Promise<boolean> {
   const result = await pool.query(
     "DELETE FROM body_weights WHERE id = $1 AND user_id = $2 RETURNING id",
-    [id, userId]
+    [id, userId],
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
@@ -652,15 +666,20 @@ export interface MacroTargets {
   fat: number;
 }
 
-export async function getMacroTargets(userId: number): Promise<MacroTargets | null> {
+export async function getMacroTargets(
+  userId: number,
+): Promise<MacroTargets | null> {
   const result = await pool.query(
     "SELECT calories, protein, carbs, fat FROM macro_targets WHERE user_id = $1",
-    [userId]
+    [userId],
   );
   return result.rows[0] || null;
 }
 
-export async function saveMacroTargets(userId: number, targets: MacroTargets): Promise<MacroTargets> {
+export async function saveMacroTargets(
+  userId: number,
+  targets: MacroTargets,
+): Promise<MacroTargets> {
   const result = await pool.query(
     `INSERT INTO macro_targets (user_id, calories, protein, carbs, fat)
      VALUES ($1, $2, $3, $4, $5)
@@ -671,7 +690,7 @@ export async function saveMacroTargets(userId: number, targets: MacroTargets): P
        fat = EXCLUDED.fat,
        updated_at = CURRENT_TIMESTAMP
      RETURNING calories, protein, carbs, fat`,
-    [userId, targets.calories, targets.protein, targets.carbs, targets.fat]
+    [userId, targets.calories, targets.protein, targets.carbs, targets.fat],
   );
   return result.rows[0];
 }
@@ -691,9 +710,9 @@ export async function getRoutines(userId: number): Promise<RoutineData[]> {
   const result = await pool.query(
     `SELECT client_id, name, exercises, created_at, last_completed_at, is_favorite, category
      FROM routines WHERE user_id = $1 ORDER BY created_at DESC`,
-    [userId]
+    [userId],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     clientId: row.client_id,
     name: row.name,
     exercises: row.exercises,
@@ -704,7 +723,10 @@ export async function getRoutines(userId: number): Promise<RoutineData[]> {
   }));
 }
 
-export async function saveRoutine(userId: number, routine: RoutineData): Promise<void> {
+export async function saveRoutine(
+  userId: number,
+  routine: RoutineData,
+): Promise<void> {
   await pool.query(
     `INSERT INTO routines (user_id, client_id, name, exercises, created_at, last_completed_at, is_favorite, category)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -714,15 +736,26 @@ export async function saveRoutine(userId: number, routine: RoutineData): Promise
        last_completed_at = EXCLUDED.last_completed_at,
        is_favorite = EXCLUDED.is_favorite,
        category = EXCLUDED.category`,
-    [userId, routine.clientId, routine.name, JSON.stringify(routine.exercises),
-     routine.createdAt, routine.lastCompletedAt || null, routine.isFavorite ?? false, routine.category || null]
+    [
+      userId,
+      routine.clientId,
+      routine.name,
+      JSON.stringify(routine.exercises),
+      routine.createdAt,
+      routine.lastCompletedAt || null,
+      routine.isFavorite ?? false,
+      routine.category || null,
+    ],
   );
 }
 
-export async function deleteRoutine(userId: number, clientId: string): Promise<boolean> {
+export async function deleteRoutine(
+  userId: number,
+  clientId: string,
+): Promise<boolean> {
   const result = await pool.query(
     "DELETE FROM routines WHERE user_id = $1 AND client_id = $2 RETURNING id",
-    [userId, clientId]
+    [userId, clientId],
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
@@ -744,9 +777,9 @@ export async function getWorkouts(userId: number): Promise<WorkoutData[]> {
   const result = await pool.query(
     `SELECT client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes, notes, total_volume_kg
      FROM workouts WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 100`,
-    [userId]
+    [userId],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     clientId: row.client_id,
     routineId: row.routine_id,
     routineName: row.routine_name,
@@ -759,7 +792,10 @@ export async function getWorkouts(userId: number): Promise<WorkoutData[]> {
   }));
 }
 
-export async function saveWorkout(userId: number, workout: WorkoutData): Promise<void> {
+export async function saveWorkout(
+  userId: number,
+  workout: WorkoutData,
+): Promise<void> {
   await pool.query(
     `INSERT INTO workouts (user_id, client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes, notes, total_volume_kg)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -772,9 +808,18 @@ export async function saveWorkout(userId: number, workout: WorkoutData): Promise
        duration_minutes = EXCLUDED.duration_minutes,
        notes = EXCLUDED.notes,
        total_volume_kg = EXCLUDED.total_volume_kg`,
-    [userId, workout.clientId, workout.routineId, workout.routineName,
-     JSON.stringify(workout.exercises), workout.startedAt, workout.completedAt, workout.durationMinutes,
-     workout.notes || null, workout.totalVolumeKg || null]
+    [
+      userId,
+      workout.clientId,
+      workout.routineId,
+      workout.routineName,
+      JSON.stringify(workout.exercises),
+      workout.startedAt,
+      workout.completedAt,
+      workout.durationMinutes,
+      workout.notes || null,
+      workout.totalVolumeKg || null,
+    ],
   );
 }
 
@@ -797,9 +842,9 @@ export async function getRuns(userId: number): Promise<RunData[]> {
   const result = await pool.query(
     `SELECT client_id, distance_km, duration_seconds, pace_min_per_km, calories, started_at, completed_at, route, elevation_gain_m, avg_heart_rate, max_heart_rate
      FROM runs WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 100`,
-    [userId]
+    [userId],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     clientId: row.client_id,
     distanceKm: row.distance_km,
     durationSeconds: row.duration_seconds,
@@ -829,16 +874,30 @@ export async function saveRun(userId: number, run: RunData): Promise<void> {
        elevation_gain_m = EXCLUDED.elevation_gain_m,
        avg_heart_rate = EXCLUDED.avg_heart_rate,
        max_heart_rate = EXCLUDED.max_heart_rate`,
-    [userId, run.clientId, run.distanceKm, run.durationSeconds, run.paceMinPerKm,
-     run.calories, run.startedAt, run.completedAt, run.route ? JSON.stringify(run.route) : null,
-     run.elevationGainM || null, run.avgHeartRate || null, run.maxHeartRate || null]
+    [
+      userId,
+      run.clientId,
+      run.distanceKm,
+      run.durationSeconds,
+      run.paceMinPerKm,
+      run.calories,
+      run.startedAt,
+      run.completedAt,
+      run.route ? JSON.stringify(run.route) : null,
+      run.elevationGainM || null,
+      run.avgHeartRate || null,
+      run.maxHeartRate || null,
+    ],
   );
 }
 
-export async function deleteRun(userId: number, clientId: string): Promise<boolean> {
+export async function deleteRun(
+  userId: number,
+  clientId: string,
+): Promise<boolean> {
   const result = await pool.query(
     `DELETE FROM runs WHERE user_id = $1 AND client_id = $2`,
-    [userId, clientId]
+    [userId, clientId],
   );
   return (result.rowCount ?? 0) > 0;
 }
@@ -873,17 +932,20 @@ export async function getFoodLogs(
   query += ` ORDER BY created_at DESC LIMIT 500`;
 
   const result = await pool.query(query, params);
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     clientId: row.client_id,
     foodData: row.food_data,
-    date: row.date.toISOString().split('T')[0],
+    date: row.date.toISOString().split("T")[0],
     createdAt: row.created_at.toISOString(),
     mealType: row.meal_type ?? undefined,
     ...(row.image_data ? { imageUri: row.image_data } : {}),
   }));
 }
 
-export async function saveFoodLog(userId: number, log: FoodLogData & { imageUri?: string }): Promise<void> {
+export async function saveFoodLog(
+  userId: number,
+  log: FoodLogData & { imageUri?: string },
+): Promise<void> {
   await pool.query(
     `INSERT INTO food_logs (user_id, client_id, food_data, date, created_at, image_data, meal_type)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -892,31 +954,50 @@ export async function saveFoodLog(userId: number, log: FoodLogData & { imageUri?
        date = EXCLUDED.date,
        image_data = COALESCE(EXCLUDED.image_data, food_logs.image_data),
        meal_type = EXCLUDED.meal_type`,
-    [userId, log.clientId, JSON.stringify(log.foodData), log.date, log.createdAt, log.imageUri || null, log.mealType || null]
+    [
+      userId,
+      log.clientId,
+      JSON.stringify(log.foodData),
+      log.date,
+      log.createdAt,
+      log.imageUri || null,
+      log.mealType || null,
+    ],
   );
 }
 
-export async function updateFoodLog(userId: number, clientId: string, foodData: any): Promise<boolean> {
+export async function updateFoodLog(
+  userId: number,
+  clientId: string,
+  foodData: any,
+): Promise<boolean> {
   const result = await pool.query(
     "UPDATE food_logs SET food_data = $3 WHERE user_id = $1 AND client_id = $2 RETURNING id",
-    [userId, clientId, JSON.stringify(foodData)]
+    [userId, clientId, JSON.stringify(foodData)],
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
 
-export async function deleteFoodLog(userId: number, clientId: string): Promise<boolean> {
+export async function deleteFoodLog(
+  userId: number,
+  clientId: string,
+): Promise<boolean> {
   const result = await pool.query(
     "DELETE FROM food_logs WHERE user_id = $1 AND client_id = $2 RETURNING id",
-    [userId, clientId]
+    [userId, clientId],
   );
   return result.rowCount !== null && result.rowCount > 0;
 }
 
 // Streak tracking functions
-export async function getUserStreak(userId: number): Promise<{ currentStreak: number; longestStreak: number; lastActivityDate: string | null }> {
+export async function getUserStreak(userId: number): Promise<{
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string | null;
+}> {
   const result = await pool.query(
     "SELECT current_streak, longest_streak, last_activity_date FROM users WHERE id = $1",
-    [userId]
+    [userId],
   );
   if (result.rows.length === 0) {
     return { currentStreak: 0, longestStreak: 0, lastActivityDate: null };
@@ -925,29 +1006,36 @@ export async function getUserStreak(userId: number): Promise<{ currentStreak: nu
   return {
     currentStreak: row.current_streak || 0,
     longestStreak: row.longest_streak || 0,
-    lastActivityDate: row.last_activity_date ? row.last_activity_date.toISOString().split('T')[0] : null,
+    lastActivityDate: row.last_activity_date
+      ? row.last_activity_date.toISOString().split("T")[0]
+      : null,
   };
 }
 
 export async function createPasswordResetCode(userId: number): Promise<string> {
-  await pool.query("DELETE FROM password_reset_codes WHERE user_id = $1", [userId]);
+  await pool.query("DELETE FROM password_reset_codes WHERE user_id = $1", [
+    userId,
+  ]);
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   await pool.query(
     `INSERT INTO password_reset_codes (user_id, code, expires_at) VALUES ($1, $2, $3)`,
-    [userId, code, expiresAt]
+    [userId, code, expiresAt],
   );
   return code;
 }
 
-export async function verifyPasswordResetCode(email: string, code: string): Promise<{ valid: boolean; userId: number | null }> {
+export async function verifyPasswordResetCode(
+  email: string,
+  code: string,
+): Promise<{ valid: boolean; userId: number | null }> {
   const result = await pool.query(
     `SELECT prc.id, prc.user_id, prc.expires_at, prc.used
      FROM password_reset_codes prc
      JOIN users u ON u.id = prc.user_id
      WHERE u.email = $1 AND prc.code = $2
      ORDER BY prc.created_at DESC LIMIT 1`,
-    [email.toLowerCase(), code]
+    [email.toLowerCase(), code],
   );
   if (result.rows.length === 0) {
     return { valid: false, userId: null };
@@ -959,31 +1047,41 @@ export async function verifyPasswordResetCode(email: string, code: string): Prom
   return { valid: true, userId: row.user_id };
 }
 
-export async function markResetCodeUsed(email: string, code: string): Promise<void> {
+export async function markResetCodeUsed(
+  email: string,
+  code: string,
+): Promise<void> {
   await pool.query(
     `UPDATE password_reset_codes SET used = TRUE
      WHERE user_id = (SELECT id FROM users WHERE email = $1) AND code = $2`,
-    [email.toLowerCase(), code]
+    [email.toLowerCase(), code],
   );
 }
 
-export async function updateUserPassword(userId: number, passwordHash: string): Promise<void> {
+export async function updateUserPassword(
+  userId: number,
+  passwordHash: string,
+): Promise<void> {
   await pool.query(
     "UPDATE users SET password_hash = $1, password_changed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $2",
-    [passwordHash, userId]
+    [passwordHash, userId],
   );
 }
 
-export async function updateUserStreak(userId: number): Promise<{ currentStreak: number; longestStreak: number }> {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  
+export async function updateUserStreak(
+  userId: number,
+): Promise<{ currentStreak: number; longestStreak: number }> {
+  const today = new Date().toISOString().split("T")[0];
+  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
   // Get current streak data
   const current = await getUserStreak(userId);
-  
+
   let newStreak = current.currentStreak;
   let newLongest = current.longestStreak;
-  
+
   if (current.lastActivityDate === today) {
     // Already logged today, no change
     return { currentStreak: newStreak, longestStreak: newLongest };
@@ -994,18 +1092,18 @@ export async function updateUserStreak(userId: number): Promise<{ currentStreak:
     // Streak broken or first activity - reset to 1
     newStreak = 1;
   }
-  
+
   // Update longest streak if needed
   if (newStreak > newLongest) {
     newLongest = newStreak;
   }
-  
+
   // Save to database
   await pool.query(
     `UPDATE users SET current_streak = $1, longest_streak = $2, last_activity_date = $3, updated_at = NOW() WHERE id = $4`,
-    [newStreak, newLongest, today, userId]
+    [newStreak, newLongest, today, userId],
   );
-  
+
   return { currentStreak: newStreak, longestStreak: newLongest };
 }
 
@@ -1017,12 +1115,14 @@ export interface CustomExerciseData {
   isCustom: boolean;
 }
 
-export async function getCustomExercises(userId: number): Promise<CustomExerciseData[]> {
+export async function getCustomExercises(
+  userId: number,
+): Promise<CustomExerciseData[]> {
   const result = await pool.query(
     `SELECT client_id, name, muscle_group, is_custom FROM custom_exercises WHERE user_id = $1 ORDER BY created_at ASC`,
-    [userId]
+    [userId],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     clientId: row.client_id,
     name: row.name,
     muscleGroup: row.muscle_group,
@@ -1030,7 +1130,10 @@ export async function getCustomExercises(userId: number): Promise<CustomExercise
   }));
 }
 
-export async function saveCustomExercise(userId: number, exercise: CustomExerciseData): Promise<void> {
+export async function saveCustomExercise(
+  userId: number,
+  exercise: CustomExerciseData,
+): Promise<void> {
   await pool.query(
     `INSERT INTO custom_exercises (user_id, client_id, name, muscle_group, is_custom)
      VALUES ($1, $2, $3, $4, $5)
@@ -1038,14 +1141,23 @@ export async function saveCustomExercise(userId: number, exercise: CustomExercis
        name = EXCLUDED.name,
        muscle_group = EXCLUDED.muscle_group,
        is_custom = EXCLUDED.is_custom`,
-    [userId, exercise.clientId, exercise.name, exercise.muscleGroup, exercise.isCustom]
+    [
+      userId,
+      exercise.clientId,
+      exercise.name,
+      exercise.muscleGroup,
+      exercise.isCustom,
+    ],
   );
 }
 
-export async function deleteCustomExercise(userId: number, clientId: string): Promise<void> {
+export async function deleteCustomExercise(
+  userId: number,
+  clientId: string,
+): Promise<void> {
   await pool.query(
     "DELETE FROM custom_exercises WHERE user_id = $1 AND client_id = $2",
-    [userId, clientId]
+    [userId, clientId],
   );
 }
 
@@ -1053,25 +1165,31 @@ export async function deleteCustomExercise(userId: number, clientId: string): Pr
 export async function getSavedFoods(userId: number): Promise<any[]> {
   const result = await pool.query(
     `SELECT food_data FROM saved_foods WHERE user_id = $1 ORDER BY created_at ASC`,
-    [userId]
+    [userId],
   );
-  return result.rows.map(row => row.food_data);
+  return result.rows.map((row) => row.food_data);
 }
 
-export async function saveSavedFood(userId: number, foodData: any): Promise<void> {
+export async function saveSavedFood(
+  userId: number,
+  foodData: any,
+): Promise<void> {
   await pool.query(
     `INSERT INTO saved_foods (user_id, food_data)
      VALUES ($1, $2)
      ON CONFLICT (user_id, (food_data->>'id')) DO UPDATE SET
        food_data = EXCLUDED.food_data`,
-    [userId, JSON.stringify(foodData)]
+    [userId, JSON.stringify(foodData)],
   );
 }
 
-export async function deleteSavedFood(userId: number, foodId: string): Promise<void> {
+export async function deleteSavedFood(
+  userId: number,
+  foodId: string,
+): Promise<void> {
   await pool.query(
     "DELETE FROM saved_foods WHERE user_id = $1 AND food_data->>'id' = $2",
-    [userId, foodId]
+    [userId, foodId],
   );
 }
 
@@ -1083,10 +1201,12 @@ export interface NotificationPrefsData {
   reminderMinute: number;
 }
 
-export async function getNotificationPrefs(userId: number): Promise<NotificationPrefsData | null> {
+export async function getNotificationPrefs(
+  userId: number,
+): Promise<NotificationPrefsData | null> {
   const result = await pool.query(
     "SELECT workout_reminders, streak_alerts, reminder_hour, reminder_minute FROM notification_preferences WHERE user_id = $1",
-    [userId]
+    [userId],
   );
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
@@ -1098,7 +1218,10 @@ export async function getNotificationPrefs(userId: number): Promise<Notification
   };
 }
 
-export async function saveNotificationPrefs(userId: number, prefs: NotificationPrefsData): Promise<void> {
+export async function saveNotificationPrefs(
+  userId: number,
+  prefs: NotificationPrefsData,
+): Promise<void> {
   await pool.query(
     `INSERT INTO notification_preferences (user_id, workout_reminders, streak_alerts, reminder_hour, reminder_minute)
      VALUES ($1, $2, $3, $4, $5)
@@ -1108,26 +1231,41 @@ export async function saveNotificationPrefs(userId: number, prefs: NotificationP
        reminder_hour = EXCLUDED.reminder_hour,
        reminder_minute = EXCLUDED.reminder_minute,
        updated_at = CURRENT_TIMESTAMP`,
-    [userId, prefs.workoutReminders, prefs.streakAlerts, prefs.reminderHour, prefs.reminderMinute]
+    [
+      userId,
+      prefs.workoutReminders,
+      prefs.streakAlerts,
+      prefs.reminderHour,
+      prefs.reminderMinute,
+    ],
   );
 }
 
 // ========== Social: Follows ==========
 
-export async function followUser(followerId: number, followingId: number): Promise<boolean> {
+export async function followUser(
+  followerId: number,
+  followingId: number,
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(
       "INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id",
-      [followerId, followingId]
+      [followerId, followingId],
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
       return false;
     }
-    await client.query("UPDATE users SET following_count = following_count + 1 WHERE id = $1", [followerId]);
-    await client.query("UPDATE users SET followers_count = followers_count + 1 WHERE id = $1", [followingId]);
+    await client.query(
+      "UPDATE users SET following_count = following_count + 1 WHERE id = $1",
+      [followerId],
+    );
+    await client.query(
+      "UPDATE users SET followers_count = followers_count + 1 WHERE id = $1",
+      [followingId],
+    );
     await client.query("COMMIT");
     return true;
   } catch {
@@ -1138,20 +1276,29 @@ export async function followUser(followerId: number, followingId: number): Promi
   }
 }
 
-export async function unfollowUser(followerId: number, followingId: number): Promise<boolean> {
+export async function unfollowUser(
+  followerId: number,
+  followingId: number,
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(
       "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
-      [followerId, followingId]
+      [followerId, followingId],
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
       return false;
     }
-    await client.query("UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1", [followerId]);
-    await client.query("UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1", [followingId]);
+    await client.query(
+      "UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1",
+      [followerId],
+    );
+    await client.query(
+      "UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1",
+      [followingId],
+    );
     await client.query("COMMIT");
     return true;
   } catch {
@@ -1162,10 +1309,13 @@ export async function unfollowUser(followerId: number, followingId: number): Pro
   }
 }
 
-export async function isFollowing(followerId: number, followingId: number): Promise<boolean> {
+export async function isFollowing(
+  followerId: number,
+  followingId: number,
+): Promise<boolean> {
   const result = await pool.query(
     "SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2",
-    [followerId, followingId]
+    [followerId, followingId],
   );
   return result.rows.length > 0;
 }
@@ -1178,7 +1328,12 @@ export interface FollowUserRow {
   isFollowedByMe: boolean;
 }
 
-export async function getFollowers(userId: number, requestingUserId: number, page: number, limit: number): Promise<FollowUserRow[]> {
+export async function getFollowers(
+  userId: number,
+  requestingUserId: number,
+  page: number,
+  limit: number,
+): Promise<FollowUserRow[]> {
   const offset = page * limit;
   const result = await pool.query(
     `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
@@ -1190,9 +1345,9 @@ export async function getFollowers(userId: number, requestingUserId: number, pag
        AND u.id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $3)
      ORDER BY f.created_at DESC
      LIMIT $2 OFFSET $4`,
-    [userId, limit, requestingUserId, offset]
+    [userId, limit, requestingUserId, offset],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
     avatarUrl: row.avatar_url,
@@ -1201,7 +1356,12 @@ export async function getFollowers(userId: number, requestingUserId: number, pag
   }));
 }
 
-export async function getFollowing(userId: number, requestingUserId: number, page: number, limit: number): Promise<FollowUserRow[]> {
+export async function getFollowing(
+  userId: number,
+  requestingUserId: number,
+  page: number,
+  limit: number,
+): Promise<FollowUserRow[]> {
   const offset = page * limit;
   const result = await pool.query(
     `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
@@ -1213,9 +1373,9 @@ export async function getFollowing(userId: number, requestingUserId: number, pag
        AND u.id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $3)
      ORDER BY f.created_at DESC
      LIMIT $2 OFFSET $4`,
-    [userId, limit, requestingUserId, offset]
+    [userId, limit, requestingUserId, offset],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
     avatarUrl: row.avatar_url,
@@ -1244,15 +1404,18 @@ export interface PostRow {
   likedByMe: boolean;
 }
 
-export async function createPost(userId: number, post: {
-  clientId: string;
-  postType: string;
-  content?: string;
-  referenceId?: string;
-  referenceData?: any;
-  imageData?: string;
-  visibility?: string;
-}): Promise<number> {
+export async function createPost(
+  userId: number,
+  post: {
+    clientId: string;
+    postType: string;
+    content?: string;
+    referenceId?: string;
+    referenceData?: any;
+    imageData?: string;
+    visibility?: string;
+  },
+): Promise<number> {
   const result = await pool.query(
     `INSERT INTO posts (user_id, client_id, post_type, content, reference_id, reference_data, image_data, visibility)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -1261,9 +1424,16 @@ export async function createPost(userId: number, post: {
        reference_data = EXCLUDED.reference_data,
        image_data = EXCLUDED.image_data
      RETURNING id`,
-    [userId, post.clientId, post.postType, post.content || null,
-     post.referenceId || null, post.referenceData ? JSON.stringify(post.referenceData) : null,
-     post.imageData || null, post.visibility || "followers"]
+    [
+      userId,
+      post.clientId,
+      post.postType,
+      post.content || null,
+      post.referenceId || null,
+      post.referenceData ? JSON.stringify(post.referenceData) : null,
+      post.imageData || null,
+      post.visibility || "followers",
+    ],
   );
   return result.rows[0].id;
 }
@@ -1281,35 +1451,48 @@ function mapPostRow(row: any): PostRow {
     visibility: row.visibility,
     likesCount: row.likes_count,
     commentsCount: row.comments_count,
-    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
     authorName: row.author_name,
     authorAvatarUrl: row.author_avatar_url,
     likedByMe: row.liked_by_me ?? false,
   };
 }
 
-export async function getPost(postId: number, requestingUserId: number): Promise<PostRow | null> {
+export async function getPost(
+  postId: number,
+  requestingUserId: number,
+): Promise<PostRow | null> {
   const result = await pool.query(
     `SELECT p.*, u.name AS author_name, u.avatar_url AS author_avatar_url,
        EXISTS(SELECT 1 FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = $2) AS liked_by_me
      FROM posts p
      JOIN users u ON u.id = p.user_id
      WHERE p.id = $1`,
-    [postId, requestingUserId]
+    [postId, requestingUserId],
   );
   if (result.rows.length === 0) return null;
   return mapPostRow(result.rows[0]);
 }
 
-export async function deletePost(userId: number, postId: number): Promise<boolean> {
+export async function deletePost(
+  userId: number,
+  postId: number,
+): Promise<boolean> {
   const result = await pool.query(
     "DELETE FROM posts WHERE id = $1 AND user_id = $2 RETURNING id",
-    [postId, userId]
+    [postId, userId],
   );
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function getFeedPosts(userId: number, cursor?: string, limit = 20): Promise<{ posts: PostRow[]; nextCursor?: string }> {
+export async function getFeedPosts(
+  userId: number,
+  cursor?: string,
+  limit = 20,
+): Promise<{ posts: PostRow[]; nextCursor?: string }> {
   const params: any[] = [userId, limit + 1];
   let cursorClause = "";
   if (cursor) {
@@ -1330,7 +1513,7 @@ export async function getFeedPosts(userId: number, cursor?: string, limit = 20):
        ${cursorClause}
      ORDER BY p.created_at DESC
      LIMIT $2`,
-    params
+    params,
   );
 
   const rows = result.rows.map(mapPostRow);
@@ -1342,7 +1525,12 @@ export async function getFeedPosts(userId: number, cursor?: string, limit = 20):
   return { posts: rows, nextCursor };
 }
 
-export async function getUserPosts(targetUserId: number, requestingUserId: number, cursor?: string, limit = 20): Promise<{ posts: PostRow[]; nextCursor?: string }> {
+export async function getUserPosts(
+  targetUserId: number,
+  requestingUserId: number,
+  cursor?: string,
+  limit = 20,
+): Promise<{ posts: PostRow[]; nextCursor?: string }> {
   const params: any[] = [targetUserId, requestingUserId, limit + 1];
   let cursorClause = "";
   if (cursor) {
@@ -1361,7 +1549,7 @@ export async function getUserPosts(targetUserId: number, requestingUserId: numbe
        ${cursorClause}
      ORDER BY p.created_at DESC
      LIMIT $3`,
-    params
+    params,
   );
 
   const rows = result.rows.map(mapPostRow);
@@ -1375,19 +1563,25 @@ export async function getUserPosts(targetUserId: number, requestingUserId: numbe
 
 // ========== Social: Likes ==========
 
-export async function likePost(userId: number, postId: number): Promise<boolean> {
+export async function likePost(
+  userId: number,
+  postId: number,
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(
       "INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id",
-      [postId, userId]
+      [postId, userId],
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
       return false;
     }
-    await client.query("UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1", [postId]);
+    await client.query(
+      "UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1",
+      [postId],
+    );
     await client.query("COMMIT");
     return true;
   } catch {
@@ -1398,19 +1592,25 @@ export async function likePost(userId: number, postId: number): Promise<boolean>
   }
 }
 
-export async function unlikePost(userId: number, postId: number): Promise<boolean> {
+export async function unlikePost(
+  userId: number,
+  postId: number,
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(
       "DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2 RETURNING id",
-      [postId, userId]
+      [postId, userId],
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
       return false;
     }
-    await client.query("UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1", [postId]);
+    await client.query(
+      "UPDATE posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id = $1",
+      [postId],
+    );
     await client.query("COMMIT");
     return true;
   } catch {
@@ -1434,7 +1634,12 @@ export interface PostCommentRow {
   authorAvatarUrl: string | null;
 }
 
-export async function getPostComments(postId: number, requestingUserId: number, page: number, limit: number): Promise<PostCommentRow[]> {
+export async function getPostComments(
+  postId: number,
+  requestingUserId: number,
+  page: number,
+  limit: number,
+): Promise<PostCommentRow[]> {
   const offset = page * limit;
   const result = await pool.query(
     `SELECT pc.id, pc.post_id, pc.user_id, pc.client_id, pc.content, pc.created_at,
@@ -1446,21 +1651,29 @@ export async function getPostComments(postId: number, requestingUserId: number, 
        AND pc.user_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $4)
      ORDER BY pc.created_at ASC
      LIMIT $2 OFFSET $3`,
-    [postId, limit, offset, requestingUserId]
+    [postId, limit, offset, requestingUserId],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     id: row.id,
     postId: row.post_id,
     userId: row.user_id,
     clientId: row.client_id,
     content: row.content,
-    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
     authorName: row.author_name,
     authorAvatarUrl: row.author_avatar_url,
   }));
 }
 
-export async function addComment(userId: number, postId: number, clientId: string, content: string): Promise<PostCommentRow> {
+export async function addComment(
+  userId: number,
+  postId: number,
+  clientId: string,
+  content: string,
+): Promise<PostCommentRow> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -1468,9 +1681,12 @@ export async function addComment(userId: number, postId: number, clientId: strin
       `INSERT INTO post_comments (post_id, user_id, client_id, content)
        VALUES ($1, $2, $3, $4)
        RETURNING id, post_id, user_id, client_id, content, created_at`,
-      [postId, userId, clientId, content]
+      [postId, userId, clientId, content],
     );
-    await client.query("UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1", [postId]);
+    await client.query(
+      "UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1",
+      [postId],
+    );
     await client.query("COMMIT");
 
     const row = result.rows[0];
@@ -1481,7 +1697,10 @@ export async function addComment(userId: number, postId: number, clientId: strin
       userId: row.user_id,
       clientId: row.client_id,
       content: row.content,
-      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      createdAt:
+        row.created_at instanceof Date
+          ? row.created_at.toISOString()
+          : row.created_at,
       authorName: user?.name || "Unknown",
       authorAvatarUrl: null,
     };
@@ -1493,20 +1712,26 @@ export async function addComment(userId: number, postId: number, clientId: strin
   }
 }
 
-export async function deleteComment(userId: number, commentId: number): Promise<boolean> {
+export async function deleteComment(
+  userId: number,
+  commentId: number,
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(
       "DELETE FROM post_comments WHERE id = $1 AND user_id = $2 RETURNING post_id",
-      [commentId, userId]
+      [commentId, userId],
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
       return false;
     }
     const postId = result.rows[0].post_id;
-    await client.query("UPDATE posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = $1", [postId]);
+    await client.query(
+      "UPDATE posts SET comments_count = GREATEST(comments_count - 1, 0) WHERE id = $1",
+      [postId],
+    );
     await client.query("COMMIT");
     return true;
   } catch {
@@ -1519,7 +1744,11 @@ export async function deleteComment(userId: number, commentId: number): Promise<
 
 // ========== Social: User Discovery & Profile ==========
 
-export async function searchUsers(query: string, requestingUserId: number, limit = 20): Promise<FollowUserRow[]> {
+export async function searchUsers(
+  query: string,
+  requestingUserId: number,
+  limit = 20,
+): Promise<FollowUserRow[]> {
   const result = await pool.query(
     `SELECT u.id AS user_id, u.name, u.avatar_url, u.bio,
        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me
@@ -1530,9 +1759,9 @@ export async function searchUsers(query: string, requestingUserId: number, limit
        AND u.id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $2)
      ORDER BY u.name ASC
      LIMIT $3`,
-    [`%${query}%`, requestingUserId, limit]
+    [`%${query}%`, requestingUserId, limit],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
     avatarUrl: row.avatar_url,
@@ -1558,7 +1787,10 @@ export interface SocialProfileRow {
   memberSince: string;
 }
 
-export async function getSocialProfile(targetUserId: number, requestingUserId: number): Promise<SocialProfileRow | null> {
+export async function getSocialProfile(
+  targetUserId: number,
+  requestingUserId: number,
+): Promise<SocialProfileRow | null> {
   const result = await pool.query(
     `SELECT u.id AS user_id, u.name, u.bio, u.avatar_url, u.is_public,
        u.followers_count, u.following_count, u.current_streak, u.created_at,
@@ -1569,7 +1801,7 @@ export async function getSocialProfile(targetUserId: number, requestingUserId: n
        (SELECT COALESCE(SUM(r.distance_km), 0)::real FROM runs r WHERE r.user_id = u.id) AS total_distance_km
      FROM users u
      WHERE u.id = $1`,
-    [targetUserId, requestingUserId]
+    [targetUserId, requestingUserId],
   );
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
@@ -1587,11 +1819,17 @@ export async function getSocialProfile(targetUserId: number, requestingUserId: n
     totalRuns: row.total_runs,
     totalDistanceKm: row.total_distance_km,
     currentStreak: row.current_streak || 0,
-    memberSince: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    memberSince:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
   };
 }
 
-export async function updateSocialProfile(userId: number, data: { bio?: string; avatarUrl?: string; isPublic?: boolean }): Promise<void> {
+export async function updateSocialProfile(
+  userId: number,
+  data: { bio?: string; avatarUrl?: string; isPublic?: boolean },
+): Promise<void> {
   const fields: string[] = [];
   const values: any[] = [];
   let paramIndex = 1;
@@ -1616,19 +1854,22 @@ export async function updateSocialProfile(userId: number, data: { bio?: string; 
 
   await pool.query(
     `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramIndex}`,
-    values
+    values,
   );
 }
 
 // ========== Social: Blocking ==========
 
-export async function blockUser(blockerId: number, blockedId: number): Promise<boolean> {
+export async function blockUser(
+  blockerId: number,
+  blockedId: number,
+): Promise<boolean> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(
       "INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id",
-      [blockerId, blockedId]
+      [blockerId, blockedId],
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
@@ -1637,19 +1878,31 @@ export async function blockUser(blockerId: number, blockedId: number): Promise<b
     // Auto-unfollow both directions
     const unfollowed1 = await client.query(
       "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
-      [blockerId, blockedId]
+      [blockerId, blockedId],
     );
     if ((unfollowed1.rowCount ?? 0) > 0) {
-      await client.query("UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1", [blockerId]);
-      await client.query("UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1", [blockedId]);
+      await client.query(
+        "UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1",
+        [blockerId],
+      );
+      await client.query(
+        "UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1",
+        [blockedId],
+      );
     }
     const unfollowed2 = await client.query(
       "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
-      [blockedId, blockerId]
+      [blockedId, blockerId],
     );
     if ((unfollowed2.rowCount ?? 0) > 0) {
-      await client.query("UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1", [blockedId]);
-      await client.query("UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1", [blockerId]);
+      await client.query(
+        "UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1",
+        [blockedId],
+      );
+      await client.query(
+        "UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1",
+        [blockerId],
+      );
     }
     await client.query("COMMIT");
     return true;
@@ -1661,24 +1914,34 @@ export async function blockUser(blockerId: number, blockedId: number): Promise<b
   }
 }
 
-export async function unblockUser(blockerId: number, blockedId: number): Promise<boolean> {
+export async function unblockUser(
+  blockerId: number,
+  blockedId: number,
+): Promise<boolean> {
   const result = await pool.query(
     "DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2 RETURNING id",
-    [blockerId, blockedId]
+    [blockerId, blockedId],
   );
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function getBlockedUsers(userId: number): Promise<{ userId: number; name: string; avatarUrl: string | null; blockedAt: string }[]> {
+export async function getBlockedUsers(userId: number): Promise<
+  {
+    userId: number;
+    name: string;
+    avatarUrl: string | null;
+    blockedAt: string;
+  }[]
+> {
   const result = await pool.query(
     `SELECT u.id AS user_id, u.name, u.avatar_url, b.created_at AS blocked_at
      FROM user_blocks b
      JOIN users u ON u.id = b.blocked_id
      WHERE b.blocker_id = $1
      ORDER BY b.created_at DESC`,
-    [userId]
+    [userId],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     userId: row.user_id,
     name: row.name,
     avatarUrl: row.avatar_url,
@@ -1686,21 +1949,30 @@ export async function getBlockedUsers(userId: number): Promise<{ userId: number;
   }));
 }
 
-export async function isBlocked(userId1: number, userId2: number): Promise<boolean> {
+export async function isBlocked(
+  userId1: number,
+  userId2: number,
+): Promise<boolean> {
   const result = await pool.query(
     "SELECT 1 FROM user_blocks WHERE (blocker_id = $1 AND blocked_id = $2) OR (blocker_id = $2 AND blocked_id = $1)",
-    [userId1, userId2]
+    [userId1, userId2],
   );
   return result.rows.length > 0;
 }
 
 // ========== Social: Reports ==========
 
-export async function reportContent(reporterId: number, reportType: string, targetId: number, reason: string, details?: string): Promise<number> {
+export async function reportContent(
+  reporterId: number,
+  reportType: string,
+  targetId: number,
+  reason: string,
+  details?: string,
+): Promise<number> {
   const result = await pool.query(
     `INSERT INTO content_reports (reporter_id, report_type, target_id, reason, details)
      VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-    [reporterId, reportType, targetId, reason, details || null]
+    [reporterId, reportType, targetId, reason, details || null],
   );
   return result.rows[0].id;
 }
@@ -1720,7 +1992,13 @@ export interface NotificationRow {
   createdAt: string;
 }
 
-export async function createNotification(userId: number, type: string, actorId: number, referenceId: number | null, message: string): Promise<void> {
+export async function createNotification(
+  userId: number,
+  type: string,
+  actorId: number,
+  referenceId: number | null,
+  message: string,
+): Promise<void> {
   if (userId === actorId) return; // don't notify self
   // Don't notify if blocked
   const blocked = await isBlocked(userId, actorId);
@@ -1728,11 +2006,15 @@ export async function createNotification(userId: number, type: string, actorId: 
   await pool.query(
     `INSERT INTO notifications (user_id, type, actor_id, reference_id, message)
      VALUES ($1, $2, $3, $4, $5)`,
-    [userId, type, actorId, referenceId, message]
+    [userId, type, actorId, referenceId, message],
   );
 }
 
-export async function getNotifications(userId: number, page: number, limit = 20): Promise<NotificationRow[]> {
+export async function getNotifications(
+  userId: number,
+  page: number,
+  limit = 20,
+): Promise<NotificationRow[]> {
   const offset = page * limit;
   const result = await pool.query(
     `SELECT n.id, n.user_id, n.type, n.actor_id, n.reference_id, n.message, n.is_read, n.created_at,
@@ -1742,9 +2024,9 @@ export async function getNotifications(userId: number, page: number, limit = 20)
      WHERE n.user_id = $1
      ORDER BY n.created_at DESC
      LIMIT $2 OFFSET $3`,
-    [userId, limit, offset]
+    [userId, limit, offset],
   );
-  return result.rows.map(row => ({
+  return result.rows.map((row) => ({
     id: row.id,
     userId: row.user_id,
     type: row.type,
@@ -1754,39 +2036,52 @@ export async function getNotifications(userId: number, page: number, limit = 20)
     referenceId: row.reference_id,
     message: row.message,
     isRead: row.is_read,
-    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at,
   }));
 }
 
 export async function markNotificationsRead(userId: number): Promise<void> {
   await pool.query(
     "UPDATE notifications SET is_read = TRUE WHERE user_id = $1 AND is_read = FALSE",
-    [userId]
+    [userId],
   );
 }
 
-export async function getUnreadNotificationCount(userId: number): Promise<number> {
+export async function getUnreadNotificationCount(
+  userId: number,
+): Promise<number> {
   const result = await pool.query(
     "SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND is_read = FALSE",
-    [userId]
+    [userId],
   );
   return result.rows[0].count;
 }
 
 // ========== Social: Post & Comment Editing ==========
 
-export async function updatePost(postId: number, userId: number, content: string): Promise<boolean> {
+export async function updatePost(
+  postId: number,
+  userId: number,
+  content: string,
+): Promise<boolean> {
   const result = await pool.query(
     "UPDATE posts SET content = $1 WHERE id = $2 AND user_id = $3 RETURNING id",
-    [content, postId, userId]
+    [content, postId, userId],
   );
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function updateComment(commentId: number, userId: number, content: string): Promise<boolean> {
+export async function updateComment(
+  commentId: number,
+  userId: number,
+  content: string,
+): Promise<boolean> {
   const result = await pool.query(
     "UPDATE post_comments SET content = $1 WHERE id = $2 AND user_id = $3 RETURNING id",
-    [content, commentId, userId]
+    [content, commentId, userId],
   );
   return (result.rowCount ?? 0) > 0;
 }
@@ -1804,12 +2099,14 @@ export interface ExerciseGifCache {
   exerciseDbId?: string | null;
 }
 
-export async function getExerciseGifCache(exerciseName: string): Promise<ExerciseGifCache | null> {
+export async function getExerciseGifCache(
+  exerciseName: string,
+): Promise<ExerciseGifCache | null> {
   const normalized = exerciseName.toLowerCase().trim();
   const result = await pool.query(
     `SELECT exercise_name, gif_url, body_part, equipment, target_muscle, instructions, gif_data, exercisedb_id
      FROM exercise_gif_cache WHERE exercise_name_normalized = $1`,
-    [normalized]
+    [normalized],
   );
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
@@ -1825,7 +2122,9 @@ export async function getExerciseGifCache(exerciseName: string): Promise<Exercis
   };
 }
 
-export async function saveExerciseGifCache(data: ExerciseGifCache): Promise<void> {
+export async function saveExerciseGifCache(
+  data: ExerciseGifCache,
+): Promise<void> {
   const normalized = data.exerciseName.toLowerCase().trim();
   await pool.query(
     `INSERT INTO exercise_gif_cache (exercise_name, exercise_name_normalized, gif_url, body_part, equipment, target_muscle, instructions, gif_data, exercisedb_id)
@@ -1838,18 +2137,30 @@ export async function saveExerciseGifCache(data: ExerciseGifCache): Promise<void
        instructions = EXCLUDED.instructions,
        gif_data = EXCLUDED.gif_data,
        exercisedb_id = EXCLUDED.exercisedb_id`,
-    [data.exerciseName, normalized, data.gifUrl, data.bodyPart, data.equipment, data.targetMuscle, data.instructions, data.gifData || null, data.exerciseDbId || null]
+    [
+      data.exerciseName,
+      normalized,
+      data.gifUrl,
+      data.bodyPart,
+      data.equipment,
+      data.targetMuscle,
+      data.instructions,
+      data.gifData || null,
+      data.exerciseDbId || null,
+    ],
   );
 }
 
-export async function bulkSaveExerciseMetadata(exercises: Array<{
-  exerciseName: string;
-  bodyPart: string | null;
-  equipment: string | null;
-  targetMuscle: string | null;
-  instructions: string | null;
-  exerciseDbId: string;
-}>): Promise<{ inserted: number; updated: number; failed: number }> {
+export async function bulkSaveExerciseMetadata(
+  exercises: {
+    exerciseName: string;
+    bodyPart: string | null;
+    equipment: string | null;
+    targetMuscle: string | null;
+    instructions: string | null;
+    exerciseDbId: string;
+  }[],
+): Promise<{ inserted: number; updated: number; failed: number }> {
   const client = await pool.connect();
   const results = { inserted: 0, updated: 0, failed: 0 };
 
@@ -1874,7 +2185,15 @@ export async function bulkSaveExerciseMetadata(exercises: Array<{
                THEN '/api/exercises/image/' || EXCLUDED.exercisedb_id
                ELSE exercise_gif_cache.gif_url
              END`,
-          [ex.exerciseName, normalized, ex.bodyPart, ex.equipment, ex.targetMuscle, ex.instructions, ex.exerciseDbId]
+          [
+            ex.exerciseName,
+            normalized,
+            ex.bodyPart,
+            ex.equipment,
+            ex.targetMuscle,
+            ex.instructions,
+            ex.exerciseDbId,
+          ],
         );
         results.inserted++;
       } catch (err) {
@@ -1893,15 +2212,19 @@ export async function bulkSaveExerciseMetadata(exercises: Array<{
   return results;
 }
 
-export async function getExerciseGifDataById(exerciseDbId: string): Promise<string | null> {
+export async function getExerciseGifDataById(
+  exerciseDbId: string,
+): Promise<string | null> {
   const result = await pool.query(
     `SELECT gif_data FROM exercise_gif_cache WHERE exercisedb_id = $1 AND gif_data IS NOT NULL`,
-    [exerciseDbId]
+    [exerciseDbId],
   );
   return result.rows[0]?.gif_data || null;
 }
 
-export async function fuzzySearchExerciseGifCache(searchTerm: string): Promise<ExerciseGifCache | null> {
+export async function fuzzySearchExerciseGifCache(
+  searchTerm: string,
+): Promise<ExerciseGifCache | null> {
   const normalized = searchTerm.toLowerCase().trim();
   // Normalize hyphens to spaces for flexible matching
   const withSpaces = normalized.replace(/-/g, " ");
@@ -1916,7 +2239,7 @@ export async function fuzzySearchExerciseGifCache(searchTerm: string): Promise<E
        )
      ORDER BY LENGTH(exercise_name_normalized) ASC
      LIMIT 1`,
-    [withSpaces]
+    [withSpaces],
   );
   if (result.rows.length === 0) return null;
   const row = result.rows[0];

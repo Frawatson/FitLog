@@ -30,7 +30,9 @@ if (isProduction && cluster.isPrimary) {
     await initializeDatabase();
 
     const numWorkers = Math.min(os.cpus().length, 4);
-    log(`Master ${process.pid}: DB initialized, starting ${numWorkers} workers`);
+    log(
+      `Master ${process.pid}: DB initialized, starting ${numWorkers} workers`,
+    );
 
     for (let i = 0; i < numWorkers; i++) {
       cluster.fork();
@@ -95,7 +97,10 @@ async function startServer() {
           "Access-Control-Allow-Methods",
           "GET, POST, PUT, DELETE, OPTIONS",
         );
-        res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        res.header(
+          "Access-Control-Allow-Headers",
+          "Content-Type, Authorization",
+        );
         res.header("Access-Control-Allow-Credentials", "true");
       }
 
@@ -110,14 +115,14 @@ async function startServer() {
   function setupBodyParsing(app: express.Application) {
     app.use(
       express.json({
-        limit: '10mb',
+        limit: "10mb",
         verify: (req, _res, buf) => {
           req.rawBody = buf;
         },
       }),
     );
 
-    app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+    app.use(express.urlencoded({ extended: false, limit: "10mb" }));
   }
 
   function setupRequestLogging(app: express.Application) {
@@ -145,9 +150,10 @@ async function startServer() {
             // error whose message echoes user input can't inject fake log
             // lines or break terminal display.
             const sanitized = candidate.replace(/[\x00-\x1F\x7F]/g, " ");
-            capturedErrorMessage = sanitized.length > 200
-              ? sanitized.slice(0, 199) + "…"
-              : sanitized;
+            capturedErrorMessage =
+              sanitized.length > 200
+                ? sanitized.slice(0, 199) + "…"
+                : sanitized;
           }
         }
         return originalResJson.apply(res, [bodyJson, ...args]);
@@ -296,14 +302,16 @@ async function startServer() {
       index: false as const,
       setHeaders: (res: Response, filePath: string) => {
         if (isHashedAsset(filePath)) {
-          res.setHeader(
-            "cache-control",
-            "public, max-age=31536000, immutable",
-          );
+          res.setHeader("cache-control", "public, max-age=31536000, immutable");
         }
       },
     };
-    app.use(express.static(path.resolve(process.cwd(), "static-build"), hashedCaching));
+    app.use(
+      express.static(
+        path.resolve(process.cwd(), "static-build"),
+        hashedCaching,
+      ),
+    );
     app.use(express.static(path.resolve(process.cwd(), "dist"), hashedCaching));
 
     // SPA fallback with SEO meta injection. React Navigation's web linking
@@ -353,7 +361,9 @@ async function startServer() {
     function absoluteUrl(req: Request, pathOnly: string): string {
       const envDomain = process.env.EXPO_PUBLIC_DOMAIN;
       if (envDomain) {
-        const base = envDomain.startsWith("http") ? envDomain : `https://${envDomain}`;
+        const base = envDomain.startsWith("http")
+          ? envDomain
+          : `https://${envDomain}`;
         return `${base.replace(/\/$/, "")}${pathOnly}`;
       }
       // Local dev fallback. Host is client-supplied but this is only used
@@ -376,7 +386,10 @@ async function startServer() {
 
     function injectMeta(html: string, req: Request): string {
       const urlPath = req.path;
-      const meta: MetaTags = { ...DEFAULT_META, ...(PUBLIC_PAGE_META[urlPath] ?? {}) };
+      const meta: MetaTags = {
+        ...DEFAULT_META,
+        ...(PUBLIC_PAGE_META[urlPath] ?? {}),
+      };
       const ogImageAbsolute = absoluteUrl(req, meta.ogImage);
       const tags = [
         `<title>${escapeHtml(meta.title)}</title>`,
@@ -414,41 +427,46 @@ async function startServer() {
         .replace(/<\/head>/i, `    ${tags}\n  </head>`);
     }
 
-    app.get(/^\/(?!api|assets|manifest).*/, (req: Request, res: Response, next: NextFunction) => {
-      // Only intercept browser navigations (Accept: text/html). Asset 404s
-      // for the native-client paths should still surface as 404s.
-      if (!req.accepts("html")) return next();
-      const html = loadIndexHtml();
-      if (!html) return next();
-      // The shell references the current content-hashed bundle, so it must
-      // always be revalidated — a cached stale shell would point at JS that
-      // no longer exists after a deploy.
-      res.setHeader("cache-control", "no-cache");
-      res.type("html").send(injectMeta(html, req));
-    });
+    app.get(
+      /^\/(?!api|assets|manifest).*/,
+      (req: Request, res: Response, next: NextFunction) => {
+        // Only intercept browser navigations (Accept: text/html). Asset 404s
+        // for the native-client paths should still surface as 404s.
+        if (!req.accepts("html")) return next();
+        const html = loadIndexHtml();
+        if (!html) return next();
+        // The shell references the current content-hashed bundle, so it must
+        // always be revalidated — a cached stale shell would point at JS that
+        // no longer exists after a deploy.
+        res.setHeader("cache-control", "no-cache");
+        res.type("html").send(injectMeta(html, req));
+      },
+    );
 
     log("Expo routing: Checking expo-platform header on / and /manifest");
   }
 
   function setupErrorHandler(app: express.Application) {
-    app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
-      const error = err as {
-        status?: number;
-        statusCode?: number;
-        message?: string;
-      };
+    app.use(
+      (err: unknown, _req: Request, res: Response, next: NextFunction) => {
+        const error = err as {
+          status?: number;
+          statusCode?: number;
+          message?: string;
+        };
 
-      const status = error.status || error.statusCode || 500;
-      const message = error.message || "Internal Server Error";
+        const status = error.status || error.statusCode || 500;
+        const message = error.message || "Internal Server Error";
 
-      console.error("Internal Server Error:", err);
+        console.error("Internal Server Error:", err);
 
-      if (res.headersSent) {
-        return next(err);
-      }
+        if (res.headersSent) {
+          return next(err);
+        }
 
-      return res.status(status).json({ message });
-    });
+        return res.status(status).json({ message });
+      },
+    );
   }
 
   // Security headers. CSP applies to the Expo web bundle served from
@@ -500,14 +518,16 @@ async function startServer() {
     upgradeInsecureRequests: [],
   };
 
-  app.use(helmet({
-    contentSecurityPolicy: {
-      useDefaults: true,
-      directives: cspDirectives,
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: cspDirectives,
+      },
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+    }),
+  );
 
   // Gzip responses (the web JS bundle compresses ~4x; large JSON payloads
   // like the feed and food logs similarly). Must be mounted before the
@@ -533,22 +553,25 @@ async function startServer() {
   // the per-request expiry UPDATE too; the cookie already lives 30 days
   // and the JWT (same lifetime) is the primary credential, so a sliding
   // session window isn't worth a DB write per API call.
-  app.use("/api", session({
-    store: new PgSession({
-      pool,
-      tableName: "session",
-      disableTouch: true,
+  app.use(
+    "/api",
+    session({
+      store: new PgSession({
+        pool,
+        tableName: "session",
+        disableTouch: true,
+      }),
+      secret: process.env.SESSION_SECRET!,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: "lax",
+      },
     }),
-    secret: process.env.SESSION_SECRET!,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: "lax",
-    },
-  }));
+  );
 
   setupRequestLogging(app);
 

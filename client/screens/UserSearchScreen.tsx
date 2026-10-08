@@ -12,7 +12,11 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { FollowUser } from "@/types";
-import { searchUsersApi, followUserApi, unfollowUserApi } from "@/lib/socialStorage";
+import {
+  searchUsersApi,
+  followUserApi,
+  unfollowUserApi,
+} from "@/lib/socialStorage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -52,16 +56,24 @@ export default function UserSearchScreen() {
     // Targeted optimistic + rollback so a failing request only reverts its
     // own row; concurrent toggles on other rows keep their state.
     const wasFollowed = targetUser.isFollowedByMe;
-    setResults(prev => prev.map(u =>
-      u.userId === targetUser.userId ? { ...u, isFollowedByMe: !u.isFollowedByMe } : u
-    ));
+    setResults((prev) =>
+      prev.map((u) =>
+        u.userId === targetUser.userId
+          ? { ...u, isFollowedByMe: !u.isFollowedByMe }
+          : u,
+      ),
+    );
     const ok = wasFollowed
       ? await unfollowUserApi(targetUser.userId)
       : await followUserApi(targetUser.userId);
     if (!ok) {
-      setResults(prev => prev.map(u =>
-        u.userId === targetUser.userId ? { ...u, isFollowedByMe: wasFollowed } : u
-      ));
+      setResults((prev) =>
+        prev.map((u) =>
+          u.userId === targetUser.userId
+            ? { ...u, isFollowedByMe: wasFollowed }
+            : u,
+        ),
+      );
     }
   };
 
@@ -70,10 +82,25 @@ export default function UserSearchScreen() {
       <FlatList
         data={results}
         keyExtractor={(item) => item.userId.toString()}
-        contentContainerStyle={{ paddingTop: headerHeight + Spacing.lg, paddingHorizontal: Spacing.lg, paddingBottom: Spacing["5xl"], width: "100%", maxWidth: 720, alignSelf: "center" }}
+        contentContainerStyle={{
+          paddingTop: headerHeight + Spacing.lg,
+          paddingHorizontal: Spacing.lg,
+          paddingBottom: Spacing["5xl"],
+          width: "100%",
+          maxWidth: 720,
+          alignSelf: "center",
+        }}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
-          <View style={[styles.searchBar, { backgroundColor: theme.backgroundDefault, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.searchBar,
+              {
+                backgroundColor: theme.backgroundDefault,
+                borderColor: theme.border,
+              },
+            ]}
+          >
             <Feather name="search" size={18} color={theme.textSecondary} />
             <TextInput
               style={[styles.searchInput, { color: theme.text }]}
@@ -85,7 +112,13 @@ export default function UserSearchScreen() {
               returnKeyType="search"
             />
             {query.length > 0 && (
-              <Pressable onPress={() => { setQuery(""); setResults([]); }} hitSlop={8}>
+              <Pressable
+                onPress={() => {
+                  setQuery("");
+                  setResults([]);
+                }}
+                hitSlop={8}
+              >
                 <Feather name="x" size={18} color={theme.textSecondary} />
               </Pressable>
             )}
@@ -93,20 +126,43 @@ export default function UserSearchScreen() {
         }
         renderItem={({ item }) => (
           <AnimatedPress
-            onPress={() => navigation.navigate("SocialProfile", { userId: item.userId })}
+            onPress={() =>
+              navigation.navigate("SocialProfile", { userId: item.userId })
+            }
             style={[styles.userRow, { borderBottomColor: theme.border }]}
           >
             <Avatar uri={item.avatarUrl} name={item.name} size={44} />
             <View style={{ flex: 1 }}>
               <ThemedText type="h4">{item.name}</ThemedText>
-              {item.bio ? <ThemedText type="caption" numberOfLines={1} style={{ color: theme.textSecondary }}>{item.bio}</ThemedText> : null}
+              {item.bio ? (
+                <ThemedText
+                  type="caption"
+                  numberOfLines={1}
+                  style={{ color: theme.textSecondary }}
+                >
+                  {item.bio}
+                </ThemedText>
+              ) : null}
             </View>
             {user && item.userId !== Number(user.id) && (
               <Pressable
                 onPress={() => handleFollow(item)}
-                style={[styles.followBtn, { backgroundColor: item.isFollowedByMe ? theme.backgroundDefault : Colors.light.primary }]}
+                style={[
+                  styles.followBtn,
+                  {
+                    backgroundColor: item.isFollowedByMe
+                      ? theme.backgroundDefault
+                      : Colors.light.primary,
+                  },
+                ]}
               >
-                <ThemedText type="caption" style={{ color: item.isFollowedByMe ? theme.text : "#fff", fontWeight: "700" }}>
+                <ThemedText
+                  type="caption"
+                  style={{
+                    color: item.isFollowedByMe ? theme.text : "#fff",
+                    fontWeight: "700",
+                  }}
+                >
                   {item.isFollowedByMe ? "Following" : "Follow"}
                 </ThemedText>
               </Pressable>
@@ -115,13 +171,28 @@ export default function UserSearchScreen() {
         )}
         ListEmptyComponent={
           query.length >= 2 && !searching ? (
-            <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center", paddingTop: Spacing["3xl"] }}>
+            <ThemedText
+              type="body"
+              style={{
+                color: theme.textSecondary,
+                textAlign: "center",
+                paddingTop: Spacing["3xl"],
+              }}
+            >
               No users found.
             </ThemedText>
           ) : query.length < 2 ? (
             <View style={styles.empty}>
-              <Feather name="search" size={48} color={theme.textSecondary} style={{ opacity: 0.3, marginBottom: Spacing.lg }} />
-              <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
+              <Feather
+                name="search"
+                size={48}
+                color={theme.textSecondary}
+                style={{ opacity: 0.3, marginBottom: Spacing.lg }}
+              />
+              <ThemedText
+                type="body"
+                style={{ color: theme.textSecondary, textAlign: "center" }}
+              >
                 Search for people to follow and see their fitness journey.
               </ThemedText>
             </View>
@@ -145,7 +216,21 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
   },
   searchInput: { flex: 1, fontSize: 16, paddingVertical: 0 },
-  userRow: { flexDirection: "row", alignItems: "center", gap: Spacing.md, paddingVertical: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
-  followBtn: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, borderRadius: BorderRadius.sm },
-  empty: { alignItems: "center", paddingTop: Spacing["5xl"], paddingHorizontal: Spacing["3xl"] },
+  userRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  followBtn: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  empty: {
+    alignItems: "center",
+    paddingTop: Spacing["5xl"],
+    paddingHorizontal: Spacing["3xl"],
+  },
 });

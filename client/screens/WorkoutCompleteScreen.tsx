@@ -30,21 +30,25 @@ export default function WorkoutCompleteScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<RouteType>();
   const { theme } = useTheme();
-  
+
   const [workout, setWorkout] = useState<Workout | null>(null);
-  const [progressions, setProgressions] = useState<{ exercise: string; message: string }[]>([]);
-  const [newPRs, setNewPRs] = useState<{ exercise: string; weight: number; reps: number }[]>([]);
+  const [progressions, setProgressions] = useState<
+    { exercise: string; message: string }[]
+  >([]);
+  const [newPRs, setNewPRs] = useState<
+    { exercise: string; weight: number; reps: number }[]
+  >([]);
 
   const scale = useSharedValue(0);
   const opacity = useSharedValue(0);
-  
+
   useEffect(() => {
     loadWorkout();
-    
+
     scale.value = withSpring(1, { damping: 12 });
     opacity.value = withDelay(300, withSpring(1));
   }, []);
-  
+
   const loadWorkout = async () => {
     const workouts = await storage.getWorkouts();
     const found = workouts.find((w) => w.id === route.params.workoutId);
@@ -63,7 +67,7 @@ export default function WorkoutCompleteScreen() {
               weight: s.weight,
               reps: s.reps,
               completed: s.completed,
-            }))
+            })),
           );
           progs.push({ exercise: ex.exerciseName, message });
         }
@@ -71,14 +75,20 @@ export default function WorkoutCompleteScreen() {
       setProgressions(progs);
 
       // Check for new PRs by comparing against all previous workouts
-      const previousWorkouts = workouts.filter((w) => w.id !== found.id && w.completedAt);
+      const previousWorkouts = workouts.filter(
+        (w) => w.id !== found.id && w.completedAt,
+      );
       const prs: { exercise: string; weight: number; reps: number }[] = [];
 
       for (const ex of found.exercises) {
-        const completedSets = ex.sets.filter((s) => s.completed && s.weight > 0);
+        const completedSets = ex.sets.filter(
+          (s) => s.completed && s.weight > 0,
+        );
         if (completedSets.length === 0) continue;
 
-        const currentMaxWeight = Math.max(...completedSets.map((s) => s.weight));
+        const currentMaxWeight = Math.max(
+          ...completedSets.map((s) => s.weight),
+        );
 
         // Find previous max weight for this exercise
         let previousMaxWeight = 0;
@@ -95,7 +105,9 @@ export default function WorkoutCompleteScreen() {
         }
 
         if (currentMaxWeight > previousMaxWeight && previousMaxWeight > 0) {
-          const bestSet = completedSets.find((s) => s.weight === currentMaxWeight);
+          const bestSet = completedSets.find(
+            (s) => s.weight === currentMaxWeight,
+          );
           prs.push({
             exercise: ex.exerciseName,
             weight: currentMaxWeight,
@@ -106,7 +118,7 @@ export default function WorkoutCompleteScreen() {
       setNewPRs(prs);
     }
   };
-  
+
   const handleDone = () => {
     navigation.reset({
       index: 0,
@@ -117,23 +129,33 @@ export default function WorkoutCompleteScreen() {
   const checkmarkStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
-  
+
   const contentStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
   }));
-  
-  const totalSets = workout?.exercises.reduce((acc, ex) => acc + ex.sets.filter((s) => s.completed).length, 0) || 0;
-  const totalVolume = workout?.exercises.reduce((acc, ex) => {
-    return acc + ex.sets.reduce((setAcc, s) => {
-      if (s.completed) {
-        return setAcc + s.weight * s.reps;
-      }
-      return setAcc;
-    }, 0);
-  }, 0) || 0;
-  
+
+  const totalSets =
+    workout?.exercises.reduce(
+      (acc, ex) => acc + ex.sets.filter((s) => s.completed).length,
+      0,
+    ) || 0;
+  const totalVolume =
+    workout?.exercises.reduce((acc, ex) => {
+      return (
+        acc +
+        ex.sets.reduce((setAcc, s) => {
+          if (s.completed) {
+            return setAcc + s.weight * s.reps;
+          }
+          return setAcc;
+        }, 0)
+      );
+    }, 0) || 0;
+
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top + Spacing["3xl"] }]}>
+    <ThemedView
+      style={[styles.container, { paddingTop: insets.top + Spacing["3xl"] }]}
+    >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -142,114 +164,176 @@ export default function WorkoutCompleteScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Animated.View style={[styles.checkmarkContainer, checkmarkStyle]}>
-          <View style={[styles.checkmark, { backgroundColor: Colors.light.success }]}>
+          <View
+            style={[
+              styles.checkmark,
+              { backgroundColor: Colors.light.success },
+            ]}
+          >
             <Feather name="check" size={48} color="#FFFFFF" />
           </View>
         </Animated.View>
-        
+
         <Animated.View style={contentStyle}>
-          <View style={{ backgroundColor: theme.backgroundRoot, padding: Spacing.lg, borderRadius: BorderRadius["2xl"] }}>
-          <ThemedText type="h1" style={styles.title}>
-            Workout Complete!
-          </ThemedText>
+          <View
+            style={{
+              backgroundColor: theme.backgroundRoot,
+              padding: Spacing.lg,
+              borderRadius: BorderRadius["2xl"],
+            }}
+          >
+            <ThemedText type="h1" style={styles.title}>
+              Workout Complete!
+            </ThemedText>
 
-          {workout ? (
-            <>
-              <ThemedText type="body" style={styles.subtitle}>
-                {workout.routineName} - {workout.durationMinutes} minutes
-              </ThemedText>
+            {workout ? (
+              <>
+                <ThemedText type="body" style={styles.subtitle}>
+                  {workout.routineName} - {workout.durationMinutes} minutes
+                </ThemedText>
 
-              <View style={styles.statsRow}>
-                <Card style={styles.statCard}>
-                  <ThemedText type="h2" style={{ color: Colors.light.primary }}>
-                    {totalSets}
-                  </ThemedText>
-                  <ThemedText type="small">Sets Completed</ThemedText>
-                </Card>
-                <Card style={styles.statCard}>
-                  <ThemedText type="h2" style={{ color: Colors.light.success }}>
-                    {Math.round(totalVolume).toLocaleString()}
-                  </ThemedText>
-                  <ThemedText type="small">lbs Lifted</ThemedText>
-                </Card>
-              </View>
-              
-              {newPRs.length > 0 ? (
-                <Card style={[styles.progressionCard, { marginBottom: Spacing.lg }]}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm, marginBottom: Spacing.lg }}>
-                    <Feather name="award" size={22} color="#FFB300" />
-                    <ThemedText type="h4" style={{ color: "#FFB300" }}>New Personal Records!</ThemedText>
-                  </View>
-                  {newPRs.map((pr, index) => (
-                    <View key={index} style={styles.progressionItem}>
-                      <View style={[styles.prBadge, { backgroundColor: "#FFB30020" }]}>
-                        <Feather name="star" size={16} color="#FFB300" />
-                      </View>
-                      <View style={styles.progressionText}>
-                        <ThemedText type="body" style={{ fontWeight: "600" }}>
-                          {pr.exercise}
-                        </ThemedText>
-                        <ThemedText type="small" style={{ color: "#FFB300" }}>
-                          {pr.weight} lbs x {pr.reps} reps
-                        </ThemedText>
-                      </View>
+                <View style={styles.statsRow}>
+                  <Card style={styles.statCard}>
+                    <ThemedText
+                      type="h2"
+                      style={{ color: Colors.light.primary }}
+                    >
+                      {totalSets}
+                    </ThemedText>
+                    <ThemedText type="small">Sets Completed</ThemedText>
+                  </Card>
+                  <Card style={styles.statCard}>
+                    <ThemedText
+                      type="h2"
+                      style={{ color: Colors.light.success }}
+                    >
+                      {Math.round(totalVolume).toLocaleString()}
+                    </ThemedText>
+                    <ThemedText type="small">lbs Lifted</ThemedText>
+                  </Card>
+                </View>
+
+                {newPRs.length > 0 ? (
+                  <Card
+                    style={[
+                      styles.progressionCard,
+                      { marginBottom: Spacing.lg },
+                    ]}
+                  >
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: Spacing.sm,
+                        marginBottom: Spacing.lg,
+                      }}
+                    >
+                      <Feather name="award" size={22} color="#FFB300" />
+                      <ThemedText type="h4" style={{ color: "#FFB300" }}>
+                        New Personal Records!
+                      </ThemedText>
                     </View>
-                  ))}
-                </Card>
-              ) : null}
-
-              {progressions.length > 0 ? (
-                <Card style={styles.progressionCard}>
-                  <ThemedText type="h4" style={styles.progressionTitle}>
-                    Next Session Recommendations
-                  </ThemedText>
-                  {progressions.map((prog, index) => (
-                    <View key={index} style={styles.progressionItem}>
-                      <Feather name="trending-up" size={18} color={Colors.light.success} />
-                      <View style={styles.progressionText}>
-                        <ThemedText type="body" style={{ fontWeight: "600" }}>
-                          {prog.exercise}
-                        </ThemedText>
-                        <ThemedText type="small" style={{ opacity: 0.7 }}>
-                          {prog.message}
-                        </ThemedText>
+                    {newPRs.map((pr, index) => (
+                      <View key={index} style={styles.progressionItem}>
+                        <View
+                          style={[
+                            styles.prBadge,
+                            { backgroundColor: "#FFB30020" },
+                          ]}
+                        >
+                          <Feather name="star" size={16} color="#FFB300" />
+                        </View>
+                        <View style={styles.progressionText}>
+                          <ThemedText type="body" style={{ fontWeight: "600" }}>
+                            {pr.exercise}
+                          </ThemedText>
+                          <ThemedText type="small" style={{ color: "#FFB300" }}>
+                            {pr.weight} lbs x {pr.reps} reps
+                          </ThemedText>
+                        </View>
                       </View>
-                    </View>
-                  ))}
-                </Card>
-              ) : null}
-            </>
-          ) : null}
+                    ))}
+                  </Card>
+                ) : null}
+
+                {progressions.length > 0 ? (
+                  <Card style={styles.progressionCard}>
+                    <ThemedText type="h4" style={styles.progressionTitle}>
+                      Next Session Recommendations
+                    </ThemedText>
+                    {progressions.map((prog, index) => (
+                      <View key={index} style={styles.progressionItem}>
+                        <Feather
+                          name="trending-up"
+                          size={18}
+                          color={Colors.light.success}
+                        />
+                        <View style={styles.progressionText}>
+                          <ThemedText type="body" style={{ fontWeight: "600" }}>
+                            {prog.exercise}
+                          </ThemedText>
+                          <ThemedText type="small" style={{ opacity: 0.7 }}>
+                            {prog.message}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    ))}
+                  </Card>
+                ) : null}
+              </>
+            ) : null}
           </View>
         </Animated.View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}>
+      <View
+        style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
+      >
         <View style={styles.footerButtons}>
           <Button
-            onPress={() => navigation.navigate("CreatePost", {
-              prefill: {
-                postType: "workout" as const,
-                referenceId: workout?.id,
-                referenceData: workout ? {
-                  routineName: workout.routineName,
-                  durationMinutes: workout.durationMinutes,
-                  totalSets: workout.exercises.reduce((acc: number, e: any) => acc + e.sets.length, 0),
-                  exerciseCount: workout.exercises.length,
-                  totalVolumeKg: workout.totalVolumeKg,
-                  exercises: workout.exercises.map((e: any) => ({
-                    name: e.exerciseName,
-                    sets: e.sets.map((s: any) => ({ weight: s.weight, reps: s.reps, completed: s.completed })),
-                  })),
-                } : undefined,
-              },
-            })}
+            onPress={() =>
+              navigation.navigate("CreatePost", {
+                prefill: {
+                  postType: "workout" as const,
+                  referenceId: workout?.id,
+                  referenceData: workout
+                    ? {
+                        routineName: workout.routineName,
+                        durationMinutes: workout.durationMinutes,
+                        totalSets: workout.exercises.reduce(
+                          (acc: number, e: any) => acc + e.sets.length,
+                          0,
+                        ),
+                        exerciseCount: workout.exercises.length,
+                        totalVolumeKg: workout.totalVolumeKg,
+                        exercises: workout.exercises.map((e: any) => ({
+                          name: e.exerciseName,
+                          sets: e.sets.map((s: any) => ({
+                            weight: s.weight,
+                            reps: s.reps,
+                            completed: s.completed,
+                          })),
+                        })),
+                      }
+                    : undefined,
+                },
+              })
+            }
             variant="outline"
             style={styles.postButton}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: Spacing.sm,
+              }}
+            >
               <Feather name="users" size={18} color={Colors.light.primary} />
-              <ThemedText type="body" style={{ color: Colors.light.primary, fontWeight: "600" }}>
+              <ThemedText
+                type="body"
+                style={{ color: Colors.light.primary, fontWeight: "600" }}
+              >
                 Post
               </ThemedText>
             </View>

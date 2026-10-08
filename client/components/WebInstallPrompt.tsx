@@ -29,7 +29,8 @@ export function WebInstallPrompt() {
 
     const isStandalone =
       window.matchMedia?.("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+      (window.navigator as unknown as { standalone?: boolean }).standalone ===
+        true;
     if (isStandalone) return;
 
     try {
@@ -53,7 +54,8 @@ export function WebInstallPrompt() {
     const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
     if (isIOS && isSafari) setVariant("ios");
 
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+    return () =>
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
   }, []);
 
   const dismiss = () => {
@@ -84,7 +86,10 @@ export function WebInstallPrompt() {
       <View
         style={[
           styles.card,
-          { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder },
+          {
+            backgroundColor: theme.backgroundCard,
+            borderColor: theme.cardBorder,
+          },
         ]}
       >
         <View style={styles.row}>
@@ -114,9 +119,15 @@ export function WebInstallPrompt() {
         {variant === "chrome" ? (
           <Pressable
             onPress={install}
-            style={[styles.installBtn, { backgroundColor: Colors.light.primary }]}
+            style={[
+              styles.installBtn,
+              { backgroundColor: Colors.light.primary },
+            ]}
           >
-            <ThemedText type="small" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+            <ThemedText
+              type="small"
+              style={{ color: "#FFFFFF", fontWeight: "600" }}
+            >
               Install
             </ThemedText>
           </Pressable>

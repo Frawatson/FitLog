@@ -34,12 +34,16 @@ export default function BlockedUsersScreen() {
     }
   };
 
-  useFocusEffect(useCallback(() => { loadData(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, []),
+  );
 
   const handleUnblock = (user: BlockedUser) => {
     const doUnblock = async () => {
       const ok = await unblockUserApi(user.userId);
-      if (ok) setUsers(prev => prev.filter(u => u.userId !== user.userId));
+      if (ok) setUsers((prev) => prev.filter((u) => u.userId !== user.userId));
     };
     showSystemMenu({
       title: `Unblock ${user.name}?`,
@@ -53,7 +57,12 @@ export default function BlockedUsersScreen() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: theme.backgroundRoot, paddingTop: headerHeight },
+        ]}
+      >
         <SkeletonLoader variant="list" lines={3} height={60} />
       </View>
     );
@@ -73,24 +82,46 @@ export default function BlockedUsersScreen() {
       data={users}
       keyExtractor={(item) => item.userId.toString()}
       renderItem={({ item }) => (
-        <View style={[styles.row, { backgroundColor: theme.backgroundCard, borderColor: theme.cardBorder }]}>
+        <View
+          style={[
+            styles.row,
+            {
+              backgroundColor: theme.backgroundCard,
+              borderColor: theme.cardBorder,
+            },
+          ]}
+        >
           <Avatar uri={item.avatarUrl} name={item.name} size={40} />
           <View style={{ flex: 1 }}>
-            <ThemedText type="body" style={{ fontWeight: "600" }}>{item.name}</ThemedText>
+            <ThemedText type="body" style={{ fontWeight: "600" }}>
+              {item.name}
+            </ThemedText>
             <ThemedText type="caption" style={{ color: theme.textSecondary }}>
               Blocked {new Date(item.blockedAt).toLocaleDateString()}
             </ThemedText>
           </View>
-          <Button onPress={() => handleUnblock(item)} variant="outline" style={styles.unblockBtn}>
+          <Button
+            onPress={() => handleUnblock(item)}
+            variant="outline"
+            style={styles.unblockBtn}
+          >
             Unblock
           </Button>
         </View>
       )}
       ListEmptyComponent={
         <View style={styles.empty}>
-          <Feather name="shield" size={48} color={theme.textSecondary} style={{ opacity: 0.3, marginBottom: Spacing.lg }} />
-          <ThemedText type="body" style={{ color: theme.textSecondary, textAlign: "center" }}>
-            You haven't blocked anyone.
+          <Feather
+            name="shield"
+            size={48}
+            color={theme.textSecondary}
+            style={{ opacity: 0.3, marginBottom: Spacing.lg }}
+          />
+          <ThemedText
+            type="body"
+            style={{ color: theme.textSecondary, textAlign: "center" }}
+          >
+            You haven&apos;t blocked anyone.
           </ThemedText>
         </View>
       }

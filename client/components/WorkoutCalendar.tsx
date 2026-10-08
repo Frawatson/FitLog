@@ -19,7 +19,11 @@ interface WorkoutCalendarProps {
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarProps) {
+export function WorkoutCalendar({
+  workouts,
+  runs,
+  onDayPress,
+}: WorkoutCalendarProps) {
   const { theme } = useTheme();
   // Refresh the calendar when the local day rolls over (e.g. app left
   // open or backgrounded past midnight). AppState 'active' is the most
@@ -36,108 +40,122 @@ export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarP
     return () => sub.remove();
   }, []);
 
-  const { weeks, currentMonth, currentYear, workoutDates, runDates } = useMemo(() => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
-    
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    
-    const startOffset = firstDay.getDay();
-    const daysInMonth = lastDay.getDate();
-    
-    const weeks: (number | null)[][] = [];
-    let currentWeek: (number | null)[] = [];
-    
-    for (let i = 0; i < startOffset; i++) {
-      currentWeek.push(null);
-    }
-    
-    for (let day = 1; day <= daysInMonth; day++) {
-      currentWeek.push(day);
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-    }
-    
-    if (currentWeek.length > 0) {
-      while (currentWeek.length < 7) {
+  const { weeks, currentMonth, currentYear, workoutDates, runDates } =
+    useMemo(() => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      const startOffset = firstDay.getDay();
+      const daysInMonth = lastDay.getDate();
+
+      const weeks: (number | null)[][] = [];
+      let currentWeek: (number | null)[] = [];
+
+      for (let i = 0; i < startOffset; i++) {
         currentWeek.push(null);
       }
-      weeks.push(currentWeek);
-    }
-    
-    const workoutDates = new Set<string>();
-    workouts.forEach((w) => {
-      if (w.completedAt) {
-        const date = new Date(w.completedAt);
-        if (date.getMonth() === month && date.getFullYear() === year) {
-          workoutDates.add(date.getDate().toString());
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        currentWeek.push(day);
+        if (currentWeek.length === 7) {
+          weeks.push(currentWeek);
+          currentWeek = [];
         }
       }
-    });
-    
-    const runDates = new Set<string>();
-    runs.forEach((r) => {
-      // Fall back to startedAt so in-progress / interrupted runs still
-      // appear on the calendar — matches WorkoutHistoryScreen's list.
-      const date = new Date(r.completedAt || r.startedAt);
-      if (date.getMonth() === month && date.getFullYear() === year) {
-        runDates.add(date.getDate().toString());
+
+      if (currentWeek.length > 0) {
+        while (currentWeek.length < 7) {
+          currentWeek.push(null);
+        }
+        weeks.push(currentWeek);
       }
-    });
-    
-    return {
-      weeks,
-      currentMonth: now.toLocaleString("default", { month: "long" }),
-      currentYear: year,
-      workoutDates,
-      runDates,
-    };
-  }, [workouts, runs, todayKey]);
-  
+
+      const workoutDates = new Set<string>();
+      workouts.forEach((w) => {
+        if (w.completedAt) {
+          const date = new Date(w.completedAt);
+          if (date.getMonth() === month && date.getFullYear() === year) {
+            workoutDates.add(date.getDate().toString());
+          }
+        }
+      });
+
+      const runDates = new Set<string>();
+      runs.forEach((r) => {
+        // Fall back to startedAt so in-progress / interrupted runs still
+        // appear on the calendar — matches WorkoutHistoryScreen's list.
+        const date = new Date(r.completedAt || r.startedAt);
+        if (date.getMonth() === month && date.getFullYear() === year) {
+          runDates.add(date.getDate().toString());
+        }
+      });
+
+      return {
+        weeks,
+        currentMonth: now.toLocaleString("default", { month: "long" }),
+        currentYear: year,
+        workoutDates,
+        runDates,
+      };
+    }, [workouts, runs, todayKey]);
+
   const today = new Date().getDate();
-  
+
   const getDateString = (day: number): string => {
     const now = new Date();
     return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
   };
-  
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}>
+    <View
+      style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}
+    >
       <View style={styles.header}>
-        <ThemedText type="h4">{currentMonth} {currentYear}</ThemedText>
+        <ThemedText type="h4">
+          {currentMonth} {currentYear}
+        </ThemedText>
         <View style={styles.legend}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: ACCENT_COLOR }]} />
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>Workout</ThemedText>
+            <View
+              style={[styles.legendDot, { backgroundColor: ACCENT_COLOR }]}
+            />
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Workout
+            </ThemedText>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: RUN_COLOR }]} />
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>Run</ThemedText>
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              Run
+            </ThemedText>
           </View>
         </View>
       </View>
-      
+
       <View style={styles.daysHeader}>
         {DAYS.map((day) => (
           <View key={day} style={styles.dayHeaderCell}>
-            <ThemedText type="small" style={[styles.dayHeaderText, { color: theme.textSecondary }]}>
+            <ThemedText
+              type="small"
+              style={[styles.dayHeaderText, { color: theme.textSecondary }]}
+            >
               {day}
             </ThemedText>
           </View>
         ))}
       </View>
-      
+
       {weeks.map((week, weekIndex) => (
         <View key={weekIndex} style={styles.weekRow}>
           {week.map((day, dayIndex) => {
             const hasWorkout = day !== null && workoutDates.has(day.toString());
             const hasRun = day !== null && runDates.has(day.toString());
             const isToday = day === today;
-            
+
             return (
               <Pressable
                 key={dayIndex}
@@ -162,10 +180,20 @@ export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarP
                     </ThemedText>
                     <View style={styles.indicators}>
                       {hasWorkout ? (
-                        <View style={[styles.indicator, { backgroundColor: ACCENT_COLOR }]} />
+                        <View
+                          style={[
+                            styles.indicator,
+                            { backgroundColor: ACCENT_COLOR },
+                          ]}
+                        />
                       ) : null}
                       {hasRun ? (
-                        <View style={[styles.indicator, { backgroundColor: RUN_COLOR }]} />
+                        <View
+                          style={[
+                            styles.indicator,
+                            { backgroundColor: RUN_COLOR },
+                          ]}
+                        />
                       ) : null}
                     </View>
                   </>
@@ -175,7 +203,7 @@ export function WorkoutCalendar({ workouts, runs, onDayPress }: WorkoutCalendarP
           })}
         </View>
       ))}
-      
+
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
           <Feather name="zap" size={16} color={ACCENT_COLOR} />

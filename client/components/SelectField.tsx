@@ -87,10 +87,7 @@ export function SelectField({
             ]}
           >
             <View
-              style={[
-                styles.modalHeader,
-                { borderBottomColor: theme.border },
-              ]}
+              style={[styles.modalHeader, { borderBottomColor: theme.border }]}
             >
               <Text style={[styles.modalTitle, { color: theme.text }]}>
                 {label || "Select Option"}

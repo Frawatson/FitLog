@@ -50,11 +50,16 @@ export default function ExerciseHistoryScreen() {
       if (!w.completedAt) continue;
       for (const ex of w.exercises) {
         if (ex.exerciseId !== exerciseId) continue;
-        const completedSets = ex.sets.filter((s) => s.completed && s.weight > 0);
+        const completedSets = ex.sets.filter(
+          (s) => s.completed && s.weight > 0,
+        );
         if (completedSets.length === 0) continue;
 
         const maxWeight = Math.max(...completedSets.map((s) => s.weight));
-        const totalVolume = completedSets.reduce((acc, s) => acc + s.weight * s.reps, 0);
+        const totalVolume = completedSets.reduce(
+          (acc, s) => acc + s.weight * s.reps,
+          0,
+        );
 
         exerciseSessions.push({
           date: w.completedAt!,
@@ -65,7 +70,9 @@ export default function ExerciseHistoryScreen() {
       }
     }
 
-    exerciseSessions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    exerciseSessions.sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
     setSessions(exerciseSessions);
 
     if (exerciseSessions.length > 0) {
@@ -86,14 +93,18 @@ export default function ExerciseHistoryScreen() {
     decimalPlaces: 0,
   };
 
-  const weightChartData = sessions.length >= 2
-    ? {
-        labels: sessions.slice(-8).map((s) =>
-          new Date(s.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-        ),
-        datasets: [{ data: sessions.slice(-8).map((s) => s.maxWeight) }],
-      }
-    : null;
+  const weightChartData =
+    sessions.length >= 2
+      ? {
+          labels: sessions.slice(-8).map((s) =>
+            new Date(s.date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            }),
+          ),
+          datasets: [{ data: sessions.slice(-8).map((s) => s.maxWeight) }],
+        }
+      : null;
 
   return (
     <ScrollView
@@ -116,7 +127,10 @@ export default function ExerciseHistoryScreen() {
       ) : sessions.length === 0 ? (
         <Card style={styles.emptyCard}>
           <Feather name="bar-chart-2" size={40} color={theme.textSecondary} />
-          <ThemedText type="body" style={{ opacity: 0.6, marginTop: Spacing.md }}>
+          <ThemedText
+            type="body"
+            style={{ opacity: 0.6, marginTop: Spacing.md }}
+          >
             No history for this exercise yet
           </ThemedText>
         </Card>
@@ -126,17 +140,31 @@ export default function ExerciseHistoryScreen() {
           <View style={styles.prRow}>
             <Card style={styles.prCard}>
               <Feather name="award" size={20} color="#FFB300" />
-              <ThemedText type="h3" style={{ color: Colors.light.primary, marginTop: Spacing.xs }}>
+              <ThemedText
+                type="h3"
+                style={{ color: Colors.light.primary, marginTop: Spacing.xs }}
+              >
                 {prWeight}
               </ThemedText>
-              <ThemedText type="caption" style={{ opacity: 0.6 }}>Max Weight (lbs)</ThemedText>
+              <ThemedText type="caption" style={{ opacity: 0.6 }}>
+                Max Weight (lbs)
+              </ThemedText>
             </Card>
             <Card style={styles.prCard}>
-              <Feather name="trending-up" size={20} color={Colors.light.success} />
-              <ThemedText type="h3" style={{ color: Colors.light.success, marginTop: Spacing.xs }}>
+              <Feather
+                name="trending-up"
+                size={20}
+                color={Colors.light.success}
+              />
+              <ThemedText
+                type="h3"
+                style={{ color: Colors.light.success, marginTop: Spacing.xs }}
+              >
                 {prVolume.toLocaleString()}
               </ThemedText>
-              <ThemedText type="caption" style={{ opacity: 0.6 }}>Max Volume (lbs)</ThemedText>
+              <ThemedText type="caption" style={{ opacity: 0.6 }}>
+                Max Volume (lbs)
+              </ThemedText>
             </Card>
           </View>
 
@@ -144,7 +172,11 @@ export default function ExerciseHistoryScreen() {
           {weightChartData ? (
             <Card style={styles.chartCard}>
               <View style={styles.chartHeader}>
-                <Feather name="trending-up" size={18} color={Colors.light.primary} />
+                <Feather
+                  name="trending-up"
+                  size={18}
+                  color={Colors.light.primary}
+                />
                 <ThemedText type="h4">Weight Over Sessions</ThemedText>
               </View>
               <LineChart
@@ -180,7 +212,10 @@ export default function ExerciseHistoryScreen() {
                   {session.maxWeight === prWeight ? (
                     <View style={styles.prLabel}>
                       <Feather name="star" size={12} color="#FFB300" />
-                      <ThemedText type="caption" style={{ color: "#FFB300", marginLeft: 4 }}>
+                      <ThemedText
+                        type="caption"
+                        style={{ color: "#FFB300", marginLeft: 4 }}
+                      >
                         PR
                       </ThemedText>
                     </View>

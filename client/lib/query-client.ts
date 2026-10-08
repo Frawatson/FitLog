@@ -13,7 +13,11 @@ export function getApiUrl(): string {
   // satisfies CSP `connect-src 'self'`, no CORS preflight, cookies
   // attach automatically. The baked-in EXPO_PUBLIC_DOMAIN can't keep
   // up with new aliases without a fresh web export.
-  if (Platform.OS === "web" && typeof window !== "undefined" && window.location?.origin) {
+  if (
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    window.location?.origin
+  ) {
     return window.location.origin + "/";
   }
 
