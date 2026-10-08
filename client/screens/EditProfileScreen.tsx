@@ -23,6 +23,10 @@ import * as storage from "@/lib/storage";
 import { kgToLbs, lbsToKg, cmToFeetInches, feetInchesToCm } from "@/lib/units";
 import type { UnitSystem } from "@/types";
 
+const UNIT_OPTIONS = [
+  { label: "Imperial (lb, ft)", value: "imperial" },
+  { label: "Metric (kg, cm)", value: "metric" },
+];
 const SEX_OPTIONS = [
   { label: "Male", value: "male" },
   { label: "Female", value: "female" },
@@ -82,8 +86,9 @@ export default function EditProfileScreen() {
   useEffect(() => {
     const loadProfile = async () => {
       const profile = await storage.getUserProfile();
-      if (profile?.unitSystem) {
-        setUnitSystem(profile.unitSystem);
+      const accountUnits = user?.unitSystem ?? profile?.unitSystem;
+      if (accountUnits) {
+        setUnitSystem(accountUnits);
       }
       // Even if the profile has no unitSystem, mark loaded so the form
       // populates with the default rather than staying blank forever.
@@ -238,6 +243,7 @@ export default function EditProfileScreen() {
         experience: experience || undefined,
         goal: goal || undefined,
         activityLevel: activityLevel || undefined,
+        unitSystem,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.goBack();
@@ -355,6 +361,10 @@ export default function EditProfileScreen() {
             <Feather name="activity" size={20} color={Colors.light.primary} />
             <ThemedText type="h4">Body Metrics</ThemedText>
           </View>
+
+          {renderChipGroup("Units", UNIT_OPTIONS, unitSystem, (v: string) =>
+            setUnitSystem(v as UnitSystem),
+          )}
 
           {unitSystem === "imperial" ? (
             <>

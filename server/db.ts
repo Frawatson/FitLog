@@ -45,6 +45,16 @@ export async function initializeDatabase(): Promise<void> {
         END IF;
       END $$;
 
+      -- Unit preference lives on the account, not only on the device: a
+      -- phone's home-screen web app gets its own empty storage, so a
+      -- device-only preference silently reset to imperial there.
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'unit_system') THEN
+          ALTER TABLE users ADD COLUMN unit_system VARCHAR(10);
+        END IF;
+      END $$;
+
       -- Add password_changed_at column if it doesn't exist
       DO $$ 
       BEGIN 
@@ -511,7 +521,7 @@ export async function initializeDatabase(): Promise<void> {
 
 export async function getUserByEmail(email: string) {
   const result = await pool.query(
-    "SELECT id, email, password_hash, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, created_at FROM users WHERE email = $1",
+    "SELECT id, email, password_hash, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, unit_system, created_at FROM users WHERE email = $1",
     [email.toLowerCase()],
   );
   return result.rows[0] || null;
@@ -519,7 +529,7 @@ export async function getUserByEmail(email: string) {
 
 export async function getUserById(id: number) {
   const result = await pool.query(
-    "SELECT id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, created_at FROM users WHERE id = $1",
+    "SELECT id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, unit_system, created_at FROM users WHERE id = $1",
     [id],
   );
   return result.rows[0] || null;
@@ -551,6 +561,7 @@ export async function updateUserProfile(
     experience?: string;
     goal?: string;
     activityLevel?: string;
+    unitSystem?: string;
   },
 ) {
   const fields: string[] = [];
@@ -593,6 +604,10 @@ export async function updateUserProfile(
     fields.push(`activity_level = $${paramIndex++}`);
     values.push(data.activityLevel);
   }
+  if (data.unitSystem !== undefined) {
+    fields.push(`unit_system = $${paramIndex++}`);
+    values.push(data.unitSystem);
+  }
 
   if (fields.length === 0) {
     return getUserById(id);
@@ -603,7 +618,7 @@ export async function updateUserProfile(
 
   const result = await pool.query(
     `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramIndex} 
-     RETURNING id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level`,
+     RETURNING id, email, name, age, sex, height_cm, weight_kg, weight_goal_kg, experience, goal, activity_level, unit_system`,
     values,
   );
   return result.rows[0];

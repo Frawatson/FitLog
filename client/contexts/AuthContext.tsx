@@ -11,6 +11,7 @@ import * as storage from "@/lib/storage";
 import { initSyncService } from "@/lib/storage";
 import { flushSyncQueue } from "@/lib/syncService";
 import { AUTH_TOKEN_KEY, setCachedAuthToken } from "@/lib/authStorage";
+import { mergeServerProfile } from "@/lib/profileSync";
 
 // Last server-confirmed user object, kept so an app start WITHOUT network
 // (subway, airplane mode) restores the signed-in state instead of bouncing
@@ -46,6 +47,26 @@ let initialAuthProbe: Promise<{
   }
 })();
 
+// Rebuild the on-device profile from the server's copy of the account.
+// Every screen reads height/weight/age/units from the local profile, but
+// nothing used to fill it at login — so a fresh storage context (a
+// phone's home-screen web app, Safari clearing site data after a week,
+// a new browser) showed every detail blank except the name.
+// Server values win when present; the device fills gaps. Returns the
+// unit system the device holds that the server doesn't know yet, so the
+// caller can upload it once (backfill for preferences saved before the
+// server stored them).
+async function hydrateLocalProfile(
+  userData: User,
+): Promise<"imperial" | "metric" | null> {
+  const { profile, backfillUnitSystem } = mergeServerProfile(
+    await storage.getUserProfile(),
+    userData,
+  );
+  await storage.saveUserProfile(profile);
+  return backfillUnitSystem;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -58,6 +79,7 @@ export interface User {
   experience?: string;
   goal?: string;
   activityLevel?: string;
+  unitSystem?: "imperial" | "metric" | null;
 }
 
 interface AuthContextType {
@@ -139,6 +161,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Upload a unit preference the server doesn't have yet (best effort).
+  const backfillUnitSystem = async (
+    unitSystem: "imperial" | "metric",
+    token: string | null | undefined,
+  ) => {
+    try {
+      await fetch(new URL("/api/auth/profile", getApiUrl()).toString(), {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ unitSystem }),
+      });
+    } catch {
+      // Retried on the next app start.
+    }
+  };
+
   const handleAuthResponse = async (
     response: Response | null,
     token?: string | null,
@@ -151,6 +193,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         // NOTE: never log the user object — it carries health PII.
         const userData = await response.json();
+        const toBackfill = await hydrateLocalProfile(userData);
+        if (toBackfill) backfillUnitSystem(toBackfill, token);
         setUser(userData);
         await AsyncStorage.setItem(
           AUTH_USER_CACHE_KEY,
@@ -230,6 +274,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAuthToken(userData.token);
       setCachedAuthToken(userData.token);
     }
+    const toBackfill = await hydrateLocalProfile(userData);
+    if (toBackfill) backfillUnitSystem(toBackfill, userData.token);
     setUser(userData);
     await AsyncStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(userData));
     // Initialize sync service for authenticated user
@@ -319,27 +365,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const userData = await response.json();
+    await hydrateLocalProfile(userData);
     setUser(userData);
-
-    // Also update AsyncStorage so profile data persists across app restarts
-    const existingProfile = await storage.getUserProfile();
-    await storage.saveUserProfile({
-      ...existingProfile,
-      id: existingProfile?.id || `user-${userData.id}`,
-      name: userData.name,
-      email: userData.email,
-      age: userData.age,
-      sex: userData.sex,
-      heightCm: userData.heightCm,
-      weightKg: userData.weightKg,
-      weightGoalKg: userData.weightGoalKg,
-      experience: userData.experience,
-      goal: userData.goal,
-      activityLevel: userData.activityLevel,
-      unitSystem: existingProfile?.unitSystem || "imperial",
-      onboardingCompleted: existingProfile?.onboardingCompleted ?? true,
-      createdAt: existingProfile?.createdAt || new Date().toISOString(),
-    });
+    await AsyncStorage.setItem(AUTH_USER_CACHE_KEY, JSON.stringify(userData));
   };
 
   const refreshUser = async () => {

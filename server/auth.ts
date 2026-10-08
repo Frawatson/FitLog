@@ -557,6 +557,7 @@ router.post("/login", authLimiter, async (req: Request, res: Response) => {
       experience: user.experience,
       goal: user.goal,
       activityLevel: user.activity_level,
+      unitSystem: user.unit_system ?? null,
       token, // Return JWT token for mobile clients
     });
   } catch (error) {
@@ -601,6 +602,7 @@ router.get("/me", async (req: Request, res: Response) => {
       experience: user.experience,
       goal: user.goal,
       activityLevel: user.activity_level,
+      unitSystem: user.unit_system ?? null,
     });
   } catch (error) {
     console.error("Get user error:", error);
@@ -620,8 +622,17 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
       experience,
       goal,
       activityLevel,
+      unitSystem,
     } = req.body;
     const userId = (req as any).userId;
+
+    if (
+      unitSystem !== undefined &&
+      unitSystem !== "imperial" &&
+      unitSystem !== "metric"
+    ) {
+      return res.status(400).json({ error: "Invalid unit system" });
+    }
 
     if (
       name !== undefined &&
@@ -679,6 +690,7 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
       experience,
       goal,
       activityLevel,
+      unitSystem,
     });
 
     if (!updated) {
@@ -697,6 +709,7 @@ router.put("/profile", requireAuth, async (req: Request, res: Response) => {
       experience: updated.experience,
       goal: updated.goal,
       activityLevel: updated.activity_level,
+      unitSystem: updated.unit_system ?? null,
     });
   } catch (error) {
     console.error("Update profile error:", error);

@@ -16,7 +16,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 import { v4 as uuid } from "uuid";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
@@ -27,6 +26,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { PostType, PostVisibility, Workout, RunEntry } from "@/types";
 import { createSocialPost } from "@/lib/socialStorage";
 import * as storage from "@/lib/storage";
+import { compressImageToJpegBase64 } from "@/lib/imageCompression";
 import { simplifyRoute } from "@/lib/units";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { takeTransient } from "@/lib/transientParams";
@@ -150,15 +150,9 @@ export default function CreatePostScreen() {
 
   const compressImage = async (uri: string): Promise<string | null> => {
     try {
-      const manipulated = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 1536 } }],
-        {
-          compress: 0.85,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        },
-      );
+      const manipulated = {
+        base64: await compressImageToJpegBase64(uri, 1536, 0.85),
+      };
       return manipulated.base64 || null;
     } catch (error) {
       console.error("Image compression failed:", error);

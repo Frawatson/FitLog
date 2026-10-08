@@ -26,3 +26,12 @@ export function getCachedAuthToken(): string | null {
 export function setCachedAuthToken(token: string | null): void {
   cachedToken = token;
 }
+
+// Authorization header for raw fetch() calls. Some endpoints (photo
+// analysis, food search) used to rely on the session cookie alone; the
+// cookie and the stored token can diverge (e.g. a home-screen web app),
+// and those calls then failed as "not authenticated" while the rest of
+// the app — which sends the token — kept working.
+export function authHeader(): Record<string, string> {
+  return cachedToken ? { Authorization: `Bearer ${cachedToken}` } : {};
+}

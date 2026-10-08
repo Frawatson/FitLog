@@ -16,7 +16,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
@@ -39,6 +38,8 @@ import {
 } from "@/constants/theme";
 import type { MacroTargets, FoodLogEntry } from "@/types";
 import * as storage from "@/lib/storage";
+import { authHeader } from "@/lib/authStorage";
+import { compressImageToJpegBase64 } from "@/lib/imageCompression";
 import { stashTransient } from "@/lib/transientParams";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
@@ -295,22 +296,16 @@ export default function NutritionScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setIsAnalyzing(true);
       try {
-        const manipulated = await ImageManipulator.manipulateAsync(
-          asset.uri,
-          [{ resize: { width: 1536 } }],
-          {
-            compress: 0.85,
-            format: ImageManipulator.SaveFormat.JPEG,
-            base64: true,
-          },
-        );
+        const manipulated = {
+          base64: await compressImageToJpegBase64(asset.uri, 1536, 0.85),
+        };
         const base64 = manipulated.base64 || null;
         const url = new URL("/api/foods/analyze-photo", getApiUrl());
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000);
         const response = await fetch(url.toString(), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeader() },
           credentials: "include",
           body: JSON.stringify({ imageBase64: base64 }),
           signal: controller.signal,

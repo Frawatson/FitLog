@@ -17,7 +17,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
 import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -40,6 +39,8 @@ import {
   searchFoods,
 } from "@/lib/foodDatabase";
 import * as storage from "@/lib/storage";
+import { authHeader } from "@/lib/authStorage";
+import { compressImageToJpegBase64 } from "@/lib/imageCompression";
 import { stashTransient } from "@/lib/transientParams";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
@@ -245,6 +246,7 @@ export default function AddFoodScreen() {
 
         const response = await fetch(url.toString(), {
           credentials: "include",
+          headers: authHeader(),
         });
         // Stale-response guard: a faster fetch for a later keystroke may
         // have already returned and rendered; don't let this one clobber it.
@@ -292,15 +294,9 @@ export default function AddFoodScreen() {
 
   const compressImage = async (uri: string): Promise<string | null> => {
     try {
-      const manipulated = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 1536 } }],
-        {
-          compress: 0.85,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        },
-      );
+      const manipulated = {
+        base64: await compressImageToJpegBase64(uri, 1536, 0.85),
+      };
       return manipulated.base64 || null;
     } catch (error) {
       console.error("Image compression failed:", error);
@@ -400,6 +396,7 @@ export default function AddFoodScreen() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...authHeader(),
         },
         credentials: "include",
         body: JSON.stringify({
@@ -527,15 +524,9 @@ export default function AddFoodScreen() {
     uri: string,
   ): Promise<string | undefined> => {
     try {
-      const result = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 600 } }],
-        {
-          compress: 0.6,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        },
-      );
+      const result = {
+        base64: await compressImageToJpegBase64(uri, 600, 0.6),
+      };
       if (result.base64) {
         return `data:image/jpeg;base64,${result.base64}`;
       }

@@ -214,6 +214,7 @@ export default function OnboardingScreen() {
         experience,
         goal,
         activityLevel,
+        unitSystem,
       });
     } catch (err) {
       console.log("Failed to update profile in database:", err);

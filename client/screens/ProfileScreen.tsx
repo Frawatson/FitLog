@@ -12,7 +12,6 @@ import {
   Alert,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -48,6 +47,7 @@ import type {
   SocialProfile,
 } from "@/types";
 import * as storage from "@/lib/storage";
+import { compressImageToJpegBase64 } from "@/lib/imageCompression";
 import {
   getSocialProfileApi,
   updateSocialProfileApi,
@@ -194,15 +194,13 @@ export default function ProfileScreen() {
     try {
       // Compress client-side before upload to keep network + server work
       // small. Server also resizes as a safety net.
-      const manipulated = await ImageManipulator.manipulateAsync(
-        result.assets[0].uri,
-        [{ resize: { width: 512 } }],
-        {
-          compress: 0.85,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        },
-      );
+      const manipulated = {
+        base64: await compressImageToJpegBase64(
+          result.assets[0].uri,
+          512,
+          0.85,
+        ),
+      };
       if (!manipulated.base64) {
         webSafeAlert("Couldn't read image", "Please try a different photo.");
         return;

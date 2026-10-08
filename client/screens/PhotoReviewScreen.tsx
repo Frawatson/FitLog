@@ -19,7 +19,6 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
-import * as ImageManipulator from "expo-image-manipulator";
 import { v4 as uuidv4 } from "uuid";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -30,6 +29,7 @@ import { takeTransient } from "@/lib/transientParams";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
 import * as storage from "@/lib/storage";
+import { compressImageToJpegBase64 } from "@/lib/imageCompression";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getLocalDateString } from "@/lib/dateUtils";
 
@@ -125,15 +125,9 @@ export default function PhotoReviewScreen() {
     uri: string,
   ): Promise<string | undefined> => {
     try {
-      const result = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 600 } }],
-        {
-          compress: 0.6,
-          format: ImageManipulator.SaveFormat.JPEG,
-          base64: true,
-        },
-      );
+      const result = {
+        base64: await compressImageToJpegBase64(uri, 600, 0.6),
+      };
       if (result.base64) {
         return `data:image/jpeg;base64,${result.base64}`;
       }
