@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef } from "react";
 import {
   View,
   StyleSheet,
@@ -20,7 +20,7 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Food } from "@/types";
+import type { Food, FoodLogEntry } from "@/types";
 import * as storage from "@/lib/storage";
 import { showSystemMenu } from "@/components/SystemMenu";
 import { webSafeAlert } from "@/lib/webSafeAlert";
@@ -38,15 +38,37 @@ export default function FoodDetailScreen() {
   const route = useRoute<ScreenRouteProp>();
   const { theme } = useTheme();
 
-  const { entry } = route.params;
-  const imageUri = entry.imageUri || entry.food.imageUri;
+  // Loaded by id — the whole FoodLogEntry used to ride in route params,
+  // which serialized to "[object Object]" in the web URL and crashed
+  // this screen on refresh or deep link.
+  const entryId = route.params?.entryId;
+  const [entry, setEntry] = useState<FoodLogEntry | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const imageUri = entry?.imageUri || entry?.food.imageUri;
+
+  useEffect(() => {
+    const load = async () => {
+      if (!entryId) {
+        setNotFound(true);
+        return;
+      }
+      const entries = await storage.getFoodLog();
+      const found = entries.find((e) => e.id === entryId);
+      if (found) {
+        setEntry(found);
+      } else {
+        setNotFound(true);
+      }
+    };
+    load();
+  }, [entryId]);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState(entry.food.name);
-  const [editCalories, setEditCalories] = useState(String(entry.food.calories));
-  const [editProtein, setEditProtein] = useState(String(entry.food.protein));
-  const [editCarbs, setEditCarbs] = useState(String(entry.food.carbs));
-  const [editFat, setEditFat] = useState(String(entry.food.fat));
+  const [editName, setEditName] = useState("");
+  const [editCalories, setEditCalories] = useState("");
+  const [editProtein, setEditProtein] = useState("");
+  const [editCarbs, setEditCarbs] = useState("");
+  const [editFat, setEditFat] = useState("");
   // Prevents double-tap during the async updateFoodLogEntry → goBack
   // round-trip; without this, tapping Save twice on a slow network
   // queued two updates and (if the user then hit Cancel) jumped them
@@ -59,11 +81,12 @@ export default function FoodDetailScreen() {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      headerTitle: isEditing ? "Edit Food" : entry.food.name,
+      headerTitle: isEditing ? "Edit Food" : (entry?.food.name ?? "Food"),
     });
-  }, [isEditing, entry.food.name]);
+  }, [isEditing, entry?.food.name]);
 
   const handleDelete = () => {
+    if (!entry) return;
     showSystemMenu({
       title: "Delete Food",
       message: `Are you sure you want to delete "${entry.food.name}"? This action cannot be undone.`,
@@ -83,6 +106,7 @@ export default function FoodDetailScreen() {
   };
 
   const startEditing = () => {
+    if (!entry) return;
     setEditName(entry.food.name);
     setEditCalories(String(entry.food.calories));
     setEditProtein(String(entry.food.protein));
@@ -99,7 +123,7 @@ export default function FoodDetailScreen() {
   const MAX_MACRO_G = 1000;
 
   const handleSaveEdit = async () => {
-    if (isSavingRef.current) return;
+    if (isSavingRef.current || !entry) return;
     const cal = parseInt(editCalories.trim(), 10);
     if (!Number.isFinite(cal) || cal <= 0 || cal > MAX_CAL_PER_ENTRY) {
       webSafeAlert(
@@ -143,6 +167,56 @@ export default function FoodDetailScreen() {
       setIsSaving(false);
     }
   };
+
+  if (notFound) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: Spacing.xl,
+          },
+        ]}
+      >
+        <Feather name="alert-circle" size={40} color={theme.textSecondary} />
+        <ThemedText type="h4" style={{ marginTop: Spacing.md }}>
+          Food entry not found
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={{
+            color: theme.textSecondary,
+            textAlign: "center",
+            marginTop: Spacing.xs,
+          }}
+        >
+          It may have been deleted or hasn&apos;t synced to this device yet.
+        </ThemedText>
+      </View>
+    );
+  }
+
+  if (!entry) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+          Loading...
+        </ThemedText>
+      </View>
+    );
+  }
 
   if (isEditing) {
     return (

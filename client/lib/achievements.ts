@@ -19,7 +19,17 @@ interface AchievementData {
   foodLogDays: number; // number of days with food logged
 }
 
-export function checkAchievements(data: AchievementData): Achievement[] {
+export function checkAchievements(
+  data: AchievementData,
+  unitSystem: "imperial" | "metric" = "imperial",
+): Achievement[] {
+  // Volume totals are raw sums in the user's own unit, so the milestone
+  // thresholds must match it — with fixed lb thresholds a kg user needed
+  // ~2.2x the work for "10K Club".
+  const volumeUnit = unitSystem === "metric" ? "kg" : "lbs";
+  const volume10k = unitSystem === "metric" ? 4500 : 10000;
+  const volume50k = unitSystem === "metric" ? 22500 : 50000;
+  const volume100k = unitSystem === "metric" ? 45000 : 100000;
   const completedWorkouts = data.workouts.filter((w) => w.completedAt);
   const totalVolume = completedWorkouts.reduce(
     (acc, w) =>
@@ -90,32 +100,32 @@ export function checkAchievements(data: AchievementData): Achievement[] {
     {
       id: "volume_10k",
       title: "10K Club",
-      description: "Lift 10,000 lbs total volume",
+      description: `Lift ${volume10k.toLocaleString()} ${volumeUnit} total volume`,
       icon: "trending-up",
       category: "workout",
-      threshold: 10000,
+      threshold: volume10k,
       progress: Math.round(totalVolume),
-      unlocked: totalVolume >= 10000,
+      unlocked: totalVolume >= volume10k,
     },
     {
       id: "volume_50k",
       title: "Heavy Lifter",
-      description: "Lift 50,000 lbs total volume",
+      description: `Lift ${volume50k.toLocaleString()} ${volumeUnit} total volume`,
       icon: "trending-up",
       category: "workout",
-      threshold: 50000,
+      threshold: volume50k,
       progress: Math.round(totalVolume),
-      unlocked: totalVolume >= 50000,
+      unlocked: totalVolume >= volume50k,
     },
     {
       id: "volume_100k",
       title: "Volume King",
-      description: "Lift 100,000 lbs total volume",
+      description: `Lift ${volume100k.toLocaleString()} ${volumeUnit} total volume`,
       icon: "trending-up",
       category: "workout",
-      threshold: 100000,
+      threshold: volume100k,
       progress: Math.round(totalVolume),
-      unlocked: totalVolume >= 100000,
+      unlocked: totalVolume >= volume100k,
     },
 
     // Streak milestones

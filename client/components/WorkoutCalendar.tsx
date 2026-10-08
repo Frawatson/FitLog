@@ -40,11 +40,29 @@ export function WorkoutCalendar({
     return () => sub.remove();
   }, []);
 
+  // First day of the displayed month. Starts at the current month; the
+  // header chevrons move it. Without this, every workout from an earlier
+  // month was simply unreachable in the UI.
+  const [viewDate, setViewDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+
+  const changeMonth = (delta: number) => {
+    setViewDate(
+      (prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1),
+    );
+  };
+
+  const now = new Date();
+  const isCurrentMonth =
+    viewDate.getFullYear() === now.getFullYear() &&
+    viewDate.getMonth() === now.getMonth();
+
   const { weeks, currentMonth, currentYear, workoutDates, runDates } =
     useMemo(() => {
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth();
+      const year = viewDate.getFullYear();
+      const month = viewDate.getMonth();
 
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
@@ -96,28 +114,51 @@ export function WorkoutCalendar({
 
       return {
         weeks,
-        currentMonth: now.toLocaleString("default", { month: "long" }),
+        currentMonth: viewDate.toLocaleString("default", { month: "long" }),
         currentYear: year,
         workoutDates,
         runDates,
       };
-    }, [workouts, runs, todayKey]);
+    }, [workouts, runs, todayKey, viewDate]);
 
-  const today = new Date().getDate();
+  const today = isCurrentMonth ? new Date().getDate() : -1;
 
   const getDateString = (day: number): string => {
-    const now = new Date();
-    return `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+    return `${viewDate.getFullYear()}-${(viewDate.getMonth() + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
   };
+
+  // Distinct active days; a day with both a workout and a run counts
+  // once (the old "total" double-counted it).
+  const activeDays = new Set([...workoutDates, ...runDates]).size;
 
   return (
     <View
       style={[styles.container, { backgroundColor: theme.backgroundSecondary }]}
     >
       <View style={styles.header}>
-        <ThemedText type="h4">
-          {currentMonth} {currentYear}
-        </ThemedText>
+        <View style={styles.monthNav}>
+          <Pressable
+            onPress={() => changeMonth(-1)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Previous month"
+          >
+            <Feather name="chevron-left" size={20} color={theme.text} />
+          </Pressable>
+          <ThemedText type="h4" style={styles.monthLabel}>
+            {currentMonth} {currentYear}
+          </ThemedText>
+          <Pressable
+            onPress={() => changeMonth(1)}
+            hitSlop={8}
+            disabled={isCurrentMonth}
+            accessibilityRole="button"
+            accessibilityLabel="Next month"
+            style={{ opacity: isCurrentMonth ? 0.25 : 1 }}
+          >
+            <Feather name="chevron-right" size={20} color={theme.text} />
+          </Pressable>
+        </View>
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View
@@ -211,7 +252,7 @@ export function WorkoutCalendar({
             {workoutDates.size}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            workouts
+            workout days
           </ThemedText>
         </View>
         <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
@@ -221,17 +262,17 @@ export function WorkoutCalendar({
             {runDates.size}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            runs
+            run days
           </ThemedText>
         </View>
         <View style={[styles.statDivider, { backgroundColor: theme.border }]} />
         <View style={styles.statItem}>
           <Feather name="target" size={16} color={Colors.light.success} />
           <ThemedText type="body" style={{ fontWeight: "600" }}>
-            {workoutDates.size + runDates.size}
+            {activeDays}
           </ThemedText>
           <ThemedText type="small" style={{ color: theme.textSecondary }}>
-            total
+            active days
           </ThemedText>
         </View>
       </View>
@@ -249,6 +290,15 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: Spacing.md,
+  },
+  monthNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  monthLabel: {
+    minWidth: 130,
+    textAlign: "center",
   },
   legend: {
     flexDirection: "row",

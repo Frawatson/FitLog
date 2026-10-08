@@ -92,7 +92,7 @@ export default function RunHistoryScreen() {
       ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
       renderItem={({ item: run }) => (
         <Card
-          onPress={() => navigation.navigate("RunDetail", { run })}
+          onPress={() => navigation.navigate("RunDetail", { runId: run.id })}
           style={styles.historyCard}
         >
           <View style={styles.historyHeader}>

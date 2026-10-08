@@ -88,15 +88,16 @@ export default function BarcodeScannerScreen() {
     const food = await lookupBarcode(data);
 
     if (food) {
+      // Flat primitive params — URL-safe, and the mounted AddFood screen
+      // watches them so the scanned values actually land in the form.
       navigation.navigate("AddFood", {
-        prefill: {
-          name: food.brand ? `${food.name} (${food.brand})` : food.name,
-          calories: food.calories.toString(),
-          protein: food.protein.toString(),
-          carbs: food.carbs.toString(),
-          fat: food.fat.toString(),
-        },
-      } as any);
+        prefillName: food.brand ? `${food.name} (${food.brand})` : food.name,
+        prefillCalories: food.calories.toString(),
+        prefillProtein: food.protein.toString(),
+        prefillCarbs: food.carbs.toString(),
+        prefillFat: food.fat.toString(),
+        ...(food.servingSize ? { prefillServing: food.servingSize } : {}),
+      });
     } else {
       // showSystemMenu renders a real modal on web (Alert.alert is a
       // silent no-op there — the screen used to hang on "Looking up

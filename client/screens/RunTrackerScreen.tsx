@@ -30,6 +30,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import {
   formatDistanceValue,
   formatDistanceUnit,
@@ -52,7 +53,25 @@ export default function RunTrackerScreen() {
   const { scrollHandler, headerAnimStyle } = useRetractableHeader();
   const headerHeight = RETRACTABLE_HEADER_HEIGHT + insets.top;
 
-  const goal = route_.params?.goal;
+  // Reassembled from flat primitive params (URL-safe on web). Number()
+  // because URL-sourced params arrive as strings after a refresh.
+  const goalParams = route_.params;
+  const goalValueNum =
+    goalParams?.goalValue != null ? Number(goalParams.goalValue) : NaN;
+  const goal: RunGoal | undefined =
+    goalParams?.goalType === "distance" &&
+    Number.isFinite(goalValueNum) &&
+    goalValueNum > 0
+      ? {
+          type: "distance",
+          value: goalValueNum,
+          unit: goalParams.goalUnit === "km" ? "km" : "mi",
+        }
+      : goalParams?.goalType === "time" &&
+          Number.isFinite(goalValueNum) &&
+          goalValueNum > 0
+        ? { type: "time", value: goalValueNum }
+        : undefined;
 
   const [permission, setPermission] =
     useState<Location.PermissionStatus | null>(null);
@@ -197,16 +216,29 @@ export default function RunTrackerScreen() {
     setRunHistory(runs);
   };
 
-  // Per-tick duration update. Mirrors the count into durationRef so
-  // the location-watcher callback can read the current value (state
-  // wouldn't reach it — see ref declarations above).
+  // Duration is derived from wall-clock timestamps, not interval ticks.
+  // Browsers throttle background-tab timers to ~1/minute (and phones
+  // throttle locked-screen JS), so a +1-per-tick counter undercounted
+  // badly the moment the screen wasn't foregrounded. The interval only
+  // refreshes the display; elapsed time is always recomputed from when
+  // the current segment started plus completed segments.
+  const segmentStartRef = useRef<number | null>(null);
+  const elapsedBeforeRef = useRef(0); // seconds accumulated across pauses
+
+  const computeElapsed = () => {
+    const live =
+      segmentStartRef.current !== null
+        ? (Date.now() - segmentStartRef.current) / 1000
+        : 0;
+    return Math.floor(elapsedBeforeRef.current + live);
+  };
+
   const startTimer = () => {
+    segmentStartRef.current = Date.now();
     timerRef.current = setInterval(() => {
-      setDuration((d) => {
-        const next = d + 1;
-        durationRef.current = next;
-        return next;
-      });
+      const next = computeElapsed();
+      durationRef.current = next;
+      setDuration(next);
     }, 1000);
   };
 
@@ -215,9 +247,15 @@ export default function RunTrackerScreen() {
   // silently dropped split tracking + audio cues. All unit math reads
   // unitSystemRef so it's correct regardless of when the profile loaded.
   const handleLocationUpdate = (location: Location.LocationObject) => {
-    const { latitude, longitude } = location.coords;
+    const { latitude, longitude, accuracy } = location.coords;
 
-    setRoute((prev) => [...prev, { latitude, longitude }]);
+    // Reject low-quality fixes outright. Desktop-browser geolocation is
+    // Wi-Fi/IP based and can jitter by tens to hundreds of meters —
+    // without this, standing still slowly "accumulates" distance.
+    if (accuracy != null && accuracy > 50) {
+      return;
+    }
+
     setCurrentLocation({ latitude, longitude });
 
     if (lastLocation.current) {
@@ -227,6 +265,20 @@ export default function RunTrackerScreen() {
         latitude,
         longitude,
       );
+
+      // Noise floor: movements under ~3 m do not advance lastLocation,
+      // so slow movement still accumulates across fixes while pure
+      // jitter never does. Teleports (>150 m between 2s fixes ≈ 270
+      // km/h) are GPS jumps — re-anchor without crediting distance.
+      if (dist < 0.003) {
+        return;
+      }
+      if (dist > 0.15) {
+        lastLocation.current = location;
+        return;
+      }
+
+      setRoute((prev) => [...prev, { latitude, longitude }]);
       // Compute synchronously with distanceRef so the setDistance updater
       // stays pure (strict-mode safe). Side-effects (setSplits, ref
       // mutations, audio cue) happen exactly once below.
@@ -269,18 +321,30 @@ export default function RunTrackerScreen() {
       }
     }
 
+    if (!lastLocation.current) {
+      // First accepted fix anchors the route.
+      setRoute((prev) => [...prev, { latitude, longitude }]);
+    }
     lastLocation.current = location;
   };
 
-  const startWatcher = async () => {
-    locationSubscription.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.High,
-        timeInterval: 2000,
-        distanceInterval: 5,
-      },
-      handleLocationUpdate,
-    );
+  const startWatcher = async (): Promise<boolean> => {
+    try {
+      locationSubscription.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.High,
+          timeInterval: 2000,
+          distanceInterval: 5,
+        },
+        handleLocationUpdate,
+      );
+      return true;
+    } catch (error) {
+      // Denied/unavailable (common on desktops) — without this the
+      // timer kept counting a run that could never gain distance.
+      console.log("Could not start location watcher:", error);
+      return false;
+    }
   };
 
   const startRun = async () => {
@@ -302,6 +366,8 @@ export default function RunTrackerScreen() {
     durationRef.current = 0;
     distanceRef.current = 0;
     isCompletingRef.current = false;
+    elapsedBeforeRef.current = 0;
+    segmentStartRef.current = null;
     startTimeRef.current = new Date().toISOString();
 
     if (goal) {
@@ -315,13 +381,29 @@ export default function RunTrackerScreen() {
     }
 
     startTimer();
-    await startWatcher();
+    const watching = await startWatcher();
+    if (!watching) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setIsRunning(false);
+      webSafeAlert(
+        "Location unavailable",
+        "We could not access your location, so the run cannot be tracked. Check your browser/location permissions and try again.",
+      );
+    }
   };
 
   const pauseRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     speakCue("Paused");
     setIsPaused(true);
+    // Bank the elapsed time of the segment that just ended.
+    if (segmentStartRef.current !== null) {
+      elapsedBeforeRef.current += (Date.now() - segmentStartRef.current) / 1000;
+      segmentStartRef.current = null;
+    }
+    const finalNow = Math.floor(elapsedBeforeRef.current);
+    durationRef.current = finalNow;
+    setDuration(finalNow);
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
@@ -343,7 +425,13 @@ export default function RunTrackerScreen() {
     // the gap distance (user may have moved between pause and resume).
     lastLocation.current = null;
     startTimer();
-    await startWatcher();
+    const watching = await startWatcher();
+    if (!watching) {
+      webSafeAlert(
+        "Location unavailable",
+        "We could not re-acquire your location. Distance tracking is paused; the timer keeps running.",
+      );
+    }
   };
 
   const checkGoalReached = (
@@ -381,6 +469,12 @@ export default function RunTrackerScreen() {
     isCompletingRef.current = true;
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    // Final wall-clock elapsed (the display tick may be up to 1s stale,
+    // or much more if the tab was backgrounded).
+    const finalElapsed = computeElapsed();
+    durationRef.current = finalElapsed;
+    setDuration(finalElapsed);
 
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -819,7 +913,9 @@ export default function RunTrackerScreen() {
             runHistory.slice(0, 5).map((run) => (
               <Card
                 key={run.id}
-                onPress={() => navigation.navigate("RunDetail", { run })}
+                onPress={() =>
+                  navigation.navigate("RunDetail", { runId: run.id })
+                }
                 style={styles.historyCard}
               >
                 <View style={styles.historyHeader}>

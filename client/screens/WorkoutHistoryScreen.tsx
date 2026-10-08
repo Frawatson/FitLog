@@ -13,7 +13,12 @@ import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { WorkoutCalendar } from "@/components/WorkoutCalendar";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import type { Workout, RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
 import { formatDistance } from "@/lib/units";
@@ -151,6 +156,7 @@ export default function WorkoutHistoryScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
+        ...WebMaxContent,
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing["3xl"],
         paddingHorizontal: Spacing.lg,
@@ -240,7 +246,9 @@ export default function WorkoutHistoryScreen() {
               {dayRuns.map((r) => (
                 <AnimatedPress
                   key={r.id}
-                  onPress={() => navigation.navigate("RunDetail", { run: r })}
+                  onPress={() =>
+                    navigation.navigate("RunDetail", { runId: r.id })
+                  }
                   style={[
                     styles.activityItem,
                     {

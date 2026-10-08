@@ -36,7 +36,9 @@ export default function FollowListScreen() {
   const route = useRoute<FollowRoute>();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const { userId, mode } = route.params;
+  // Number(): URL-sourced params arrive as strings after a web refresh.
+  const userId = Number(route.params?.userId);
+  const mode = route.params?.mode === "following" ? "following" : "followers";
 
   const [users, setUsers] = useState<FollowUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,8 +46,14 @@ export default function FollowListScreen() {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const hasLoadedRef = useRef(false);
+  const inFlightRef = useRef(false);
+  // Per-row in-flight set so rapid double-taps on Follow don't spam the
+  // API with conflicting toggles.
+  const [busyIds, setBusyIds] = useState<Set<number>>(new Set());
 
   const loadData = async (pageNum = 0) => {
+    if (inFlightRef.current || !Number.isFinite(userId)) return;
+    inFlightRef.current = true;
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
       const fetcher =
@@ -57,11 +65,16 @@ export default function FollowListScreen() {
         setUsers((prev) => [...prev, ...result]);
       }
       setHasMore(result.length === 20);
+      // Keep the page counter in sync with what's actually loaded — the
+      // focus refetch reloads page 0, and without this reset the next
+      // scroll-end skipped pages.
+      setPage(pageNum);
       setError(false);
     } catch (e) {
       console.log("Failed to load follow list:", e);
       setError(true);
     } finally {
+      inFlightRef.current = false;
       if (!hasLoadedRef.current) {
         hasLoadedRef.current = true;
         setIsLoading(false);
@@ -82,6 +95,8 @@ export default function FollowListScreen() {
   }, [mode]);
 
   const handleFollow = async (targetUser: FollowUser) => {
+    if (busyIds.has(targetUser.userId)) return;
+    setBusyIds((prev) => new Set(prev).add(targetUser.userId));
     // Targeted optimistic + rollback — see SocialFeedScreen.handleLike for
     // why we don't capture/restore the whole list.
     const wasFollowed = targetUser.isFollowedByMe;
@@ -104,13 +119,16 @@ export default function FollowListScreen() {
         ),
       );
     }
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      next.delete(targetUser.userId);
+      return next;
+    });
   };
 
   const loadMore = () => {
-    if (!hasMore) return;
-    const nextPage = page + 1;
-    setPage(nextPage);
-    loadData(nextPage);
+    if (!hasMore || inFlightRef.current) return;
+    loadData(page + 1);
   };
 
   if (isLoading) {

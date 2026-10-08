@@ -15,7 +15,12 @@ import { Input } from "@/components/Input";
 import { SegmentedControl } from "@/components/SegmentedControl";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import type {
   UserProfile,
   Sex,
@@ -278,6 +283,7 @@ export default function OnboardingScreen() {
             value={name}
             onChangeText={setName}
             autoCapitalize="words"
+            autoComplete="name"
           />
 
           <Input
@@ -287,6 +293,7 @@ export default function OnboardingScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
           />
 
           <Input
@@ -295,6 +302,7 @@ export default function OnboardingScreen() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            autoComplete="new-password"
           />
 
           <Input
@@ -303,6 +311,7 @@ export default function OnboardingScreen() {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             secureTextEntry
+            autoComplete="new-password"
           />
         </>
       ) : (
@@ -705,7 +714,7 @@ export default function OnboardingScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, WebMaxContent]}
         showsVerticalScrollIndicator={false}
       >
         {step === 1 && renderStep1()}

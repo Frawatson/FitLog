@@ -11,8 +11,9 @@ import { Card } from "@/components/Card";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Workout } from "@/types";
+import type { Workout, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
+import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type RouteType = RouteProp<RootStackParamList, "ExerciseHistory">;
@@ -38,11 +39,15 @@ export default function ExerciseHistoryScreen() {
   const [prWeight, setPrWeight] = useState(0);
   const [prVolume, setPrVolume] = useState(0);
 
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
+
   useEffect(() => {
     loadHistory();
   }, []);
 
   const loadHistory = async () => {
+    const profile = await storage.getUserProfile();
+    if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
     const workouts = await storage.getWorkouts();
     const exerciseSessions: SessionData[] = [];
 
@@ -147,7 +152,7 @@ export default function ExerciseHistoryScreen() {
                 {prWeight}
               </ThemedText>
               <ThemedText type="caption" style={{ opacity: 0.6 }}>
-                Max Weight (lbs)
+                Max Weight ({weightLabel(unitSystem)})
               </ThemedText>
             </Card>
             <Card style={styles.prCard}>
@@ -163,7 +168,7 @@ export default function ExerciseHistoryScreen() {
                 {prVolume.toLocaleString()}
               </ThemedText>
               <ThemedText type="caption" style={{ opacity: 0.6 }}>
-                Max Volume (lbs)
+                Max Volume ({weightLabel(unitSystem)})
               </ThemedText>
             </Card>
           </View>

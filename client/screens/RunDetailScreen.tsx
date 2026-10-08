@@ -24,6 +24,7 @@ import {
   simplifyRoute,
 } from "@/lib/units";
 import { getZoneColor, getZoneName } from "@/lib/heartRateZones";
+import { stashTransient } from "@/lib/transientParams";
 import { RunStackParamList } from "@/navigation/RunStackNavigator";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -38,16 +39,32 @@ export default function RunDetailScreen() {
   const route = useRoute<RouteType>();
   const { theme } = useTheme();
 
-  const run = route.params.run;
+  // Loaded by id — the whole RunEntry used to ride in route params,
+  // which serialized to "[object Object]" in the web URL and crashed
+  // this screen on refresh or shared link.
+  const runId = route.params?.runId;
+  const [run, setRun] = useState<RunEntry | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
 
   useEffect(() => {
-    const loadProfile = async () => {
+    const load = async () => {
       const profile = await storage.getUserProfile();
       if (profile?.unitSystem) setUnitSystem(profile.unitSystem);
+      if (!runId) {
+        setNotFound(true);
+        return;
+      }
+      const runs = await storage.getRunHistory();
+      const found = runs.find((r) => r.id === runId);
+      if (found) {
+        setRun(found);
+      } else {
+        setNotFound(true);
+      }
     };
-    loadProfile();
-  }, []);
+    load();
+  }, [runId]);
 
   const formatDuration = (seconds: number): string => {
     const hrs = Math.floor(seconds / 3600);
@@ -58,6 +75,57 @@ export default function RunDetailScreen() {
     }
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  if (notFound) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: Spacing.xl,
+          },
+        ]}
+      >
+        <Feather name="alert-circle" size={40} color={theme.textSecondary} />
+        <ThemedText type="h4" style={{ marginTop: Spacing.md }}>
+          Run not found
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={{
+            color: theme.textSecondary,
+            textAlign: "center",
+            marginTop: Spacing.xs,
+          }}
+        >
+          This run may have been deleted or hasn&apos;t synced to this device
+          yet.
+        </ThemedText>
+      </View>
+    );
+  }
+
+  if (!run) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: theme.backgroundRoot,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <ThemedText type="small" style={{ color: theme.textSecondary }}>
+          Loading run...
+        </ThemedText>
+      </View>
+    );
+  }
 
   const handleDelete = () => {
     const doDelete = async () => {
@@ -79,20 +147,21 @@ export default function RunDetailScreen() {
   const handleShare = () => {
     const rootNav = navigation.getParent<RootNav>();
     if (rootNav) {
-      rootNav.navigate("CreatePost", {
-        prefill: {
-          postType: "run",
-          referenceId: run.id,
-          referenceData: {
-            distanceKm: run.distanceKm,
-            durationMinutes: Math.round(run.durationSeconds / 60),
-            paceMinPerKm: run.paceMinPerKm,
-            pace: formatPace(run.paceMinPerKm, unitSystem),
-            calories: run.calories,
-            route: run.route ? simplifyRoute(run.route) : undefined,
-          },
+      // Prefill goes through the transient store — referenceData is an
+      // object and would corrupt the web URL as a route param.
+      stashTransient("createPostPrefill", {
+        postType: "run",
+        referenceId: run.id,
+        referenceData: {
+          distanceKm: run.distanceKm,
+          durationMinutes: Math.round(run.durationSeconds / 60),
+          paceMinPerKm: run.paceMinPerKm,
+          pace: formatPace(run.paceMinPerKm, unitSystem),
+          calories: run.calories,
+          route: run.route ? simplifyRoute(run.route) : undefined,
         },
       });
+      rootNav.navigate("CreatePost");
     }
   };
 

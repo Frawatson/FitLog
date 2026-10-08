@@ -10,7 +10,12 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import * as storage from "@/lib/storage";
 import { checkAchievements, type Achievement } from "@/lib/achievements";
 
@@ -32,22 +37,27 @@ export default function AchievementsScreen() {
     const requestId = ++loadRequestIdRef.current;
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
-      const [workouts, runs, bodyWeights, allFoodLog] = await Promise.all([
-        storage.getWorkouts(),
-        storage.getRunHistory(),
-        storage.getBodyWeights(),
-        storage.getFoodLog(),
-      ]);
+      const [workouts, runs, bodyWeights, allFoodLog, profile] =
+        await Promise.all([
+          storage.getWorkouts(),
+          storage.getRunHistory(),
+          storage.getBodyWeights(),
+          storage.getFoodLog(),
+          storage.getUserProfile(),
+        ]);
       if (requestId !== loadRequestIdRef.current) return;
 
       const foodDays = new Set(allFoodLog.map((f) => f.date)).size;
 
-      const results = checkAchievements({
-        workouts,
-        runs,
-        bodyWeights,
-        foodLogDays: foodDays,
-      });
+      const results = checkAchievements(
+        {
+          workouts,
+          runs,
+          bodyWeights,
+          foodLogDays: foodDays,
+        },
+        profile?.unitSystem ?? "imperial",
+      );
 
       setAchievements(results);
       setError(false);
@@ -121,6 +131,7 @@ export default function AchievementsScreen() {
     <ScrollView
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
+        ...WebMaxContent,
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing["3xl"],
         paddingHorizontal: Spacing.lg,

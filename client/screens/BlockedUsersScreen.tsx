@@ -14,6 +14,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import type { BlockedUser } from "@/types";
 import { getBlockedUsersApi, unblockUserApi } from "@/lib/socialStorage";
 import { showSystemMenu } from "@/components/SystemMenu";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 
 export default function BlockedUsersScreen() {
   const headerHeight = useHeaderHeight();
@@ -22,13 +23,18 @@ export default function BlockedUsersScreen() {
 
   const [users, setUsers] = useState<BlockedUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const loadData = async () => {
     try {
       const data = await getBlockedUsersApi();
       setUsers(data);
+      setError(false);
     } catch (e) {
+      // Distinguish failure from an empty block list — this used to
+      // render "You haven't blocked anyone." during outages.
       console.log("Failed to load blocked users:", e);
+      setError(true);
     } finally {
       setIsLoading(false);
     }
@@ -43,7 +49,11 @@ export default function BlockedUsersScreen() {
   const handleUnblock = (user: BlockedUser) => {
     const doUnblock = async () => {
       const ok = await unblockUserApi(user.userId);
-      if (ok) setUsers((prev) => prev.filter((u) => u.userId !== user.userId));
+      if (ok) {
+        setUsers((prev) => prev.filter((u) => u.userId !== user.userId));
+      } else {
+        webSafeAlert("Unblock failed", "Please try again.");
+      }
     };
     showSystemMenu({
       title: `Unblock ${user.name}?`,
@@ -110,20 +120,50 @@ export default function BlockedUsersScreen() {
         </View>
       )}
       ListEmptyComponent={
-        <View style={styles.empty}>
-          <Feather
-            name="shield"
-            size={48}
-            color={theme.textSecondary}
-            style={{ opacity: 0.3, marginBottom: Spacing.lg }}
-          />
-          <ThemedText
-            type="body"
-            style={{ color: theme.textSecondary, textAlign: "center" }}
-          >
-            You haven&apos;t blocked anyone.
-          </ThemedText>
-        </View>
+        error ? (
+          <View style={styles.empty}>
+            <Feather
+              name="alert-circle"
+              size={48}
+              color={theme.textSecondary}
+              style={{ opacity: 0.3, marginBottom: Spacing.lg }}
+            />
+            <ThemedText
+              type="body"
+              style={{
+                color: theme.textSecondary,
+                textAlign: "center",
+                marginBottom: Spacing.md,
+              }}
+            >
+              Could not load blocked users.
+            </ThemedText>
+            <Button
+              onPress={() => {
+                setIsLoading(true);
+                loadData();
+              }}
+              variant="outline"
+            >
+              Retry
+            </Button>
+          </View>
+        ) : (
+          <View style={styles.empty}>
+            <Feather
+              name="shield"
+              size={48}
+              color={theme.textSecondary}
+              style={{ opacity: 0.3, marginBottom: Spacing.lg }}
+            />
+            <ThemedText
+              type="body"
+              style={{ color: theme.textSecondary, textAlign: "center" }}
+            >
+              You haven&apos;t blocked anyone.
+            </ThemedText>
+          </View>
+        )
       }
       ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
     />

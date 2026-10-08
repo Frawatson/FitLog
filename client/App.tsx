@@ -57,7 +57,15 @@ export default function App() {
                     linking={linking}
                     documentTitle={{
                       formatter: (options, route) => {
-                        const label = options?.title ?? route?.name;
+                        // Most screens set headerTitle, not title — without
+                        // this fallback the browser tab showed internal
+                        // route names like "EditRoutine · Gbolo".
+                        const headerTitle =
+                          typeof options?.headerTitle === "string"
+                            ? options.headerTitle
+                            : undefined;
+                        const label =
+                          options?.title ?? headerTitle ?? route?.name;
                         return label
                           ? `${label} · Gbolo`
                           : "Gbolo Fitness and Nutrition";

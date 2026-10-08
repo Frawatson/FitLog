@@ -19,7 +19,12 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -31,7 +36,9 @@ export default function ResetPasswordScreen() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<ResetPasswordRouteProp>();
   const { theme } = useTheme();
-  const email = route.params.email;
+  // Optional — visiting /reset-password directly (or refreshing) has no
+  // params and used to throw a TypeError on this line.
+  const email = route.params?.email ?? "";
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [newPassword, setNewPassword] = useState("");
@@ -103,10 +110,15 @@ export default function ResetPasswordScreen() {
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        setError(data.error || "Failed to reset password");
+        setError(
+          data.error ||
+            (response.status === 429
+              ? "Too many attempts. Please wait and try again."
+              : "Failed to reset password"),
+        );
         return;
       }
 
@@ -118,12 +130,50 @@ export default function ResetPasswordScreen() {
     }
   };
 
+  if (!email) {
+    // Landed on /reset-password with no email param (direct visit or
+    // refresh). The code is useless without knowing the account, so
+    // route through Forgot Password.
+    return (
+      <ThemedView style={styles.container}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: Spacing.xl,
+          }}
+        >
+          <Feather name="mail" size={40} color={theme.textSecondary} />
+          <ThemedText type="h4" style={{ marginTop: Spacing.md }}>
+            Start from Forgot Password
+          </ThemedText>
+          <ThemedText
+            type="small"
+            style={{
+              color: theme.textSecondary,
+              textAlign: "center",
+              marginVertical: Spacing.md,
+            }}
+          >
+            Request a reset code first — we&apos;ll bring you back here with
+            your email filled in.
+          </ThemedText>
+          <Button onPress={() => navigation.navigate("ForgotPassword")}>
+            Go to Forgot Password
+          </Button>
+        </View>
+      </ThemedView>
+    );
+  }
+
   if (success) {
     return (
       <ThemedView style={styles.container}>
         <ScrollView
           contentContainerStyle={[
             styles.content,
+            WebMaxContent,
             styles.successContent,
             {
               paddingTop: insets.top + Spacing["2xl"],
@@ -173,6 +223,7 @@ export default function ResetPasswordScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
+            WebMaxContent,
             {
               paddingTop: insets.top + Spacing["2xl"],
               paddingBottom: insets.bottom + Spacing.xl,
@@ -246,7 +297,13 @@ export default function ResetPasswordScreen() {
                         handleCodeKeyPress(nativeEvent.key, index)
                       }
                       keyboardType="number-pad"
-                      maxLength={1}
+                      // 6, not 1: maxLength truncated a pasted code to a
+                      // single digit BEFORE onChangeText could distribute
+                      // it across the boxes. handleCodeChange handles
+                      // multi-char input.
+                      maxLength={6}
+                      autoComplete="one-time-code"
+                      textContentType="oneTimeCode"
                       testID={`input-code-${index}`}
                     />
                   </View>

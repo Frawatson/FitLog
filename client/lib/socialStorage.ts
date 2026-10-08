@@ -10,6 +10,20 @@ import type {
   BlockedUser,
 } from "@/types";
 
+// READ functions THROW on failure instead of returning empty results.
+// The old behavior turned every network failure into "No posts yet" /
+// "No followers" empty states and silently killed pagination — screens
+// could never distinguish an outage from genuinely empty data. Callers
+// catch and surface a retryable error state.
+class SocialApiError extends Error {
+  status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = "SocialApiError";
+    this.status = status;
+  }
+}
+
 // ========== Feed ==========
 
 export async function getFeed(
@@ -24,7 +38,10 @@ export async function getFeed(
     serverTime?: string;
   }>(endpoint, "GET");
   if (result.success && result.data) return result.data;
-  return { posts: [] };
+  throw new SocialApiError(
+    result.error || "Failed to load feed",
+    result.status,
+  );
 }
 
 export async function getUserPostsFeed(
@@ -40,7 +57,10 @@ export async function getUserPostsFeed(
     serverTime?: string;
   }>(endpoint, "GET");
   if (result.success && result.data) return result.data;
-  return { posts: [] };
+  throw new SocialApiError(
+    result.error || "Failed to load posts",
+    result.status,
+  );
 }
 
 // ========== Posts ==========
@@ -71,7 +91,12 @@ export async function getPostById(
     "GET",
   );
   if (result.success && result.data) return result.data;
-  return null;
+  // A 404 is a real answer (deleted/invisible post), not a failure.
+  if (result.status === 404) return null;
+  throw new SocialApiError(
+    result.error || "Failed to load post",
+    result.status,
+  );
 }
 
 export async function deleteSocialPost(postId: number): Promise<boolean> {
@@ -111,7 +136,10 @@ export async function getComments(
     serverTime?: string;
   }>(`/api/social/posts/${postId}/comments?page=${page}`, "GET");
   if (result.success && result.data) return result.data;
-  return { comments: [] };
+  throw new SocialApiError(
+    result.error || "Failed to load comments",
+    result.status,
+  );
 }
 
 export async function addCommentApi(
@@ -163,7 +191,10 @@ export async function getFollowersList(
     "GET",
   );
   if (result.success && result.data) return result.data;
-  return [];
+  throw new SocialApiError(
+    result.error || "Failed to load followers",
+    result.status,
+  );
 }
 
 export async function getFollowingList(
@@ -175,7 +206,10 @@ export async function getFollowingList(
     "GET",
   );
   if (result.success && result.data) return result.data;
-  return [];
+  throw new SocialApiError(
+    result.error || "Failed to load following",
+    result.status,
+  );
 }
 
 // ========== User Discovery & Profile ==========
@@ -186,7 +220,7 @@ export async function searchUsersApi(query: string): Promise<FollowUser[]> {
     "GET",
   );
   if (result.success && result.data) return result.data;
-  return [];
+  throw new SocialApiError(result.error || "Search failed", result.status);
 }
 
 export async function getSocialProfileApi(
@@ -197,7 +231,11 @@ export async function getSocialProfileApi(
     "GET",
   );
   if (result.success && result.data) return result.data;
-  return null;
+  if (result.status === 404) return null;
+  throw new SocialApiError(
+    result.error || "Failed to load profile",
+    result.status,
+  );
 }
 
 export async function updateSocialProfileApi(data: {
@@ -255,7 +293,10 @@ export async function getBlockedUsersApi(): Promise<BlockedUser[]> {
     "GET",
   );
   if (result.success && result.data) return result.data;
-  return [];
+  throw new SocialApiError(
+    result.error || "Failed to load blocked users",
+    result.status,
+  );
 }
 
 export async function reportContentApi(
@@ -282,7 +323,10 @@ export async function getNotificationsApi(
     "GET",
   );
   if (result.success && result.data) return result.data;
-  return { notifications: [] };
+  throw new SocialApiError(
+    result.error || "Failed to load notifications",
+    result.status,
+  );
 }
 
 export async function markNotificationsReadApi(): Promise<boolean> {

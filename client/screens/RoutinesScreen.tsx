@@ -19,6 +19,8 @@ import {
   RETRACTABLE_HEADER_HEIGHT,
 } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine } from "@/types";
 import * as storage from "@/lib/storage";
@@ -58,6 +60,12 @@ export default function RoutinesScreen() {
     }, []),
   );
 
+  // Escape dismisses the delete dialog on web (no-op on native).
+  useEscapeKey(() => {
+    setDeleteModalVisible(false);
+    setRoutineToDelete(null);
+  }, deleteModalVisible);
+
   const handleDelete = (routine: Routine) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRoutineToDelete(routine);
@@ -65,13 +73,19 @@ export default function RoutinesScreen() {
   };
 
   const confirmDelete = async () => {
-    if (routineToDelete) {
+    if (!routineToDelete) return;
+    try {
       await storage.deleteRoutine(routineToDelete.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.error("Failed to delete routine:", e);
+      webSafeAlert("Delete failed", "Please try again.");
+      return;
+    } finally {
       setDeleteModalVisible(false);
       setRoutineToDelete(null);
-      loadRoutines();
     }
+    loadRoutines();
   };
 
   const cancelDelete = () => {
@@ -305,12 +319,15 @@ export default function RoutinesScreen() {
             </ThemedText>
             <View style={styles.modalButtons}>
               <Pressable
-                style={[styles.modalButton, styles.cancelButton]}
+                style={[
+                  styles.modalButton,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
                 onPress={cancelDelete}
               >
                 <ThemedText
                   type="body"
-                  style={{ fontWeight: "600", color: "#1F2937" }}
+                  style={{ fontWeight: "600", color: theme.text }}
                 >
                   Cancel
                 </ThemedText>

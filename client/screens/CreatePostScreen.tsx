@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
-import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import Feather from "@expo/vector-icons/Feather";
 import { v4 as uuid } from "uuid";
@@ -29,10 +29,10 @@ import { createSocialPost } from "@/lib/socialStorage";
 import * as storage from "@/lib/storage";
 import { simplifyRoute } from "@/lib/units";
 import { webSafeAlert } from "@/lib/webSafeAlert";
+import { takeTransient } from "@/lib/transientParams";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
-type CreatePostRoute = RouteProp<RootStackParamList, "CreatePost">;
 
 const POST_TYPES: {
   type: PostType;
@@ -55,10 +55,19 @@ const POST_TYPES: {
 export default function CreatePostScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
-  const route = useRoute<CreatePostRoute>();
   const { theme } = useTheme();
 
-  const prefill = route.params?.prefill;
+  // Prefill arrives through the transient store (see lib/transientParams)
+  // — its referenceData object can't ride in URL-serialized route params.
+  // useState initializer so the one-shot take() survives re-renders.
+  const [prefill] = useState<
+    | {
+        postType: PostType;
+        referenceId?: string;
+        referenceData?: any;
+      }
+    | undefined
+  >(() => takeTransient("createPostPrefill"));
   const hasPrefill = !!(prefill?.referenceId && prefill?.referenceData);
 
   const [postType, setPostType] = useState<PostType>(
@@ -82,6 +91,10 @@ export default function CreatePostScreen() {
   const [posting, setPosting] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
+  // True while the picked photo is still compressing. Posting during
+  // that window used to silently publish WITHOUT the photo (or block a
+  // photo-only post entirely).
+  const [imageProcessing, setImageProcessing] = useState(false);
   // Surfaces "Couldn't load recent activities" so the reference picker
   // doesn't silently show as empty when storage.getWorkouts/getRunHistory
   // throw — previously the catch only logged to the console.
@@ -174,8 +187,13 @@ export default function CreatePostScreen() {
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
       setImageUri(uri);
-      const base64 = await compressImage(uri);
-      setImageBase64(base64);
+      setImageProcessing(true);
+      try {
+        const base64 = await compressImage(uri);
+        setImageBase64(base64);
+      } finally {
+        setImageProcessing(false);
+      }
     }
   };
 
@@ -200,8 +218,13 @@ export default function CreatePostScreen() {
     if (!result.canceled && result.assets[0]) {
       const uri = result.assets[0].uri;
       setImageUri(uri);
-      const base64 = await compressImage(uri);
-      setImageBase64(base64);
+      setImageProcessing(true);
+      try {
+        const base64 = await compressImage(uri);
+        setImageBase64(base64);
+      } finally {
+        setImageProcessing(false);
+      }
     }
   };
 
@@ -259,6 +282,13 @@ export default function CreatePostScreen() {
   };
 
   const handlePost = async () => {
+    if (imageProcessing) {
+      webSafeAlert(
+        "Photo still processing",
+        "One moment — your photo is being prepared.",
+      );
+      return;
+    }
     if (!content.trim() && !referenceData && !imageBase64) {
       // webSafeAlert (not Alert.alert) — the latter is a no-op on web,
       // which left web users without any "must add content" feedback.
@@ -582,7 +612,7 @@ export default function CreatePostScreen() {
         </Pressable>
       </View>
 
-      <Button onPress={handlePost} disabled={posting}>
+      <Button onPress={handlePost} disabled={posting || imageProcessing}>
         {posting ? (
           <View style={styles.postBtnRow}>
             <ActivityIndicator size="small" color="#FFFFFF" />

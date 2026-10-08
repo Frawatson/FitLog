@@ -28,6 +28,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem, HeartRateZone } from "@/types";
 import * as storage from "@/lib/storage";
+import { stashTransient } from "@/lib/transientParams";
 import {
   formatDistanceValue,
   formatDistanceUnit,
@@ -145,20 +146,21 @@ export default function RunCompleteScreen() {
 
   const handlePost = () => {
     if (!run) return;
-    navigation.navigate("CreatePost", {
-      prefill: {
-        postType: "run",
-        referenceId: run.id,
-        referenceData: {
-          distanceKm: run.distanceKm,
-          durationMinutes: Math.round(run.durationSeconds / 60),
-          paceMinPerKm: run.paceMinPerKm,
-          pace: formatPace(run.paceMinPerKm, unitSystem),
-          calories: run.calories,
-          route: run.route ? simplifyRoute(run.route) : undefined,
-        },
+    // Via the transient store — the referenceData object would corrupt
+    // the web URL as a route param.
+    stashTransient("createPostPrefill", {
+      postType: "run",
+      referenceId: run.id,
+      referenceData: {
+        distanceKm: run.distanceKm,
+        durationMinutes: Math.round(run.durationSeconds / 60),
+        paceMinPerKm: run.paceMinPerKm,
+        pace: formatPace(run.paceMinPerKm, unitSystem),
+        calories: run.calories,
+        route: run.route ? simplifyRoute(run.route) : undefined,
       },
     });
+    navigation.navigate("CreatePost");
   };
 
   const handleDone = () => {

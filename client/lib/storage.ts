@@ -1060,38 +1060,60 @@ export function calculateProgression(
   exerciseId: string,
   exerciseName: string,
   lastSets: { weight: number; reps: number; completed: boolean }[],
+  unitSystem: "imperial" | "metric" = "imperial",
 ): { suggestedWeight: number; message: string } {
   if (lastSets.length === 0) {
     return { suggestedWeight: 0, message: "Start with a comfortable weight" };
   }
 
+  // Weights are stored in the user's own unit, so increments and labels
+  // must match it: +5/+2.5 lb plates vs +2.5/+1.25 kg plates. The old
+  // version told metric users to "Try 52.5 lbs".
+  const unit = unitSystem === "metric" ? "kg" : "lbs";
+  const bigStep = unitSystem === "metric" ? 2.5 : 5;
+  const smallStep = unitSystem === "metric" ? 1.25 : 2.5;
+  const threshold = unitSystem === "metric" ? 25 : 50;
+
   const completedSets = lastSets.filter((s) => s.completed);
   const failedSets = lastSets.filter((s) => !s.completed);
   const lastWeight = lastSets[0].weight;
 
+  // Bodyweight / unweighted movements: a numeric suggestion is nonsense
+  // ("Try 2.5 lbs" after unweighted pull-ups).
+  if (lastWeight <= 0) {
+    return {
+      suggestedWeight: 0,
+      message:
+        failedSets.length === 0
+          ? "All sets done — add reps or weight next time"
+          : "Keep working at this level",
+    };
+  }
+
   // If all sets completed, suggest increase
   if (failedSets.length === 0) {
-    const increase = lastWeight >= 50 ? 5 : 2.5;
+    const increase = lastWeight >= threshold ? bigStep : smallStep;
     return {
       suggestedWeight: lastWeight + increase,
-      message: `Great work! Try ${lastWeight + increase} lbs next time`,
+      message: `Great work! Try ${lastWeight + increase} ${unit} next time`,
     };
   }
 
   // If multiple sets failed, suggest decrease
   if (failedSets.length >= 2) {
     const decrease = lastWeight * 0.05;
-    const newWeight = Math.round((lastWeight - decrease) / 2.5) * 2.5;
+    const newWeight =
+      Math.round((lastWeight - decrease) / smallStep) * smallStep;
     return {
       suggestedWeight: newWeight,
-      message: `Deload to ${newWeight} lbs and focus on form`,
+      message: `Deload to ${newWeight} ${unit} and focus on form`,
     };
   }
 
   // Otherwise, keep same weight
   return {
     suggestedWeight: lastWeight,
-    message: `Stick with ${lastWeight} lbs until you hit all reps`,
+    message: `Stick with ${lastWeight} ${unit} until you hit all reps`,
   };
 }
 

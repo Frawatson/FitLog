@@ -13,7 +13,12 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import type { MacroTargets } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -158,9 +163,14 @@ export default function EditMacrosScreen() {
       carbs: cb,
       fat: f,
     };
-    await storage.saveMacroTargets(macros);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.goBack();
+    try {
+      await storage.saveMacroTargets(macros);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.goBack();
+    } catch (err) {
+      console.error("Failed to save macro targets:", err);
+      setError("Could not save targets. Please try again.");
+    }
   };
 
   // Calorie balance
@@ -221,6 +231,7 @@ export default function EditMacrosScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <KeyboardAwareScrollViewCompat
         contentContainerStyle={{
+          ...WebMaxContent,
           paddingTop: headerHeight + Spacing.xl,
           paddingBottom: insets.bottom + 100,
           paddingHorizontal: Spacing.lg,

@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import {
   View,
   StyleSheet,
   FlatList,
   Pressable,
   RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,17 +48,49 @@ export default function NotificationsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const inFlightRef = useRef(false);
 
   const loadData = async () => {
     try {
       const result = await getNotificationsApi();
       setNotifications(result.notifications);
+      setPage(0);
+      setHasMore(result.notifications.length >= 20);
       setError(false);
     } catch (e) {
       console.log("Failed to load notifications:", e);
       setError(true);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // The endpoint has always accepted ?page= but only page 0 ever loaded;
+  // anything older than the first 20 notifications was unreachable.
+  const loadMore = async () => {
+    if (!hasMore || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const result = await getNotificationsApi(nextPage);
+      setNotifications((prev) => {
+        const seen = new Set(prev.map((n) => n.id));
+        return [
+          ...prev,
+          ...result.notifications.filter((n) => !seen.has(n.id)),
+        ];
+      });
+      setPage(nextPage);
+      setHasMore(result.notifications.length >= 20);
+    } catch {
+      // Leave hasMore so a further scroll retries.
+    } finally {
+      inFlightRef.current = false;
+      setLoadingMore(false);
     }
   };
 
@@ -154,6 +187,16 @@ export default function NotificationsScreen() {
           onRefresh={onRefresh}
           tintColor={theme.textSecondary}
         />
+      }
+      onEndReached={loadMore}
+      onEndReachedThreshold={0.3}
+      ListFooterComponent={
+        loadingMore ? (
+          <ActivityIndicator
+            style={{ paddingVertical: Spacing.lg }}
+            color={theme.textSecondary}
+          />
+        ) : null
       }
       renderItem={({ item }) => {
         const config = ICON_MAP[item.type] || ICON_MAP.like;

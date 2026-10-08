@@ -13,7 +13,12 @@ import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import * as storage from "@/lib/storage";
 import { kgToLbs, lbsToKg, cmToFeetInches, feetInchesToCm } from "@/lib/units";
 import type { UnitSystem } from "@/types";
@@ -159,6 +164,30 @@ export default function EditProfileScreen() {
       }
     }
 
+    // Sanity bounds on the remaining numeric fields — parseInt("abc")
+    // is NaN and ages like 0 or 500 were accepted as-is.
+    if (age.trim()) {
+      const a = parseInt(age.trim(), 10);
+      if (!Number.isFinite(a) || a < 13 || a > 120) {
+        setError("Age must be between 13 and 120.");
+        return;
+      }
+    }
+    if (weight.trim()) {
+      const w = parseFloat(weight.trim());
+      if (!Number.isFinite(w) || w <= 0) {
+        setError("Weight must be greater than 0.");
+        return;
+      }
+    }
+    if (unitSystem === "imperial" && heightInches.trim()) {
+      const inches = parseFloat(heightInches.trim());
+      if (!Number.isFinite(inches) || inches < 0 || inches >= 12) {
+        setError("Inches must be between 0 and 11.");
+        return;
+      }
+    }
+
     setLoading(true);
     setError("");
 
@@ -269,6 +298,7 @@ export default function EditProfileScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <ScrollView
         contentContainerStyle={{
+          ...WebMaxContent,
           paddingTop: headerHeight + Spacing.lg,
           paddingBottom: insets.bottom + 100,
           paddingHorizontal: Spacing.lg,

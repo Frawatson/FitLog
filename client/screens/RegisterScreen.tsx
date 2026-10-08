@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   StyleSheet,
+  TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,7 +21,12 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -31,6 +37,9 @@ export default function RegisterScreen() {
   const { theme } = useTheme();
   const { register } = useAuth();
 
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -94,6 +103,7 @@ export default function RegisterScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
+            WebMaxContent,
             {
               paddingTop: insets.top + Spacing["2xl"],
               paddingBottom: insets.bottom + Spacing.xl,
@@ -139,9 +149,13 @@ export default function RegisterScreen() {
               placeholder="Enter your name"
               autoCapitalize="words"
               autoComplete="name"
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              blurOnSubmit={false}
             />
 
             <Input
+              ref={emailRef}
               label="Email"
               value={email}
               onChangeText={setEmail}
@@ -149,24 +163,34 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
             />
 
             <Input
+              ref={passwordRef}
               label="Password"
               value={password}
               onChangeText={setPassword}
               placeholder="Create a password (min 8 characters)"
               secureTextEntry
               autoComplete="new-password"
+              returnKeyType="next"
+              onSubmitEditing={() => confirmRef.current?.focus()}
+              blurOnSubmit={false}
             />
 
             <Input
+              ref={confirmRef}
               label="Confirm Password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Confirm your password"
               secureTextEntry
               autoComplete="new-password"
+              returnKeyType="go"
+              onSubmitEditing={handleRegister}
             />
 
             <Button

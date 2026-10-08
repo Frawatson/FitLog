@@ -18,8 +18,10 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { Workout } from "@/types";
+import type { Workout, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
+import { stashTransient } from "@/lib/transientParams";
+import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -33,6 +35,7 @@ export default function WorkoutCompleteScreen() {
 
   const [workout, setWorkout] = useState<Workout | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const [progressions, setProgressions] = useState<
     { exercise: string; message: string }[]
   >([]);
@@ -51,6 +54,9 @@ export default function WorkoutCompleteScreen() {
   }, []);
 
   const loadWorkout = async () => {
+    const profile = await storage.getUserProfile();
+    const units: UnitSystem = profile?.unitSystem ?? "imperial";
+    setUnitSystem(units);
     const workouts = await storage.getWorkouts();
     const found = workouts.find((w) => w.id === route.params.workoutId);
     if (!found) {
@@ -76,6 +82,7 @@ export default function WorkoutCompleteScreen() {
               reps: s.reps,
               completed: s.completed,
             })),
+            units,
           );
           progs.push({ exercise: ex.exerciseName, message });
         }
@@ -249,7 +256,9 @@ export default function WorkoutCompleteScreen() {
                     >
                       {Math.round(totalVolume).toLocaleString()}
                     </ThemedText>
-                    <ThemedText type="small">lbs Lifted</ThemedText>
+                    <ThemedText type="small">
+                      {weightLabel(unitSystem)} Lifted
+                    </ThemedText>
                   </Card>
                 </View>
 
@@ -288,7 +297,8 @@ export default function WorkoutCompleteScreen() {
                             {pr.exercise}
                           </ThemedText>
                           <ThemedText type="small" style={{ color: "#FFB300" }}>
-                            {pr.weight} lbs x {pr.reps} reps
+                            {pr.weight} {weightLabel(unitSystem)} x {pr.reps}{" "}
+                            reps
                           </ThemedText>
                         </View>
                       </View>
@@ -331,34 +341,38 @@ export default function WorkoutCompleteScreen() {
       >
         <View style={styles.footerButtons}>
           <Button
-            onPress={() =>
-              navigation.navigate("CreatePost", {
-                prefill: {
-                  postType: "workout" as const,
-                  referenceId: workout?.id,
-                  referenceData: workout
-                    ? {
-                        routineName: workout.routineName,
-                        durationMinutes: workout.durationMinutes,
-                        totalSets: workout.exercises.reduce(
-                          (acc: number, e: any) => acc + e.sets.length,
-                          0,
-                        ),
-                        exerciseCount: workout.exercises.length,
-                        totalVolumeKg: workout.totalVolumeKg,
-                        exercises: workout.exercises.map((e: any) => ({
-                          name: e.exerciseName,
-                          sets: e.sets.map((s: any) => ({
-                            weight: s.weight,
-                            reps: s.reps,
-                            completed: s.completed,
-                          })),
+            onPress={() => {
+              // Via the transient store — referenceData is an object and
+              // would corrupt the web URL as a route param.
+              stashTransient("createPostPrefill", {
+                postType: "workout" as const,
+                referenceId: workout?.id,
+                referenceData: workout
+                  ? {
+                      routineName: workout.routineName,
+                      durationMinutes: workout.durationMinutes,
+                      // Completed sets only — the post says what was done,
+                      // not what was planned.
+                      totalSets: workout.exercises.reduce(
+                        (acc: number, e: any) =>
+                          acc + e.sets.filter((s: any) => s.completed).length,
+                        0,
+                      ),
+                      exerciseCount: workout.exercises.length,
+                      totalVolumeKg: workout.totalVolumeKg,
+                      exercises: workout.exercises.map((e: any) => ({
+                        name: e.exerciseName,
+                        sets: e.sets.map((s: any) => ({
+                          weight: s.weight,
+                          reps: s.reps,
+                          completed: s.completed,
                         })),
-                      }
-                    : undefined,
-                },
-              })
-            }
+                      })),
+                    }
+                  : undefined,
+              });
+              navigation.navigate("CreatePost");
+            }}
             variant="outline"
             style={styles.postButton}
           >

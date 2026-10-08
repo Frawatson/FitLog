@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { View, StyleSheet, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -30,6 +30,7 @@ export default function RoutineTemplatesScreen() {
   const headerHeight = useHeaderHeight();
   const navigation = useNavigation<NavigationProp>();
   const { theme } = useTheme();
+  const addingRef = useRef(false);
 
   const [filter, setFilter] = useState<FilterCategory>("all");
   const [selectedTemplate, setSelectedTemplate] =
@@ -54,41 +55,49 @@ export default function RoutineTemplatesScreen() {
   };
 
   const handleAddTemplate = async (template: RoutineTemplate) => {
-    // Derive the saved routine's exerciseIds from the exercise name so
-    // history (getLastWorkoutForExercise, ExerciseHistoryScreen) matches
-    // across templates, generated routines, and library adds. The "tN"
-    // ids on the template itself stay as-is — they only key the preview
-    // list in this screen.
-    const doAdd = async () => {
-      const routine: Routine = {
-        id: uuidv4(),
-        name: template.name,
-        exercises: template.exercises.map((e, i) => ({
-          exerciseId: exerciseSlug(e.exerciseName),
-          exerciseName: e.exerciseName,
-          order: i,
-        })),
-        createdAt: new Date().toISOString(),
+    // Busy guard: the duplicate check below is async, so a quick double
+    // click used to add two copies before either check resolved.
+    if (addingRef.current) return;
+    addingRef.current = true;
+    try {
+      // Derive the saved routine's exerciseIds from the exercise name so
+      // history (getLastWorkoutForExercise, ExerciseHistoryScreen) matches
+      // across templates, generated routines, and library adds. The "tN"
+      // ids on the template itself stay as-is — they only key the preview
+      // list in this screen.
+      const doAdd = async () => {
+        const routine: Routine = {
+          id: uuidv4(),
+          name: template.name,
+          exercises: template.exercises.map((e, i) => ({
+            exerciseId: exerciseSlug(e.exerciseName),
+            exerciseName: e.exerciseName,
+            order: i,
+          })),
+          createdAt: new Date().toISOString(),
+        };
+        await storage.saveRoutine(routine);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        navigation.goBack();
       };
-      await storage.saveRoutine(routine);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      navigation.goBack();
-    };
 
-    const existing = await storage.getRoutines();
-    const duplicate = existing.some((r) => r.name === template.name);
-    if (duplicate) {
-      showSystemMenu({
-        title: "Already added",
-        message: `You already have a routine called "${template.name}". Add another copy?`,
-        options: [
-          { label: "Add Anyway", onPress: doAdd },
-          { label: "Cancel", cancel: true },
-        ],
-      });
-      return;
+      const existing = await storage.getRoutines();
+      const duplicate = existing.some((r) => r.name === template.name);
+      if (duplicate) {
+        showSystemMenu({
+          title: "Already added",
+          message: `You already have a routine called "${template.name}". Add another copy?`,
+          options: [
+            { label: "Add Anyway", onPress: doAdd },
+            { label: "Cancel", cancel: true },
+          ],
+        });
+        return;
+      }
+      await doAdd();
+    } finally {
+      addingRef.current = false;
     }
-    await doAdd();
   };
 
   const renderFilter = (category: FilterCategory, label: string) => (

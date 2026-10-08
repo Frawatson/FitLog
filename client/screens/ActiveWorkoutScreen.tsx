@@ -24,7 +24,12 @@ import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { ExerciseInfoModal } from "@/components/ExerciseInfoModal";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import type {
   Routine,
   Workout,
@@ -130,8 +135,13 @@ export default function ActiveWorkoutScreen() {
   };
 
   const loadRoutine = async () => {
+    const routineId = route.params?.routineId;
+    if (!routineId) {
+      setLoadFailed(true);
+      return;
+    }
     const routines = await storage.getRoutines();
-    const found = routines.find((r) => r.id === route.params.routineId);
+    const found = routines.find((r) => r.id === routineId);
     if (!found) {
       // Previously this left "Loading..." up forever (e.g. a routine
       // created offline that a server fetch clobbered, or a stale link).
@@ -582,6 +592,7 @@ export default function ActiveWorkoutScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
+          WebMaxContent,
           {
             paddingTop: headerHeight + Spacing.xl,
             paddingBottom: insets.bottom + 100,
@@ -814,13 +825,15 @@ export default function ActiveWorkoutScreen() {
       <View
         style={[styles.footer, { paddingBottom: insets.bottom + Spacing.lg }]}
       >
-        <Button
-          onPress={finishWorkout}
-          disabled={isSaving}
-          style={styles.finishButton}
-        >
-          {isSaving ? "Saving..." : "Finish Workout"}
-        </Button>
+        <View style={WebMaxContent}>
+          <Button
+            onPress={finishWorkout}
+            disabled={isSaving}
+            style={styles.finishButton}
+          >
+            {isSaving ? "Saving..." : "Finish Workout"}
+          </Button>
+        </View>
       </View>
       <ExerciseInfoModal
         visible={showExerciseInfo}

@@ -26,7 +26,12 @@ import {
 } from "@/hooks/useRetractableHeader";
 import { RetractableHeader } from "@/components/RetractableHeader";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import Svg, { Circle as SvgCircle } from "react-native-svg";
 import type {
   UserProfile,
@@ -35,12 +40,14 @@ import type {
   Workout,
   BodyWeightEntry,
   RunEntry,
+  UnitSystem,
 } from "@/types";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 import { getApiUrl } from "@/lib/query-client";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
+import { formatDistanceValue, formatDistanceUnit } from "@/lib/units";
 import { checkAchievements, type Achievement } from "@/lib/achievements";
 import { getUnreadCountApi } from "@/lib/socialStorage";
 import { timeAgo } from "@/lib/timeAgo";
@@ -176,12 +183,15 @@ export default function DashboardScreen() {
 
     // Compute achievements
     const foodDays = new Set(foodLogData.map((f: any) => f.date)).size;
-    const achData = checkAchievements({
-      workouts: workoutData,
-      runs: runData,
-      bodyWeights: weightData,
-      foodLogDays: foodDays,
-    });
+    const achData = checkAchievements(
+      {
+        workouts: workoutData,
+        runs: runData,
+        bodyWeights: weightData,
+        foodLogDays: foodDays,
+      },
+      profileData?.unitSystem ?? "imperial",
+    );
     setAchievements(achData);
 
     if (!hasLoadedRef.current) {
@@ -245,6 +255,8 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
+  const profileUnits: UnitSystem = profile?.unitSystem ?? "imperial";
+
   // ── Derived data ────────────────────────────────────────────────
   const weeklyWorkouts = workouts.filter((w) => {
     if (!w.completedAt) return false;
@@ -279,7 +291,7 @@ export default function DashboardScreen() {
     ...runs.map((r) => ({
       type: "run" as const,
       id: r.id,
-      name: `${r.distanceKm.toFixed(1)} km Run`,
+      name: `${formatDistanceValue(r.distanceKm, profileUnits).toFixed(1)} ${formatDistanceUnit(profileUnits)} Run`,
       date: r.completedAt || r.startedAt,
       durationMin: r.durationSeconds
         ? Math.round(r.durationSeconds / 60)
@@ -309,6 +321,7 @@ export default function DashboardScreen() {
       <Animated.ScrollView
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
+          ...WebMaxContent,
           paddingTop: headerHeight + Spacing.lg,
           paddingBottom: tabBarHeight + Spacing["5xl"],
           paddingHorizontal: Spacing.lg,
@@ -713,7 +726,8 @@ export default function DashboardScreen() {
                         });
                       } else {
                         const run = runs.find((r) => r.id === item.id);
-                        if (run) navigation.navigate("RunDetail", { run });
+                        if (run)
+                          navigation.navigate("RunDetail", { runId: run.id });
                       }
                     }}
                     style={[

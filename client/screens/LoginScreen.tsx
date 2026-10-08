@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   StyleSheet,
+  TextInput,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -20,7 +21,12 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -31,6 +37,7 @@ export default function LoginScreen() {
   const { theme } = useTheme();
   const { login } = useAuth();
 
+  const passwordRef = useRef<TextInput>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,6 +70,7 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
+            WebMaxContent,
             {
               paddingTop: insets.top + Spacing["2xl"],
               paddingBottom: insets.bottom + Spacing.xl,
@@ -113,15 +121,22 @@ export default function LoginScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              autoFocus={Platform.OS === "web"}
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
+              blurOnSubmit={false}
             />
 
             <Input
+              ref={passwordRef}
               label="Password"
               value={password}
               onChangeText={setPassword}
               placeholder="Enter your password"
               secureTextEntry
               autoComplete="password"
+              returnKeyType="go"
+              onSubmitEditing={handleLogin}
             />
 
             <Pressable

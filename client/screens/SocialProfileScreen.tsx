@@ -5,6 +5,7 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import {
@@ -34,6 +35,7 @@ import {
   blockUserApi,
   unblockUserApi,
 } from "@/lib/socialStorage";
+import { onPostDeleted } from "@/lib/postEvents";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -45,7 +47,10 @@ export default function SocialProfileScreen() {
   const route = useRoute<ProfileRoute>();
   const { theme } = useTheme();
   const { user } = useAuth();
-  const targetUserId = route.params.userId;
+  // Number(): URL params arrive as strings after a web refresh, which
+  // made the own-profile check fail (showing Follow/Block on yourself)
+  // and could fire requests at /users/NaN.
+  const targetUserId = Number(route.params?.userId);
   const isOwnProfile = user && Number(user.id) === targetUserId;
 
   const [profile, setProfile] = useState<SocialProfile | null>(null);
@@ -53,9 +58,18 @@ export default function SocialProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | undefined>();
+  const [loadingMore, setLoadingMore] = useState(false);
   const hasLoadedRef = useRef(false);
+  const loadingMoreRef = useRef(false);
 
   const loadData = async () => {
+    if (!Number.isFinite(targetUserId)) {
+      setError(true);
+      setIsLoading(false);
+      hasLoadedRef.current = true;
+      return;
+    }
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
       const [profileData, postsData] = await Promise.all([
@@ -64,6 +78,7 @@ export default function SocialProfileScreen() {
       ]);
       setProfile(profileData);
       setPosts(postsData.posts);
+      setNextCursor(postsData.nextCursor);
       setError(false);
     } catch (e) {
       console.log("Failed to load social profile:", e);
@@ -76,10 +91,41 @@ export default function SocialProfileScreen() {
     }
   };
 
+  // Older pages of this user's posts — only the first page ever loaded
+  // before.
+  const loadMorePosts = async () => {
+    if (!nextCursor || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const result = await getUserPostsFeed(targetUserId, nextCursor);
+      setPosts((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...result.posts.filter((p) => !seen.has(p.id))];
+      });
+      setNextCursor(result.nextCursor);
+    } catch {
+      // Cursor retained; next scroll retries.
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, []),
+  );
+
+  // Drop posts deleted from PostDetail so back-navigation doesn't show
+  // ghost rows (same contract as SocialFeedScreen).
+  React.useEffect(
+    () =>
+      onPostDeleted((postId) => {
+        setPosts((prev) => prev.filter((p) => p.id !== postId));
+      }),
+    [],
   );
 
   const onRefresh = async () => {
@@ -352,6 +398,16 @@ export default function SocialProfileScreen() {
             onRefresh={onRefresh}
             tintColor={theme.textSecondary}
           />
+        }
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator
+              style={{ paddingVertical: Spacing.lg }}
+              color={theme.textSecondary}
+            />
+          ) : null
         }
         renderItem={({ item }) => (
           <AnimatedPress

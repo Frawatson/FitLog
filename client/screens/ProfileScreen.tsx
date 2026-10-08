@@ -35,7 +35,12 @@ import {
 } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import type {
   UserProfile,
   BodyWeightEntry,
@@ -388,6 +393,7 @@ export default function ProfileScreen() {
       <Animated.ScrollView
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
+          ...WebMaxContent,
           paddingTop: headerHeight + Spacing.xl,
           paddingBottom: tabBarHeight + Spacing.xl,
           paddingHorizontal: Spacing.lg,

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef } from "react";
 import { TextInput, View, StyleSheet, TextInputProps } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
@@ -9,17 +9,30 @@ interface InputProps extends TextInputProps {
   error?: string;
 }
 
-export function Input({ label, error, style, ...props }: InputProps) {
+// forwardRef so screens can chain fields (email → password) with
+// onSubmitEditing + ref.focus(). Without it, Enter/Next had nowhere
+// to go and keyboard flow between fields was impossible.
+export const Input = forwardRef<TextInput, InputProps>(function Input(
+  { label, error, style, ...props },
+  ref,
+) {
   const { theme } = useTheme();
 
   return (
     <View style={styles.container}>
       {label ? (
-        <ThemedText type="small" style={styles.label}>
+        <ThemedText
+          type="small"
+          style={styles.label}
+          // Announce the label with the field for screen readers.
+          nativeID={props.accessibilityLabel ? undefined : label}
+        >
           {label}
         </ThemedText>
       ) : null}
       <TextInput
+        ref={ref}
+        accessibilityLabel={props.accessibilityLabel ?? label}
         style={[
           styles.input,
           {
@@ -39,7 +52,7 @@ export function Input({ label, error, style, ...props }: InputProps) {
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

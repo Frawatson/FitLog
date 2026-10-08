@@ -27,7 +27,12 @@ import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import type { Food } from "@/types";
 import {
   FOOD_DATABASE,
@@ -35,6 +40,7 @@ import {
   searchFoods,
 } from "@/lib/foodDatabase";
 import * as storage from "@/lib/storage";
+import { stashTransient } from "@/lib/transientParams";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 import { getLocalDateString } from "@/lib/dateUtils";
@@ -61,7 +67,19 @@ export default function AddFoodScreen() {
   const route = useRoute<AddFoodRouteProp>();
   const { theme } = useTheme();
 
-  const prefill = route.params?.prefill;
+  // Prefill arrives as flat primitive params (URL-safe on web; the old
+  // nested object serialized to "[object Object]" after a refresh).
+  const params = route.params;
+  const prefill = params?.prefillName
+    ? {
+        name: params.prefillName,
+        calories: params.prefillCalories || "",
+        protein: params.prefillProtein || "",
+        carbs: params.prefillCarbs || "",
+        fat: params.prefillFat || "",
+        serving: params.prefillServing,
+      }
+    : undefined;
 
   const [savedFoods, setSavedFoods] = useState<Food[]>([]);
   const [recentMeals, setRecentMeals] = useState<
@@ -87,8 +105,33 @@ export default function AddFoodScreen() {
   );
   const [foodImage, setFoodImage] = useState<string | null>(null);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+
+  // Apply a prefill that arrives AFTER mount. The barcode scanner is
+  // pushed FROM this screen; on a successful scan it navigates back to
+  // the existing AddFood instance with new params, which initial state
+  // alone ignored — every successful scan used to show an empty form.
+  useEffect(() => {
+    if (!params?.prefillName) return;
+    setName(params.prefillName);
+    setCalories(params.prefillCalories || "");
+    setProtein(params.prefillProtein || "");
+    setCarbs(params.prefillCarbs || "");
+    setFat(params.prefillFat || "");
+    setServingSize(params.prefillServing);
+    setShowForm(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    params?.prefillName,
+    params?.prefillCalories,
+    params?.prefillProtein,
+    params?.prefillCarbs,
+    params?.prefillFat,
+    params?.prefillServing,
+  ]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const isSubmittingRef = useRef(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [nameSuggestions, setNameSuggestions] = useState<FoodDatabaseItem[]>(
     [],
   );
@@ -373,12 +416,14 @@ export default function AddFoodScreen() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
           setIsAnalyzingPhoto(false);
-          navigation.navigate("PhotoReview", {
+          // Foods + image go through the transient store; the base64
+          // image used to be serialized into the web URL (multi-MB).
+          stashTransient("photoReview", {
             foods: data.foods,
             imageUri: uri,
             imageBase64: base64 || undefined,
-            mode: data.mode,
           });
+          navigation.navigate("PhotoReview", { mode: data.mode });
           resetForm();
           return;
         } else {
@@ -501,6 +546,9 @@ export default function AddFoodScreen() {
   };
 
   const handleSubmit = async () => {
+    // Double-click guard — on web a slow addFoodLogEntry round-trip let
+    // a second click log the entry twice.
+    if (isSubmittingRef.current) return;
     if (!name.trim()) {
       setSubmitError("Please enter a food name.");
       return;
@@ -547,15 +595,25 @@ export default function AddFoodScreen() {
       });
     }
 
-    let persistentImageUri: string | undefined;
-    if (foodImage) {
-      persistentImageUri = await createPersistentImageUri(foodImage);
-    }
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      let persistentImageUri: string | undefined;
+      if (foodImage) {
+        persistentImageUri = await createPersistentImageUri(foodImage);
+      }
 
-    const today = getLocalDateString();
-    await storage.addFoodLogEntry(food, today, persistentImageUri);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    navigation.goBack();
+      const today = getLocalDateString();
+      await storage.addFoodLogEntry(food, today, persistentImageUri);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      navigation.goBack();
+    } catch (error) {
+      console.error("Failed to log food:", error);
+      setSubmitError("Could not log this food. Please try again.");
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   if (showForm) {
@@ -563,6 +621,7 @@ export default function AddFoodScreen() {
       <KeyboardAwareScrollViewCompat
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
+          ...WebMaxContent,
           paddingTop: headerHeight + Spacing.xl,
           paddingBottom: insets.bottom + Spacing.xl,
           paddingHorizontal: Spacing.lg,
@@ -723,8 +782,12 @@ export default function AddFoodScreen() {
           </View>
         ) : null}
 
-        <Button onPress={handleSubmit} style={styles.submitButton}>
-          Add to Log
+        <Button
+          onPress={handleSubmit}
+          disabled={isSubmitting}
+          style={styles.submitButton}
+        >
+          {isSubmitting ? "Adding..." : "Add to Log"}
         </Button>
       </KeyboardAwareScrollViewCompat>
     );
@@ -734,6 +797,7 @@ export default function AddFoodScreen() {
     <FlatList
       style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
       contentContainerStyle={{
+        ...WebMaxContent,
         paddingTop: headerHeight + Spacing.lg,
         paddingBottom: insets.bottom + Spacing.xl,
         paddingHorizontal: Spacing.lg,
@@ -858,18 +922,27 @@ export default function AddFoodScreen() {
                 Pick Photo
               </ThemedText>
             </AnimatedPress>
-            <AnimatedPress
-              onPress={() => navigation.navigate("BarcodeScanner")}
-              style={[
-                styles.photoButton,
-                { backgroundColor: theme.backgroundElevated },
-              ]}
-            >
-              <Feather name="maximize" size={24} color={Colors.light.primary} />
-              <ThemedText type="small" style={{ color: theme.text }}>
-                Scan Barcode
-              </ThemedText>
-            </AnimatedPress>
+            {Platform.OS !== "web" ? (
+              // Hidden on web: expo-camera's web decoder only reads QR
+              // codes, so product barcodes (EAN/UPC) can never scan in a
+              // browser — the camera just opened and sat there.
+              <AnimatedPress
+                onPress={() => navigation.navigate("BarcodeScanner")}
+                style={[
+                  styles.photoButton,
+                  { backgroundColor: theme.backgroundElevated },
+                ]}
+              >
+                <Feather
+                  name="maximize"
+                  size={24}
+                  color={Colors.light.primary}
+                />
+                <ThemedText type="small" style={{ color: theme.text }}>
+                  Scan Barcode
+                </ThemedText>
+              </AnimatedPress>
+            ) : null}
           </View>
 
           <Button

@@ -24,7 +24,7 @@ import type {
   UnitSystem,
 } from "@/types";
 import * as storage from "@/lib/storage";
-import { formatWeight } from "@/lib/units";
+import { formatWeight, weightLabel } from "@/lib/units";
 import { getLocalDateString } from "@/lib/dateUtils";
 
 const screenWidth = Dimensions.get("window").width;
@@ -333,7 +333,9 @@ export default function ProgressChartsScreen() {
                 size={20}
                 color={Colors.light.primary}
               />
-              <ThemedText type="h4">Weekly Volume</ThemedText>
+              <ThemedText type="h4">
+                Weekly Volume ({weightLabel(unitSystem)})
+              </ThemedText>
             </View>
             {volumeChartData ? (
               <BarChart

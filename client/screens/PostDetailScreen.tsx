@@ -48,7 +48,12 @@ import { emitPostDeleted } from "@/lib/postEvents";
 import { showSystemMenu } from "@/components/SystemMenu";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { timeAgo } from "@/lib/timeAgo";
-import { formatDistance, formatPace, formatPaceUnit } from "@/lib/units";
+import {
+  formatDistance,
+  formatPace,
+  formatPaceUnit,
+  weightLabel,
+} from "@/lib/units";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -240,11 +245,15 @@ export default function PostDetailScreen() {
     if (!post) return;
     const doDelete = async () => {
       const ok = await deleteSocialPost(post.id);
-      if (ok) {
-        // Tell the feed (and any other subscriber) to drop the row so
-        // navigating back doesn't show a stale post pending refresh.
-        emitPostDeleted(post.id);
+      if (!ok) {
+        // Stay on the post — navigating back after a failed delete made
+        // it look deleted until the next refresh resurrected it.
+        webSafeAlert("Delete failed", "Please try again.");
+        return;
       }
+      // Tell the feed (and any other subscriber) to drop the row so
+      // navigating back doesn't show a stale post pending refresh.
+      emitPostDeleted(post.id);
       navigation.goBack();
     };
     showSystemMenu({
@@ -260,9 +269,15 @@ export default function PostDetailScreen() {
   const handleReportPost = () => {
     if (!post) return;
     const postId = post.id;
-    const reportWith = (reason: "spam" | "harassment" | "inappropriate") => {
-      reportContentApi("post", postId, reason);
-      webSafeAlert("Reported", "Thanks for letting us know.");
+    const reportWith = async (
+      reason: "spam" | "harassment" | "inappropriate",
+    ) => {
+      const ok = await reportContentApi("post", postId, reason);
+      if (ok) {
+        webSafeAlert("Reported", "Thanks for letting us know.");
+      } else {
+        webSafeAlert("Report failed", "Please try again.");
+      }
     };
     showSystemMenu({
       title: "Report Post",
@@ -277,9 +292,15 @@ export default function PostDetailScreen() {
   };
 
   const handleReportComment = (commentId: number) => {
-    const reportWith = (reason: "spam" | "harassment" | "inappropriate") => {
-      reportContentApi("comment", commentId, reason);
-      webSafeAlert("Reported", "Thanks for letting us know.");
+    const reportWith = async (
+      reason: "spam" | "harassment" | "inappropriate",
+    ) => {
+      const ok = await reportContentApi("comment", commentId, reason);
+      if (ok) {
+        webSafeAlert("Reported", "Thanks for letting us know.");
+      } else {
+        webSafeAlert("Report failed", "Please try again.");
+      }
     };
     showSystemMenu({
       title: "Report Comment",
@@ -297,7 +318,11 @@ export default function PostDetailScreen() {
     if (!post) return;
     const { userId, authorName } = post;
     const doBlock = async () => {
-      await blockUserApi(userId);
+      const ok = await blockUserApi(userId);
+      if (!ok) {
+        webSafeAlert("Block failed", "Please try again.");
+        return;
+      }
       webSafeAlert("Blocked", `${authorName} has been blocked.`, () =>
         navigation.goBack(),
       );
@@ -321,15 +346,22 @@ export default function PostDetailScreen() {
   const handleSaveEditPost = async () => {
     if (!post || !editPostText.trim()) return;
     const success = await editPostApi(post.id, editPostText.trim());
-    if (success) {
-      setPost((prev) =>
-        prev ? { ...prev, content: editPostText.trim() } : prev,
-      );
+    if (!success) {
+      // Keep the editor open with the user's text — closing it used to
+      // silently discard the edit.
+      webSafeAlert("Save failed", "Please try again.");
+      return;
     }
+    setPost((prev) =>
+      prev ? { ...prev, content: editPostText.trim() } : prev,
+    );
     setEditingPost(false);
   };
 
   const handleEditComment = (comment: PostComment) => {
+    // Optimistic comments (negative temp ids) have no server record yet
+    // — editing one would PUT to a negative id.
+    if (comment.id < 0) return;
     setEditingCommentId(comment.id);
     setEditCommentText(comment.content);
   };
@@ -340,15 +372,17 @@ export default function PostDetailScreen() {
       editingCommentId,
       editCommentText.trim(),
     );
-    if (success) {
-      setComments((prev) =>
-        prev.map((c) =>
-          c.id === editingCommentId
-            ? { ...c, content: editCommentText.trim() }
-            : c,
-        ),
-      );
+    if (!success) {
+      webSafeAlert("Save failed", "Please try again.");
+      return;
     }
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === editingCommentId
+          ? { ...c, content: editCommentText.trim() }
+          : c,
+      ),
+    );
     setEditingCommentId(null);
     setEditCommentText("");
   };
@@ -625,7 +659,8 @@ export default function PostDetailScreen() {
                                   flex: 1,
                                 }}
                               >
-                                {set.weight} lbs x {set.reps}
+                                {set.weight} {weightLabel(unitSystem)} x{" "}
+                                {set.reps}
                               </ThemedText>
                               <Feather
                                 name={set.completed ? "check" : "x"}
@@ -877,6 +912,9 @@ export default function PostDetailScreen() {
             value={commentText}
             onChangeText={setCommentText}
             maxLength={300}
+            returnKeyType="send"
+            onSubmitEditing={handleSendComment}
+            blurOnSubmit={false}
           />
           <Pressable
             onPress={handleSendComment}

@@ -81,11 +81,11 @@ export const linking: LinkingOptions<RootStackParamList> = {
       ExerciseLibrary: "exercises",
 
       RunComplete: "runs/complete",
-      RunDetail: "runs/detail",
+      RunDetail: "runs/:runId",
 
       AddFood: "nutrition/add",
       PhotoReview: "nutrition/photo-review",
-      FoodDetail: "nutrition/food-detail",
+      FoodDetail: "nutrition/food/:entryId",
       EditMacros: "nutrition/macros",
       BarcodeScanner: "nutrition/scan",
 

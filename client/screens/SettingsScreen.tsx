@@ -21,7 +21,12 @@ import { Card } from "@/components/Card";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import * as notifications from "@/lib/notifications";
 import type { NotificationSettings } from "@/lib/notifications";
 import { exportUserDataCsv } from "@/lib/dataExport";
@@ -231,6 +236,7 @@ export default function SettingsScreen() {
       <ScrollView
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
+          ...WebMaxContent,
           paddingTop: headerHeight + Spacing.xl,
           paddingBottom: tabBarHeight + Spacing.xl,
           paddingHorizontal: Spacing.lg,

@@ -18,7 +18,12 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -81,6 +86,7 @@ export default function ForgotPasswordScreen() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
+            WebMaxContent,
             {
               paddingTop: insets.top + Spacing["2xl"],
               paddingBottom: insets.bottom + Spacing.xl,
@@ -166,6 +172,9 @@ export default function ForgotPasswordScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
+                autoFocus={Platform.OS === "web"}
+                returnKeyType="send"
+                onSubmitEditing={handleSubmit}
                 testID="input-email"
               />
             ) : null}

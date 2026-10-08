@@ -12,6 +12,8 @@ import {
   RefreshControl,
   Pressable,
   Image,
+  Platform,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
@@ -311,9 +313,12 @@ export default function SocialFeedScreen() {
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [serverTime, setServerTime] = useState<string | undefined>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("imperial");
   const hasLoadedRef = useRef(false);
+  const lastLoadedAtRef = useRef(0);
 
   // Viewer's unit preference for formatting run-post stats.
   useEffect(() => {
@@ -328,24 +333,37 @@ export default function SocialFeedScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <Pressable
-          onPress={() => navigation.navigate("Notifications")}
-          hitSlop={8}
-          style={{ marginRight: Spacing.lg }}
-          accessibilityLabel="Notifications"
-        >
-          <Feather name="bell" size={22} color={theme.text} />
-          {unreadCount > 0 && (
-            <View style={styles.headerBadge}>
-              <ThemedText
-                type="caption"
-                style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}
-              >
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </ThemedText>
-            </View>
-          )}
-        </Pressable>
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {Platform.OS === "web" ? (
+            // Desktop has no pull-to-refresh; give it a real button.
+            <Pressable
+              onPress={onRefresh}
+              hitSlop={8}
+              style={{ marginRight: Spacing.lg }}
+              accessibilityLabel="Refresh feed"
+            >
+              <Feather name="rotate-cw" size={20} color={theme.text} />
+            </Pressable>
+          ) : null}
+          <Pressable
+            onPress={() => navigation.navigate("Notifications")}
+            hitSlop={8}
+            style={{ marginRight: Spacing.lg }}
+            accessibilityLabel="Notifications"
+          >
+            <Feather name="bell" size={22} color={theme.text} />
+            {unreadCount > 0 && (
+              <View style={styles.headerBadge}>
+                <ThemedText
+                  type="caption"
+                  style={{ color: "#fff", fontSize: 10, fontWeight: "700" }}
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </ThemedText>
+              </View>
+            )}
+          </Pressable>
+        </View>
       ),
     });
   }, [navigation, unreadCount, theme.text]);
@@ -367,6 +385,7 @@ export default function SocialFeedScreen() {
       setServerTime(result.serverTime);
       setUnreadCount(count);
       setError(false);
+      lastLoadedAtRef.current = Date.now();
     } catch (e) {
       console.log("Failed to load feed:", e);
       setError(true);
@@ -380,7 +399,17 @@ export default function SocialFeedScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
+      // Full reload only when the data is actually stale - reloading on
+      // every focus reset pagination and scroll position each time the
+      // user peeked at a post and came back. The unread badge is cheap
+      // and always refreshed.
+      if (Date.now() - lastLoadedAtRef.current > 60_000) {
+        loadData();
+      } else {
+        getUnreadCountApi()
+          .then(setUnreadCount)
+          .catch(() => {});
+      }
     }, []),
   );
 
@@ -397,18 +426,30 @@ export default function SocialFeedScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    setRefreshFailed(false);
     try {
       const result = await loadFeed();
       setPosts(result.posts);
       setNextCursor(result.nextCursor);
       setServerTime(result.serverTime);
+      setLoadMoreFailed(false);
+      lastLoadedAtRef.current = Date.now();
+      getUnreadCountApi()
+        .then(setUnreadCount)
+        .catch(() => {});
+    } catch {
+      // Keep the current list; just tell the user the refresh failed
+      // (previously this rejected silently and the spinner vanished as
+      // if everything worked).
+      setRefreshFailed(true);
+      setTimeout(() => setRefreshFailed(false), 4000);
     } finally {
       setRefreshing(false);
     }
   };
 
   const onEndReached = async () => {
-    if (!nextCursor || loadingMore) return;
+    if (!nextCursor || loadingMore || loadMoreFailed) return;
     setLoadingMore(true);
     try {
       const result = await loadFeed(nextCursor);
@@ -421,6 +462,11 @@ export default function SocialFeedScreen() {
         return [...prev, ...fresh];
       });
       setNextCursor(result.nextCursor);
+      setLoadMoreFailed(false);
+    } catch {
+      // Keep the cursor so tap-to-retry (and future scrolls) can
+      // continue — one failed page used to end pagination for good.
+      setLoadMoreFailed(true);
     } finally {
       setLoadingMore(false);
     }
@@ -595,6 +641,26 @@ export default function SocialFeedScreen() {
           </ThemedText>
         </AnimatedPress>
       </View>
+      {refreshFailed ? (
+        <View
+          style={{
+            position: "absolute",
+            top: headerHeight + SEARCH_BAR_HEIGHT + Spacing.sm,
+            alignSelf: "center",
+            zIndex: 30,
+            backgroundColor: theme.backgroundDefault,
+            borderRadius: 999,
+            paddingHorizontal: Spacing.lg,
+            paddingVertical: Spacing.sm,
+            borderWidth: 1,
+            borderColor: theme.border,
+          }}
+        >
+          <ThemedText type="small" style={{ color: theme.textSecondary }}>
+            Couldn&apos;t refresh — check your connection
+          </ThemedText>
+        </View>
+      ) : null}
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id.toString()}
@@ -631,6 +697,26 @@ export default function SocialFeedScreen() {
         }
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator
+              style={{ paddingVertical: Spacing.lg }}
+              color={theme.textSecondary}
+            />
+          ) : loadMoreFailed ? (
+            <Pressable
+              onPress={() => {
+                setLoadMoreFailed(false);
+                onEndReached();
+              }}
+              style={{ paddingVertical: Spacing.lg, alignItems: "center" }}
+            >
+              <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                Couldn&apos;t load more — tap to retry
+              </ThemedText>
+            </Pressable>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Feather

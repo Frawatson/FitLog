@@ -26,6 +26,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
+import { takeTransient } from "@/lib/transientParams";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Food } from "@/types";
 import * as storage from "@/lib/storage";
@@ -63,7 +64,16 @@ export default function PhotoReviewScreen() {
   const route = useRoute<ScreenRouteProp>();
   const { theme } = useTheme();
 
-  const { foods, imageUri, mode } = route.params;
+  const mode = route.params?.mode;
+  // Payload comes from the transient store (foods + the captured photo).
+  // It used to ride in route params, pushing a multi-MB base64 image
+  // into the web URL and browser history. After a refresh the store is
+  // empty — the expired state below handles that.
+  const [payload] = useState<
+    { foods: any[]; imageUri: string; imageBase64?: string } | undefined
+  >(() => takeTransient("photoReview"));
+  const foods = payload?.foods ?? [];
+  const imageUri = payload?.imageUri;
 
   const [items, setItems] = useState<ReviewItem[]>(
     foods.map((f: any) => ({
@@ -189,6 +199,37 @@ export default function PhotoReviewScreen() {
     if (c === "medium") return "#FFA500";
     return "#FF3B30";
   };
+
+  if (!payload) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.backgroundRoot,
+          alignItems: "center",
+          justifyContent: "center",
+          padding: Spacing.xl,
+        }}
+      >
+        <Feather name="camera-off" size={40} color={theme.textSecondary} />
+        <ThemedText type="h4" style={{ marginTop: Spacing.md }}>
+          Photo session expired
+        </ThemedText>
+        <ThemedText
+          type="small"
+          style={{
+            color: theme.textSecondary,
+            textAlign: "center",
+            marginVertical: Spacing.md,
+          }}
+        >
+          The analyzed photo is no longer available (this happens after a page
+          refresh). Take the photo again to continue.
+        </ThemedText>
+        <Button onPress={() => navigation.goBack()}>Go Back</Button>
+      </View>
+    );
+  }
 
   return (
     <ScrollView

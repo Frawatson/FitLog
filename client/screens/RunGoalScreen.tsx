@@ -50,18 +50,23 @@ export default function RunGoalScreen() {
   const handleStartRun = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
 
-    const goal =
-      goalType === "free"
-        ? undefined
-        : goalType === "distance"
-          ? {
-              type: "distance" as const,
-              value: selectedDistance,
-              unit: distanceUnitShort,
-            }
-          : { type: "time" as const, value: selectedTime };
-
-    navigation.navigate("RunTracker", { goal });
+    // Flat primitives — an object param serialized to "[object Object]"
+    // in the web URL, which made the tracker show "START undefined MIN
+    // RUN" after any refresh.
+    if (goalType === "free") {
+      navigation.navigate("RunTracker", {});
+    } else if (goalType === "distance") {
+      navigation.navigate("RunTracker", {
+        goalType: "distance",
+        goalValue: selectedDistance,
+        goalUnit: distanceUnitShort,
+      });
+    } else {
+      navigation.navigate("RunTracker", {
+        goalType: "time",
+        goalValue: selectedTime,
+      });
+    }
   };
 
   return (

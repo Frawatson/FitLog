@@ -31,9 +31,15 @@ import {
   RETRACTABLE_HEADER_HEIGHT,
 } from "@/hooks/useRetractableHeader";
 import { useTheme } from "@/hooks/useTheme";
-import { Spacing, BorderRadius, Colors } from "@/constants/theme";
+import {
+  Spacing,
+  BorderRadius,
+  Colors,
+  WebMaxContent,
+} from "@/constants/theme";
 import type { MacroTargets, FoodLogEntry } from "@/types";
 import * as storage from "@/lib/storage";
+import { stashTransient } from "@/lib/transientParams";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 import { getLocalDateString, parseLocalDate } from "@/lib/dateUtils";
@@ -223,7 +229,7 @@ export default function NutritionScreen() {
 
   const openDetail = (entry: FoodLogEntry) => {
     Haptics.selectionAsync();
-    navigation.navigate("FoodDetail", { entry });
+    navigation.navigate("FoodDetail", { entryId: entry.id });
   };
 
   const navigateDate = (direction: number) => {
@@ -317,12 +323,13 @@ export default function NutritionScreen() {
               Haptics.notificationAsync(
                 Haptics.NotificationFeedbackType.Success,
               );
-            navigation.navigate("PhotoReview", {
+            // Via transient store — keeps the base64 image out of the URL.
+            stashTransient("photoReview", {
               foods: data.foods,
               imageUri: asset.uri,
               imageBase64: base64 || undefined,
-              mode: data.mode,
             });
+            navigation.navigate("PhotoReview", { mode: data.mode });
           } else {
             navigation.navigate("AddFood");
           }
@@ -351,6 +358,7 @@ export default function NutritionScreen() {
       <Animated.ScrollView
         style={[styles.container, { backgroundColor: theme.backgroundRoot }]}
         contentContainerStyle={{
+          ...WebMaxContent,
           paddingTop: headerHeight + Spacing.xl,
           paddingBottom: tabBarHeight + Spacing.xl,
           paddingHorizontal: Spacing.lg,

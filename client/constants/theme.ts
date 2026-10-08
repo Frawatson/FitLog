@@ -211,3 +211,13 @@ export const Fonts = Platform.select({
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+
+// Desktop web: cap content width and center it. Without this, forms and
+// cards stretch edge-to-edge on wide monitors. Matches the 720px cap the
+// social lists already use. Spread into a ScrollView's
+// contentContainerStyle (or a plain View's style).
+export const WebMaxContent = {
+  width: "100%",
+  maxWidth: 720,
+  alignSelf: "center",
+} as const;

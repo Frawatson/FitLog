@@ -5,7 +5,6 @@ import RunTrackerScreen from "@/screens/RunTrackerScreen";
 import RunDetailScreen from "@/screens/RunDetailScreen";
 import RunHistoryScreen from "@/screens/RunHistoryScreen";
 import { useScreenOptions } from "@/hooks/useScreenOptions";
-import type { RunEntry } from "@/types";
 
 // Distance goals carry their own unit so the tracker doesn't have to
 // guess from the user's current preference (which could have changed
@@ -17,8 +16,16 @@ export type RunGoal =
 
 export type RunStackParamList = {
   RunGoal: undefined;
-  RunTracker: { goal?: RunGoal };
-  RunDetail: { run: RunEntry };
+  // Goal flattened to primitives so it survives URL serialization on web
+  // (an object param becomes "[object Object]" after a refresh).
+  RunTracker:
+    | {
+        goalType?: "distance" | "time";
+        goalValue?: number;
+        goalUnit?: "mi" | "km";
+      }
+    | undefined;
+  RunDetail: { runId: string };
   RunHistory: undefined;
 };
 
