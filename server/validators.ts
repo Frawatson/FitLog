@@ -1,5 +1,6 @@
-import type { Request } from "express";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import type { Request, Response, NextFunction } from "express";
+import { pool } from "./db";
+import { ipKeyGenerator } from "express-rate-limit";
 
 // Centralized input limits. Adjust here, not at call sites.
 export const LIMITS = {
@@ -202,23 +203,48 @@ export function optionalBoolean(
 // ipKeyGenerator helper so IPv6 addresses are normalized to a /64 prefix —
 // otherwise an attacker on IPv6 could rotate addresses within their subnet
 // to bypass per-IP limits.
+// Per-user rate limiter backed by Postgres, shared across cluster
+// workers. The previous in-memory limiter counted per worker, so with 4
+// workers every cap was effectively 4x — including the OpenAI cost caps
+// (60 searches/hour quietly became up to 240). Window state lives in a
+// tiny fixed-window table; errors FAIL OPEN so a DB hiccup degrades to
+// no limiting rather than a hard outage.
 export function userRateLimiter(opts: {
   windowMs: number;
   max: number;
   message: string;
 }) {
-  return rateLimit({
-    windowMs: opts.windowMs,
-    max: opts.max,
-    message: { error: opts.message },
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req: Request) => {
+  // Name derived from the caller's window+max keeps limiters with
+  // different budgets isolated from each other.
+  const bucket = `w${opts.windowMs}m${opts.max}`;
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
       const userId = (req as Request & { userId?: number }).userId;
-      if (userId !== undefined) return `u:${userId}`;
-      return ipKeyGenerator(req.ip ?? "");
-    },
-  });
+      const key = `${bucket}:${
+        userId !== undefined ? `u:${userId}` : ipKeyGenerator(req.ip ?? "")
+      }`;
+      const windowStart = new Date(
+        Math.floor(Date.now() / opts.windowMs) * opts.windowMs,
+      );
+      const result = await pool.query(
+        `INSERT INTO rate_limits (key, window_start, count)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (key) DO UPDATE SET
+           count = CASE WHEN rate_limits.window_start = $2
+                        THEN rate_limits.count + 1 ELSE 1 END,
+           window_start = $2
+         RETURNING count`,
+        [key, windowStart],
+      );
+      if (result.rows[0].count > opts.max) {
+        return res.status(429).json({ error: opts.message });
+      }
+      next();
+    } catch (error) {
+      console.error("Rate limiter error (failing open):", error);
+      next();
+    }
+  };
 }
 
 // Wraps user-controlled text for inclusion in an LLM prompt so model

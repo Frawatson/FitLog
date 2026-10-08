@@ -10,7 +10,22 @@ just slipped through. Grouped by area, tagged by priority.
 - **P2** — Real-impact improvement; not blocking but noticeably better when done
 - **P3** — Polish, internal hygiene, "would be nice"
 
-Updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
+Updated: 2026-10-09 (five-tier optimization push, commits 0d515f4..HEAD).
+Resolved in that push: web perf quick wins (compression, immutable
+caching, session scoped to /api, lazy tabs, font/icon/asset diet, boot
+splash, code splitting); sync-queue data loss + merge-on-read + workout
+drafts; media out of list payloads (avatars/post photos/food photos via
+authenticated endpoints) + storage micro-cache + auth prefetch; the web
+UX pass (URL-safe params, redirect-after-login, Enter-to-submit, 720px
+desktop cap, social error/pagination overhaul, units audit, run-tracker
+wall-clock timer + GPS filtering, calendar month nav); and security
+hardening (post/comment/like/profile visibility checks, server-side
+pending registrations, reset-code CSPRNG + attempt counter, DB-backed
+per-user rate limits, request body limits, sync-endpoint validation,
+follower-count fix on account deletion, SIGTERM drain). Items below may
+be stale; re-verify before working from this list.
+
+Previously updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
 
 ---
 

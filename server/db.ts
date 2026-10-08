@@ -1,4 +1,5 @@
 import { Pool, types } from "pg";
+import crypto from "node:crypto";
 
 // Force pg to parse TIMESTAMP (without timezone) as UTC
 types.setTypeParser(1114, (str: string) => new Date(str + "Z"));
@@ -171,6 +172,36 @@ export async function initializeDatabase(): Promise<void> {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS IDX_password_reset_codes_user ON password_reset_codes (user_id);
+
+      -- Per-code guess counter (see verifyPasswordResetCode).
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'password_reset_codes' AND column_name = 'attempts') THEN
+          ALTER TABLE password_reset_codes ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+        END IF;
+      END $$;
+
+      -- Pending registrations live server-side and the email link carries
+      -- only an opaque random token. The previous design embedded the
+      -- bcrypt password hash inside a signed-but-unencrypted JWT in the
+      -- email URL, which exposed the hash to mailboxes, link scanners,
+      -- proxies and browser history for offline cracking.
+      -- Fixed-window rate-limit state shared across cluster workers
+      -- (see validators.userRateLimiter).
+      CREATE TABLE IF NOT EXISTS rate_limits (
+        key TEXT PRIMARY KEY,
+        window_start TIMESTAMP NOT NULL,
+        count INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE IF NOT EXISTS pending_registrations (
+        email TEXT PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
       
       -- Custom exercises table
       CREATE TABLE IF NOT EXISTS custom_exercises (
@@ -585,6 +616,19 @@ export async function deleteUser(id: number): Promise<boolean> {
       user.email,
     ]);
   }
+  // The follows rows cascade-delete with the user, but the surviving
+  // users' denormalized follower/following counters were never
+  // decremented — profiles drifted (count said 5, list showed 3).
+  await pool.query(
+    `UPDATE users SET followers_count = GREATEST(followers_count - 1, 0)
+     WHERE id IN (SELECT following_id FROM follows WHERE follower_id = $1)`,
+    [id],
+  );
+  await pool.query(
+    `UPDATE users SET following_count = GREATEST(following_count - 1, 0)
+     WHERE id IN (SELECT follower_id FROM follows WHERE following_id = $1)`,
+    [id],
+  );
   const result = await pool.query(
     "DELETE FROM users WHERE id = $1 RETURNING id",
     [id],
@@ -1023,7 +1067,9 @@ export async function createPasswordResetCode(userId: number): Promise<string> {
   await pool.query("DELETE FROM password_reset_codes WHERE user_id = $1", [
     userId,
   ]);
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // crypto.randomInt, NOT Math.random — reset codes are security
+  // tokens and Math.random is predictable.
+  const code = crypto.randomInt(100000, 1000000).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
   await pool.query(
     `INSERT INTO password_reset_codes (user_id, code, expires_at) VALUES ($1, $2, $3)`,
@@ -1032,23 +1078,45 @@ export async function createPasswordResetCode(userId: number): Promise<string> {
   return code;
 }
 
+const MAX_RESET_CODE_ATTEMPTS = 5;
+
 export async function verifyPasswordResetCode(
   email: string,
   code: string,
 ): Promise<{ valid: boolean; userId: number | null }> {
+  // Fetch the account's latest code regardless of what the caller
+  // guessed, and count every attempt against it. The old version only
+  // matched WHERE code = $2, so wrong guesses weren't tracked at all —
+  // a 6-digit space with no attempt counter is brute-forceable.
   const result = await pool.query(
-    `SELECT prc.id, prc.user_id, prc.expires_at, prc.used
+    `SELECT prc.id, prc.user_id, prc.code, prc.expires_at, prc.used, prc.attempts
      FROM password_reset_codes prc
      JOIN users u ON u.id = prc.user_id
-     WHERE u.email = $1 AND prc.code = $2
+     WHERE u.email = $1
      ORDER BY prc.created_at DESC LIMIT 1`,
-    [email.toLowerCase(), code],
+    [email.toLowerCase()],
   );
   if (result.rows.length === 0) {
     return { valid: false, userId: null };
   }
   const row = result.rows[0];
-  if (row.used || new Date(row.expires_at) < new Date()) {
+  if (
+    row.used ||
+    new Date(row.expires_at) < new Date() ||
+    row.attempts >= MAX_RESET_CODE_ATTEMPTS
+  ) {
+    return { valid: false, userId: null };
+  }
+  await pool.query(
+    "UPDATE password_reset_codes SET attempts = attempts + 1 WHERE id = $1",
+    [row.id],
+  );
+  const provided = Buffer.from(String(code));
+  const expected = Buffer.from(String(row.code));
+  const match =
+    provided.length === expected.length &&
+    crypto.timingSafeEqual(provided, expected);
+  if (!match) {
     return { valid: false, userId: null };
   }
   return { valid: true, userId: row.user_id };
@@ -1063,6 +1131,58 @@ export async function markResetCodeUsed(
      WHERE user_id = (SELECT id FROM users WHERE email = $1) AND code = $2`,
     [email.toLowerCase(), code],
   );
+}
+
+// ========== Pending registrations ==========
+
+const PENDING_REGISTRATION_TTL_MS = 24 * 60 * 60 * 1000;
+
+function hashRegistrationToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+// Stores the pending account server-side and returns the opaque token
+// for the confirmation email. Upsert by email so re-registering simply
+// refreshes the pending record.
+export async function createPendingRegistration(
+  email: string,
+  passwordHash: string,
+  name: string,
+): Promise<string> {
+  const token = crypto.randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + PENDING_REGISTRATION_TTL_MS);
+  await pool.query(
+    `INSERT INTO pending_registrations (email, password_hash, name, token_hash, expires_at)
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (email) DO UPDATE SET
+       password_hash = EXCLUDED.password_hash,
+       name = EXCLUDED.name,
+       token_hash = EXCLUDED.token_hash,
+       expires_at = EXCLUDED.expires_at,
+       created_at = CURRENT_TIMESTAMP`,
+    [email, passwordHash, name, hashRegistrationToken(token), expiresAt],
+  );
+  return token;
+}
+
+// Looks up a pending registration by its emailed token and removes it.
+// Returns null for unknown or expired tokens. Expired rows are swept
+// opportunistically (cheap, and this endpoint is rate-limited).
+export async function consumePendingRegistration(
+  token: string,
+): Promise<{ email: string; passwordHash: string; name: string } | null> {
+  await pool.query(
+    "DELETE FROM pending_registrations WHERE expires_at < CURRENT_TIMESTAMP",
+  );
+  const result = await pool.query(
+    `DELETE FROM pending_registrations
+     WHERE token_hash = $1 AND expires_at >= CURRENT_TIMESTAMP
+     RETURNING email, password_hash, name`,
+    [hashRegistrationToken(token)],
+  );
+  if (result.rows.length === 0) return null;
+  const row = result.rows[0];
+  return { email: row.email, passwordHash: row.password_hash, name: row.name };
 }
 
 export async function updateUserPassword(
@@ -1444,7 +1564,8 @@ export async function createPost(
      ON CONFLICT (user_id, client_id) DO UPDATE SET
        content = EXCLUDED.content,
        reference_data = EXCLUDED.reference_data,
-       image_data = EXCLUDED.image_data
+       image_data = EXCLUDED.image_data,
+       visibility = EXCLUDED.visibility
      RETURNING id`,
     [
       userId,
@@ -1650,6 +1771,9 @@ export async function getUserPosts(
      WHERE p.user_id = $1
        AND (p.user_id = $2 OR p.visibility = 'public'
          OR $2 IN (SELECT follower_id FROM follows WHERE following_id = p.user_id))
+       AND NOT EXISTS (SELECT 1 FROM user_blocks ub
+         WHERE (ub.blocker_id = $1 AND ub.blocked_id = $2)
+            OR (ub.blocker_id = $2 AND ub.blocked_id = $1))
        ${cursorClause}
      ORDER BY p.created_at DESC
      LIMIT $3`,

@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import sharp from "sharp";
 // exerciseDatabase import removed — using exercise_gif_cache (ExerciseDB) as the sole exercise source
 import {
@@ -84,7 +85,6 @@ import {
   optionalEnum,
   requirePositiveInt,
   requireBase64Image,
-  requireImageUrl,
   optionalBoolean,
   userRateLimiter,
   delimitUserContent,
@@ -117,6 +117,47 @@ async function getOpenAIClient(apiKey: string, baseURL: string) {
     openaiClient = new OpenAI({ apiKey, baseURL });
   }
   return openaiClient;
+}
+
+// Constant-time admin-secret check (a plain !== comparison leaks how
+// many leading characters matched through response timing).
+function isAdminSecretValid(provided: unknown, expected: string): boolean {
+  if (typeof provided !== "string") return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+// Content-visibility gate shared by the like/comment routes: 404 for
+// posts the requester may not see (any logged-in user could previously
+// like or comment on followers-only posts by id, and commenting on a
+// nonexistent post surfaced as an FK-violation 500).
+// Follow lists of private profiles are visible to the owner and their
+// followers only (the endpoints were previously open to any user id).
+async function canViewFollowLists(
+  targetId: number,
+  requesterId: number,
+): Promise<boolean> {
+  if (targetId === requesterId) return true;
+  const profile = await getSocialProfile(targetId, requesterId);
+  if (!profile) return false;
+  if (profile.isBlockedByMe) return true; // view own block relationship
+  return profile.isPublic || profile.isFollowedByMe;
+}
+
+async function requireVisiblePost(
+  postId: number,
+  requesterId: number,
+): Promise<"ok" | "not_found"> {
+  const post = await getPost(postId, requesterId);
+  if (!post) return "not_found";
+  const canView = await canViewUserContent(
+    requesterId,
+    post.userId,
+    post.visibility,
+  );
+  return canView ? "ok" : "not_found";
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -705,7 +746,7 @@ Return JSON only:
     async (req: Request, res: Response) => {
       const adminSecret = process.env.ADMIN_SECRET;
       const providedSecret = req.headers["x-admin-secret"];
-      if (!adminSecret || providedSecret !== adminSecret) {
+      if (!adminSecret || !isAdminSecretValid(providedSecret, adminSecret)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
@@ -778,7 +819,7 @@ Return JSON only:
     async (req: Request, res: Response) => {
       const adminSecret = process.env.ADMIN_SECRET;
       const providedSecret = req.headers["x-admin-secret"];
-      if (!adminSecret || providedSecret !== adminSecret) {
+      if (!adminSecret || !isAdminSecretValid(providedSecret, adminSecret)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
@@ -890,7 +931,7 @@ Return JSON only:
     async (req: Request, res: Response) => {
       const adminSecret = process.env.ADMIN_SECRET;
       const providedSecret = req.headers["x-admin-secret"];
-      if (!adminSecret || providedSecret !== adminSecret) {
+      if (!adminSecret || !isAdminSecretValid(providedSecret, adminSecret)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
@@ -1229,7 +1270,13 @@ Return JSON only:
           category,
         } = req.body;
 
-        if (!clientId || !name) {
+        if (
+          !clientId ||
+          !name ||
+          typeof clientId !== "string" ||
+          typeof name !== "string" ||
+          clientId.length > 128
+        ) {
           return res
             .status(400)
             .json({ error: "clientId and name are required" });
@@ -1240,10 +1287,20 @@ Return JSON only:
             .json({ error: "Routine name cannot exceed 100 characters" });
         }
         const exerciseList = exercises || [];
-        if (exerciseList.length > 30) {
+        if (!Array.isArray(exerciseList) || exerciseList.length > 30) {
           return res
             .status(400)
             .json({ error: "Routine cannot have more than 30 exercises" });
+        }
+        for (const ex of exerciseList) {
+          if (
+            !ex ||
+            typeof ex !== "object" ||
+            typeof ex.exerciseName !== "string" ||
+            ex.exerciseName.length > 200
+          ) {
+            return res.status(400).json({ error: "Invalid exercise entry" });
+          }
         }
 
         await saveRoutine(userId, {
@@ -1311,17 +1368,42 @@ Return JSON only:
           totalVolumeKg,
         } = req.body;
 
-        if (!clientId || !startedAt) {
+        if (
+          !clientId ||
+          !startedAt ||
+          typeof clientId !== "string" ||
+          typeof startedAt !== "string" ||
+          clientId.length > 128
+        ) {
           return res
             .status(400)
             .json({ error: "clientId and startedAt are required" });
+        }
+        const workoutExercises = exercises || [];
+        if (!Array.isArray(workoutExercises) || workoutExercises.length > 50) {
+          return res.status(400).json({ error: "Too many exercises" });
+        }
+        for (const ex of workoutExercises) {
+          if (
+            !ex ||
+            typeof ex !== "object" ||
+            (ex.sets !== undefined &&
+              (!Array.isArray(ex.sets) || ex.sets.length > 100))
+          ) {
+            return res.status(400).json({ error: "Invalid exercise entry" });
+          }
+        }
+        if (notes !== undefined && notes !== null) {
+          if (typeof notes !== "string" || notes.length > 2000) {
+            return res.status(400).json({ error: "Invalid notes" });
+          }
         }
 
         await saveWorkout(userId, {
           clientId,
           routineId,
           routineName,
-          exercises: exercises || [],
+          exercises: workoutExercises,
           startedAt,
           completedAt,
           durationMinutes,
@@ -1329,8 +1411,19 @@ Return JSON only:
           totalVolumeKg,
         });
 
-        // Update user's streak when completing a workout
-        const streak = await updateUserStreak(userId);
+        // Update the streak only for genuinely recent activity — an
+        // offline-queue replay of last week's workout is not activity
+        // today.
+        let streak;
+        const completedMs = completedAt ? Date.parse(completedAt) : NaN;
+        if (
+          Number.isFinite(completedMs) &&
+          Date.now() - completedMs < 48 * 60 * 60 * 1000
+        ) {
+          streak = await updateUserStreak(userId);
+        } else {
+          streak = await getUserStreak(userId);
+        }
         res.json({ success: true, streak });
       } catch (error) {
         console.error("Error saving workout:", error);
@@ -1383,12 +1476,23 @@ Return JSON only:
           .status(400)
           .json({ error: "durationSeconds must be a positive number" });
       }
+      if (route !== undefined && route !== null) {
+        if (!Array.isArray(route) || route.length > 20000) {
+          return res.status(400).json({ error: "Invalid route" });
+        }
+      }
+      // pace is NOT NULL in the schema; derive it when the client omits
+      // it instead of letting the insert fail as a 500.
+      const paceValue =
+        typeof paceMinPerKm === "number" && Number.isFinite(paceMinPerKm)
+          ? paceMinPerKm
+          : durationSeconds / 60 / distanceKm;
 
       await saveRun(userId, {
         clientId,
         distanceKm,
         durationSeconds,
-        paceMinPerKm,
+        paceMinPerKm: paceValue,
         calories,
         startedAt,
         completedAt,
@@ -1398,8 +1502,18 @@ Return JSON only:
         maxHeartRate,
       });
 
-      // Update user's streak when completing a run
-      const streak = await updateUserStreak(userId);
+      // Same recency gate as workouts — replayed old runs don't count
+      // as activity today.
+      let streak;
+      const completedMs = completedAt ? Date.parse(completedAt) : NaN;
+      if (
+        Number.isFinite(completedMs) &&
+        Date.now() - completedMs < 48 * 60 * 60 * 1000
+      ) {
+        streak = await updateUserStreak(userId);
+      } else {
+        streak = await getUserStreak(userId);
+      }
       res.json({ success: true, streak });
     } catch (error) {
       console.error("Error saving run:", error);
@@ -1457,18 +1571,41 @@ Return JSON only:
         const { clientId, foodData, date, createdAt, imageUri, mealType } =
           req.body;
 
-        if (!clientId || !foodData || !date) {
+        if (
+          !clientId ||
+          !foodData ||
+          !date ||
+          typeof clientId !== "string" ||
+          typeof date !== "string" ||
+          typeof foodData !== "object" ||
+          clientId.length > 128
+        ) {
           return res
             .status(400)
             .json({ error: "clientId, foodData, and date are required" });
         }
+        if (imageUri !== undefined && imageUri !== null) {
+          if (
+            typeof imageUri !== "string" ||
+            imageUri.length > 1_000_000 ||
+            !imageUri.startsWith("data:image/")
+          ) {
+            return res.status(400).json({ error: "Invalid imageUri" });
+          }
+        }
 
-        // Prevent logging food for future dates
+        // Reject clearly-future dates, with a one-day grace window: the
+        // client sends its LOCAL calendar date, which for users ahead of
+        // UTC is legitimately "tomorrow" by server time. (A 400 here is
+        // fatal — the client sync queue drops 4xx items permanently.)
         const logDate = new Date(date);
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
-        if (logDate >= tomorrow) {
+        if (isNaN(logDate.getTime())) {
+          return res.status(400).json({ error: "Invalid date" });
+        }
+        const limit = new Date();
+        limit.setDate(limit.getDate() + 2);
+        limit.setHours(0, 0, 0, 0);
+        if (logDate >= limit) {
           return res
             .status(400)
             .json({ error: "Cannot log food for future dates" });
@@ -1669,7 +1806,14 @@ Return JSON only:
       try {
         const userId = (req as any).userId;
         const { food } = req.body;
-        if (!food || !food.id) {
+        if (
+          !food ||
+          typeof food !== "object" ||
+          typeof food.id !== "string" ||
+          typeof food.name !== "string" ||
+          food.name.length > 200 ||
+          typeof food.calories !== "number"
+        ) {
           return res
             .status(400)
             .json({ error: "food object with id is required" });
@@ -1690,7 +1834,7 @@ Return JSON only:
       try {
         const userId = (req as any).userId;
         const { foods } = req.body;
-        if (!Array.isArray(foods)) {
+        if (!Array.isArray(foods) || foods.length > 500) {
           return res.status(400).json({ error: "foods array is required" });
         }
         for (const food of foods) {
@@ -1747,11 +1891,23 @@ Return JSON only:
         const userId = (req as any).userId;
         const { workoutReminders, streakAlerts, reminderHour, reminderMinute } =
           req.body;
+        const hour = reminderHour ?? 18;
+        const minute = reminderMinute ?? 0;
+        if (
+          typeof hour !== "number" ||
+          hour < 0 ||
+          hour > 23 ||
+          typeof minute !== "number" ||
+          minute < 0 ||
+          minute > 59
+        ) {
+          return res.status(400).json({ error: "Invalid reminder time" });
+        }
         await saveNotificationPrefs(userId, {
-          workoutReminders: workoutReminders ?? false,
-          streakAlerts: streakAlerts ?? false,
-          reminderHour: reminderHour ?? 18,
-          reminderMinute: reminderMinute ?? 0,
+          workoutReminders: workoutReminders === true,
+          streakAlerts: streakAlerts === true,
+          reminderHour: hour,
+          reminderMinute: minute,
         });
         res.json({ success: true });
       } catch (error) {
@@ -1983,6 +2139,10 @@ Return JSON only:
       try {
         const targetId = parseInt(req.params.userId);
         const page = parseInt(req.query.page as string) || 0;
+        if (isNaN(targetId))
+          return res.status(400).json({ error: "Invalid user ID" });
+        if (!(await canViewFollowLists(targetId, req.userId)))
+          return res.status(404).json({ error: "User not found" });
         const followers = await getFollowers(targetId, req.userId, page, 20);
         res.json(followers);
       } catch (error) {
@@ -1999,6 +2159,10 @@ Return JSON only:
       try {
         const targetId = parseInt(req.params.userId);
         const page = parseInt(req.query.page as string) || 0;
+        if (isNaN(targetId))
+          return res.status(400).json({ error: "Invalid user ID" });
+        if (!(await canViewFollowLists(targetId, req.userId)))
+          return res.status(404).json({ error: "User not found" });
         const following = await getFollowing(targetId, req.userId, page, 20);
         res.json(following);
       } catch (error) {
@@ -2247,6 +2411,8 @@ Return JSON only:
         const postId = parseInt(req.params.postId);
         if (isNaN(postId))
           return res.status(400).json({ error: "Invalid post ID" });
+        if ((await requireVisiblePost(postId, req.userId)) !== "ok")
+          return res.status(404).json({ error: "Post not found" });
         const success = await likePost(req.userId, postId);
         if (success) {
           const post = await getPost(postId, req.userId);
@@ -2297,6 +2463,8 @@ Return JSON only:
         const page = parseInt(req.query.page as string) || 0;
         if (isNaN(postId))
           return res.status(400).json({ error: "Invalid post ID" });
+        if ((await requireVisiblePost(postId, req.userId)) !== "ok")
+          return res.status(404).json({ error: "Post not found" });
         const comments = await getPostComments(postId, req.userId, page, 20);
         res.json({ comments, serverTime: new Date().toISOString() });
       } catch (error) {
@@ -2330,6 +2498,9 @@ Return JSON only:
         );
         if (!contentCheck.ok)
           return res.status(400).json({ error: contentCheck.error });
+
+        if ((await requireVisiblePost(postId, req.userId)) !== "ok")
+          return res.status(404).json({ error: "Post not found" });
 
         const comment = await addComment(
           req.userId,
@@ -2406,6 +2577,22 @@ Return JSON only:
           return res.status(400).json({ error: "Invalid user ID" });
         const profile = await getSocialProfile(targetId, req.userId);
         if (!profile) return res.status(404).json({ error: "User not found" });
+        // Private profile + not the owner + not a follower: identity only.
+        // The full payload leaked workout/run/distance totals and streaks
+        // for every is_public = false account.
+        if (
+          !profile.isPublic &&
+          targetId !== req.userId &&
+          !profile.isFollowedByMe
+        ) {
+          return res.json({
+            ...profile,
+            totalWorkouts: 0,
+            totalRuns: 0,
+            totalDistanceKm: 0,
+            currentStreak: 0,
+          });
+        }
         res.json(profile);
       } catch (error) {
         console.error("Error getting social profile:", error);
@@ -2431,18 +2618,17 @@ Return JSON only:
 
         let avatarUrl: string | undefined;
         if (body.avatarUrl !== undefined && body.avatarUrl !== null) {
-          // Empty string means "clear the avatar" — allow that through.
+          // Only "" (clear) is accepted here. Avatar changes go through
+          // POST /api/social/avatar, which stores a resized data URI.
+          // Accepting arbitrary http(s) URLs let a profile point native
+          // clients at third-party images (IP-leak/tracking pixel), and
+          // such URLs can't be served by the avatar media endpoint.
           if (body.avatarUrl === "") {
             avatarUrl = "";
           } else {
-            const urlCheck = requireImageUrl(
-              body.avatarUrl,
-              "avatarUrl",
-              LIMITS.AVATAR_URL,
-            );
-            if (!urlCheck.ok)
-              return res.status(400).json({ error: urlCheck.error });
-            avatarUrl = urlCheck.value;
+            return res.status(400).json({
+              error: "Use POST /api/social/avatar to change the avatar",
+            });
           }
         }
 
@@ -2465,10 +2651,8 @@ Return JSON only:
 
   // Avatar upload — accepts a base64 JPEG/PNG, resizes via sharp to a
   // bounded 256x256 square, stores the result as a data URI in
-  // users.avatar_url. Separate from PUT /social/profile because that
-  // endpoint validates `avatarUrl` as an http(s) URL via requireImageUrl;
-  // avatars are stored inline as data URIs (consistent with the existing
-  // base64 image_data pattern on posts) and need a different validator.
+  // users.avatar_url. This is the ONLY write path for avatars; PUT
+  // /social/profile accepts avatarUrl solely as "" to clear it.
   app.post(
     "/api/social/avatar",
     requireAuth,

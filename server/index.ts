@@ -113,16 +113,17 @@ async function startServer() {
   }
 
   function setupBodyParsing(app: express.Application) {
-    app.use(
-      express.json({
-        limit: "10mb",
-        verify: (req, _res, buf) => {
-          req.rawBody = buf;
-        },
-      }),
-    );
+    const verify = (req: any, _res: unknown, buf: Buffer) => {
+      req.rawBody = buf;
+    };
+    // The photo-analysis endpoint legitimately carries a ~3 MB base64
+    // image (plus JSON overhead). Everything else fits comfortably in
+    // 2 MB — the old global 10 MB limit let unauthenticated requests
+    // post 10 MB bodies at every route.
+    app.use("/api/foods/analyze-photo", express.json({ limit: "8mb", verify }));
+    app.use(express.json({ limit: "2mb", verify }));
 
-    app.use(express.urlencoded({ extended: false, limit: "10mb" }));
+    app.use(express.urlencoded({ extended: false, limit: "1mb" }));
   }
 
   function setupRequestLogging(app: express.Application) {

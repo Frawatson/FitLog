@@ -13,6 +13,8 @@ import {
   verifyPasswordResetCode,
   markResetCodeUsed,
   updateUserPassword,
+  createPendingRegistration,
+  consumePendingRegistration,
 } from "./db";
 import { Resend } from "resend";
 
@@ -238,46 +240,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 // responds the same way, and the differentiation happens only inside the
 // email we send (confirmation link vs. "someone tried to register").
 
-const REGISTER_CONFIRM_TOKEN_TYPE = "register-confirm";
-const REGISTER_CONFIRM_EXPIRES_IN = "24h";
-
-interface RegisterConfirmPayload {
-  type: typeof REGISTER_CONFIRM_TOKEN_TYPE;
-  email: string;
-  passwordHash: string;
-  name: string;
-}
-
-function signRegisterConfirmToken(
-  payload: Omit<RegisterConfirmPayload, "type">,
-): string {
-  return jwt.sign(
-    { type: REGISTER_CONFIRM_TOKEN_TYPE, ...payload },
-    JWT_SECRET,
-    { algorithm: JWT_ALGORITHM, expiresIn: REGISTER_CONFIRM_EXPIRES_IN },
-  );
-}
-
-function verifyRegisterConfirmToken(
-  token: string,
-): RegisterConfirmPayload | null {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET, {
-      algorithms: [JWT_ALGORITHM],
-    }) as RegisterConfirmPayload;
-    if (decoded.type !== REGISTER_CONFIRM_TOKEN_TYPE) return null;
-    if (
-      typeof decoded.email !== "string" ||
-      typeof decoded.passwordHash !== "string" ||
-      typeof decoded.name !== "string"
-    ) {
-      return null;
-    }
-    return decoded;
-  } catch {
-    return null;
-  }
-}
+// The confirmation link carries an opaque random token; the pending
+// account (including its bcrypt hash) stays server-side in the
+// pending_registrations table. The previous JWT design put the hash
+// INSIDE the emailed URL — signed but not encrypted — handing it to
+// mailboxes, link scanners, proxies and browser history for offline
+// cracking.
 
 function registerConfirmUrl(token: string): string {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
@@ -443,16 +411,15 @@ router.post("/register", authLimiter, async (req: Request, res: Response) => {
       // "you already have an account" vs. "confirm your registration".
       sendRegisterAttemptEmail(normalizedEmail).catch(() => {});
     } else {
-      const confirmToken = signRegisterConfirmToken({
-        email: normalizedEmail,
-        passwordHash,
-        name: normalizedName,
-      });
-      sendRegisterConfirmEmail(
-        normalizedEmail,
-        normalizedName,
-        confirmToken,
-      ).catch(() => {});
+      createPendingRegistration(normalizedEmail, passwordHash, normalizedName)
+        .then((confirmToken) =>
+          sendRegisterConfirmEmail(
+            normalizedEmail,
+            normalizedName,
+            confirmToken,
+          ),
+        )
+        .catch(() => {});
     }
 
     return res.status(202).json(GENERIC_REGISTER_RESPONSE);
@@ -475,7 +442,7 @@ router.get(
   registerConfirmLimiter,
   async (req: Request, res: Response) => {
     const token = typeof req.query.token === "string" ? req.query.token : "";
-    const payload = token ? verifyRegisterConfirmToken(token) : null;
+    const payload = token ? await consumePendingRegistration(token) : null;
 
     if (!payload) {
       return res
@@ -532,7 +499,15 @@ router.post("/login", authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (
+      !email ||
+      !password ||
+      typeof email !== "string" ||
+      typeof password !== "string"
+    ) {
+      // The typeof checks matter: a non-string email sailed past the
+      // lockout check (whose catch fails open) and then crashed in
+      // getUserByEmail as a 500.
       return res.status(400).json({ error: "Email and password are required" });
     }
 
@@ -559,6 +534,14 @@ router.post("/login", authLimiter, async (req: Request, res: Response) => {
     // Clear failed attempts on successful login
     await clearFailedAttempts(email);
 
+    // Rotate the session id at privilege change (session-fixation
+    // hygiene), then record the login.
+    await new Promise<void>((resolve) => {
+      req.session.regenerate((err) => {
+        if (err) console.error("Session regenerate failed:", err);
+        resolve();
+      });
+    });
     req.session.userId = user.id;
     const token = generateToken(user.id);
 
@@ -737,7 +720,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { email } = req.body;
-      if (!email) {
+      if (!email || typeof email !== "string") {
         return res.status(400).json({ error: "Email is required" });
       }
       if (!EMAIL_REGEX.test(email)) {
@@ -759,7 +742,10 @@ router.post(
 
       const resendApiKey = process.env.RESEND_API_KEY;
       if (resendApiKey) {
-        try {
+        // Fire-and-forget: awaiting the Resend round-trip only on the
+        // account-exists path made response timing an account oracle
+        // (the register flow already avoids exactly this).
+        (async () => {
           const resend = new Resend(resendApiKey);
           await resend.emails.send({
             from: "Gbolo Fitness and Nutrition <support@gbolo.fit>",
@@ -776,9 +762,9 @@ router.post(
             </div>
           `,
           });
-        } catch (emailError) {
+        })().catch((emailError) => {
           console.error("Failed to send reset email:", emailError);
-        }
+        });
       } else {
         console.log(`[DEV] Password reset code for ${email}: ${code}`);
       }
@@ -801,7 +787,14 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { email, code, newPassword } = req.body;
-      if (!email || !code || !newPassword) {
+      if (
+        typeof email !== "string" ||
+        typeof code !== "string" ||
+        typeof newPassword !== "string" ||
+        !email ||
+        !code ||
+        !newPassword
+      ) {
         return res
           .status(400)
           .json({ error: "Email, code, and new password are required" });
