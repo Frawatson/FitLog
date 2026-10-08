@@ -55,11 +55,9 @@ import {
   searchUsers,
   getSocialProfile,
   updateSocialProfile,
-  getExerciseGifCache,
   saveExerciseGifCache,
   bulkSaveExerciseMetadata,
   getExerciseGifDataById,
-  fuzzySearchExerciseGifCache,
   blockUser,
   unblockUser,
   getBlockedUsers,
@@ -73,6 +71,12 @@ import {
   updateComment,
 } from "./db";
 import { requireAuth } from "./auth";
+import {
+  getCatalog,
+  resolveExercise,
+  invalidateCatalog,
+} from "./exerciseCatalog";
+import { generateRoutine } from "./routineGenerator";
 import {
   LIMITS,
   POST_TYPES,
@@ -89,24 +93,6 @@ import {
   userRateLimiter,
   delimitUserContent,
 } from "./validators";
-
-// Map frontend muscle group IDs to ExerciseDB body_part / target_muscle search terms
-const MUSCLE_SEARCH_TERMS: Record<string, string[]> = {
-  chest: ["pectorals", "chest"],
-  shoulders: ["delts", "shoulders"],
-  biceps: ["biceps"],
-  triceps: ["triceps"],
-  forearms: ["forearms"],
-  lats: ["lats", "back"],
-  middle_back: ["upper back", "back"],
-  lower_back: ["spine", "back"],
-  traps: ["traps"],
-  abs: ["abs", "waist"],
-  quadriceps: ["quads", "upper legs"],
-  hamstrings: ["hamstrings", "upper legs"],
-  glutes: ["glutes", "upper legs"],
-  calves: ["calves", "lower legs"],
-};
 
 // One OpenAI client per process instead of per request — construction
 // isn't free and the config never changes at runtime.
@@ -642,45 +628,33 @@ Return JSON only:
     },
   );
 
-  // Exercise library - returns all exercises from cache with GIF status
-  // The ExerciseDB catalog (~1,300 rows) changes only when the admin
-  // seed endpoints run, but two screens refetch it on every open. Cache
-  // it in-process for an hour per worker and let clients cache it too.
-  let exerciseLibraryCache: { at: number; data: any[] } | null = null;
-  const EXERCISE_LIBRARY_TTL_MS = 60 * 60 * 1000;
-
+  // Exercise library: the whole catalog (no image bytes) with the
+  // corrected metadata from exerciseCatalog. `popular` marks the curated
+  // famous names so clients can rank them first; `imageId` feeds the
+  // thumbnail endpoint.
   app.get("/api/exercises/library", async (_req: Request, res: Response) => {
     try {
-      if (
-        !exerciseLibraryCache ||
-        Date.now() - exerciseLibraryCache.at > EXERCISE_LIBRARY_TTL_MS
-      ) {
-        const result = await pool.query(
-          `SELECT exercise_name, body_part, equipment, target_muscle, gif_data IS NOT NULL AS has_gif
-           FROM exercise_gif_cache
-           ORDER BY exercise_name ASC`,
-        );
-        exerciseLibraryCache = {
-          at: Date.now(),
-          data: result.rows.map((row) => ({
-            name: row.exercise_name,
-            bodyPart: row.body_part,
-            equipment: row.equipment,
-            targetMuscle: row.target_muscle,
-            hasGif: row.has_gif,
-          })),
-        };
-      }
+      const catalog = await getCatalog();
+      const data = catalog.entries
+        .map((e) => ({
+          name: e.name,
+          bodyPart: e.bodyPart,
+          equipment: e.equipment,
+          targetMuscle: e.targetMuscle,
+          hasGif: true,
+          popular: e.popular,
+          imageId: e.exerciseDbId,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
       res.setHeader("Cache-Control", "public, max-age=3600");
-      res.json(exerciseLibraryCache.data);
+      res.json(data);
     } catch (error) {
       console.error("Error fetching exercise library:", error);
       res.status(500).json({ error: "Failed to fetch exercise library" });
     }
   });
 
-  // Exercise GIF / demo info endpoint
-  // Exercise info lookup (cache + local fallback)
+  // Exercise info + demo image for a free-form exercise name.
   app.get("/api/exercises/gif", async (req: Request, res: Response) => {
     try {
       const { name } = req.query;
@@ -689,22 +663,20 @@ Return JSON only:
       }
 
       const exerciseName = name.trim();
-
-      // 1. Check database cache by exact name
-      const cached = await getExerciseGifCache(exerciseName);
-      if (cached?.gifUrl) {
-        const { gifData, ...rest } = cached;
-        return res.json({ ...rest, source: "cache" });
+      const entry = await resolveExercise(exerciseName);
+      if (entry) {
+        return res.json({
+          exerciseName: entry.name,
+          gifUrl: `/api/exercises/image/${entry.exerciseDbId}`,
+          bodyPart: entry.bodyPart,
+          equipment: entry.equipment,
+          targetMuscle: entry.targetMuscle,
+          instructions: entry.instructions,
+          source: "cache",
+        });
       }
 
-      // 2. Fuzzy search cache for entries with GIF data (e.g. "Squat" → "Bodyweight Squats")
-      const fuzzy = await fuzzySearchExerciseGifCache(exerciseName);
-      if (fuzzy?.gifUrl) {
-        const { gifData, ...rest } = fuzzy;
-        return res.json({ ...rest, exerciseName, source: "cache" });
-      }
-
-      // 3. No match found in ExerciseDB cache
+      // No confident match: show "no demo" rather than guess an image.
       res.json({
         exerciseName,
         gifUrl: null,
@@ -736,6 +708,43 @@ Return JSON only:
         res.send(buffer);
       } catch {
         res.status(500).send("Failed to fetch image");
+      }
+    },
+  );
+
+  // Small static first-frame thumbnail for list rows, so the library
+  // can be scanned visually without downloading ~100 KB animated GIFs
+  // per row. Rendered once per worker and kept in a bounded memory
+  // cache; clients cache it for good (ids never change images).
+  const thumbCache = new Map<string, Buffer>();
+  const THUMB_CACHE_MAX = 2000;
+  app.get(
+    "/api/exercises/thumb/:exerciseId",
+    async (req: Request, res: Response) => {
+      try {
+        const id = String(req.params.exerciseId);
+        if (!/^[0-9]{1,6}$/.test(id)) {
+          return res.status(400).send("Invalid id");
+        }
+        let thumb = thumbCache.get(id);
+        if (!thumb) {
+          const gifData = await getExerciseGifDataById(id);
+          if (!gifData) return res.status(404).send("Image not found");
+          thumb = await sharp(Buffer.from(gifData, "base64"), { page: 0 })
+            .resize(96, 96, { fit: "contain", background: "#ffffff" })
+            .webp({ quality: 70 })
+            .toBuffer();
+          if (thumbCache.size >= THUMB_CACHE_MAX) {
+            const oldest = thumbCache.keys().next().value;
+            if (oldest !== undefined) thumbCache.delete(oldest);
+          }
+          thumbCache.set(id, thumb);
+        }
+        res.setHeader("Content-Type", "image/webp");
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        res.send(thumb);
+      } catch {
+        res.status(500).send("Failed to render thumbnail");
       }
     },
   );
@@ -800,6 +809,7 @@ Return JSON only:
         const cleanup = await pool.query(
           `DELETE FROM exercise_gif_cache WHERE exercisedb_id IS NULL`,
         );
+        invalidateCatalog();
 
         res.json({
           totalFromApi: exercises.length,
@@ -914,6 +924,7 @@ Return JSON only:
 
         await new Promise((r) => setTimeout(r, delayMs));
       }
+      invalidateCatalog();
 
       res.json({
         success,
@@ -953,167 +964,36 @@ Return JSON only:
   // Generate routine - creates a balanced workout from exercise_gif_cache.
   // The training scheme (sets/reps/rest) is driven by `goal`; `difficulty`
   // shifts the set count one notch for novice/advanced lifters.
+  // Routine generation lives in routineGenerator.ts (testable without
+  // HTTP). mode "split" turns a multi-muscle selection into separate
+  // push/pull/legs workouts instead of one oversized session.
   app.post("/api/generate-routine", requireAuth, async (req, res) => {
     try {
-      const { muscleGroups, difficulty, name, equipment, goal } = req.body;
-
-      if (
-        !muscleGroups ||
-        !Array.isArray(muscleGroups) ||
-        muscleGroups.length === 0
-      ) {
-        return res
-          .status(400)
-          .json({ error: "At least one muscle group is required" });
+      const { muscleGroups, difficulty, name, equipment, goal, mode } =
+        req.body ?? {};
+      const result = await generateRoutine({
+        muscleGroups,
+        difficulty,
+        name,
+        equipment,
+        goal,
+        mode,
+      });
+      if (!result.ok) {
+        return res.status(result.status).json({ error: result.error });
       }
-
-      const difficultyLevel =
-        difficulty === "beginner"
-          ? "beginner"
-          : difficulty === "advanced" || difficulty === "expert"
-            ? "advanced"
-            : "intermediate";
-
-      // Goal drives the training stimulus. Defaults to hypertrophy when
-      // the client sends an unknown value (or no value at all).
-      const goalScheme = (() => {
-        switch (goal) {
-          case "build_strength":
-            return { sets: 5, reps: "5", restSeconds: 180 };
-          case "lose_fat":
-            return { sets: 3, reps: "15", restSeconds: 45 };
-          case "endurance":
-            return { sets: 3, reps: "20", restSeconds: 30 };
-          case "general_fitness":
-            return { sets: 3, reps: "10", restSeconds: 60 };
-          case "build_muscle":
-          default:
-            return { sets: 4, reps: "10", restSeconds: 75 };
-        }
-      })();
-      const setOffset =
-        difficultyLevel === "beginner"
-          ? -1
-          : difficultyLevel === "advanced"
-            ? 1
-            : 0;
-      const sets = Math.max(2, goalScheme.sets + setOffset);
-      const reps = goalScheme.reps;
-      const restSeconds = goalScheme.restSeconds;
-
-      // Routines API caps at 30 exercises; respect that here so a generated
-      // routine never fails save-time validation.
-      const MAX_EXERCISES = 30;
-      const exercisesPerMuscleBase = muscleGroups.length <= 2 ? 4 : 3;
-      const exercisesPerMuscle = Math.max(
-        1,
-        Math.min(
-          exercisesPerMuscleBase,
-          Math.floor(MAX_EXERCISES / muscleGroups.length),
-        ),
-      );
-
-      const routineExercises: any[] = [];
-      const usedExerciseNames = new Set<string>();
-      const partialMuscles: string[] = []; // muscles that produced 0 exercises after dedup + equipment filter
-
-      // Build equipment filter if user selected specific equipment
-      const equipmentFilter =
-        equipment && Array.isArray(equipment) && equipment.length > 0
-          ? equipment.map((e: string) => String(e).toLowerCase())
-          : null;
-
-      // Pull a deep pool per muscle (20 rows) so global dedup + equipment
-      // post-filter don't starve the pick. The previous LIMIT of 3*N could
-      // come back fully filtered-out for niche equipment selections.
-      const POOL_SIZE = 20;
-
-      for (const muscle of muscleGroups) {
-        const muscleLower = String(muscle).toLowerCase();
-        const searchTerms = MUSCLE_SEARCH_TERMS[muscleLower] || [
-          muscleLower.replace("_", " "),
-        ];
-
-        // Build WHERE conditions for all search terms
-        const conditions = searchTerms
-          .flatMap((_term: string, i: number) => [
-            `LOWER(target_muscle) = $${i + 1}`,
-            `LOWER(body_part) = $${i + 1}`,
-          ])
-          .join(" OR ");
-
-        const query = `SELECT exercise_name, body_part, equipment, target_muscle, instructions
-           FROM exercise_gif_cache
-           WHERE exercisedb_id IS NOT NULL
-             AND (${conditions})
-           ORDER BY RANDOM()
-           LIMIT $${searchTerms.length + 1}`;
-
-        const params: any[] = [...searchTerms, POOL_SIZE];
-
-        const cacheResult = await pool.query(query, params);
-
-        let muscleExercisesCount = 0;
-        for (const row of cacheResult.rows) {
-          if (muscleExercisesCount >= exercisesPerMuscle) break;
-          if (usedExerciseNames.has(row.exercise_name.toLowerCase())) continue;
-
-          // Filter by equipment if specified
-          if (equipmentFilter) {
-            const exEquipment = (row.equipment || "").toLowerCase();
-            const matchesEquipment = equipmentFilter.some(
-              (eq: string) =>
-                exEquipment.includes(eq) || eq.includes(exEquipment),
-            );
-            if (!matchesEquipment) continue;
-          }
-
-          usedExerciseNames.add(row.exercise_name.toLowerCase());
-          routineExercises.push({
-            id: `gen-${Date.now()}-${routineExercises.length}`,
-            name: row.exercise_name,
-            muscleGroup:
-              muscle.charAt(0).toUpperCase() +
-              muscle.slice(1).replace("_", " "),
-            equipment: row.equipment || "body weight",
-            sets,
-            reps,
-            restSeconds,
-            instructions: row.instructions,
-          });
-          muscleExercisesCount++;
-        }
-
-        if (muscleExercisesCount === 0) {
-          partialMuscles.push(muscle);
-        }
-      }
-
-      if (routineExercises.length === 0) {
-        return res.status(422).json({
-          error:
-            "No exercises matched your filters. Try removing equipment restrictions or choosing different muscle groups.",
-        });
-      }
-
-      // Cap the default name at the 100-char limit that /api/routines
-      // enforces on save — otherwise selecting many muscle groups produces
-      // a name that would fail sync silently.
-      const defaultName = `${muscleGroups
-        .map(
-          (m: string) =>
-            m.charAt(0).toUpperCase() + m.slice(1).replace("_", " "),
-        )
-        .join(" & ")} Workout`.slice(0, 100);
-
+      const first = result.sessions[0];
       res.json({
+        mode: result.mode,
+        sessions: result.sessions,
+        // Legacy single-routine shape for clients that predate sessions.
         id: `routine-${Date.now()}`,
-        name: name || defaultName,
-        exercises: routineExercises,
-        difficulty: difficultyLevel,
+        name: first.name,
+        exercises: first.exercises,
+        difficulty: result.difficulty,
         goal: goal || "build_muscle",
         muscleGroups,
-        partialMuscles,
+        partialMuscles: result.partialMuscles,
         generatedBy: "database",
       });
     } catch (error) {

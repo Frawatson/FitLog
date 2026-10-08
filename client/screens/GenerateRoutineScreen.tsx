@@ -28,15 +28,38 @@ import { exerciseSlug } from "@/lib/exerciseSlug";
 import type { RootStackParamList } from "@/navigation/RootStackNavigator";
 import type { Routine, RoutineExercise } from "@/types";
 import { v4 as uuidv4 } from "uuid";
+import {
+  proposeSplit,
+  shouldOfferSplit,
+  muscleListLabel,
+} from "../../shared/workoutSplit";
 
-// Preview shape captured from server response and rendered before save.
-// We hold the server's default name + the partialMuscles warning so the
-// preview view can show both and the user can still rename / regenerate.
-type PreviewRoutine = {
+type GenerationMode = "single" | "split";
+
+// One generated workout in the preview. Exercises carry sets/rest so the
+// card can show a time estimate; `name` is the user's rename (empty =
+// use defaultName).
+type PreviewSession = {
+  key: string;
   defaultName: string;
-  exercises: RoutineExercise[];
+  name: string;
+  exercises: (RoutineExercise & { sets: number; restSeconds: number })[];
+};
+
+type PreviewResult = {
+  mode: GenerationMode;
+  sessions: PreviewSession[];
   partialMuscles: string[];
 };
+
+// Rough session length: each set plus its rest, ~40s of work per set.
+function estimateMinutes(session: PreviewSession): number {
+  const seconds = session.exercises.reduce(
+    (acc, ex) => acc + ex.sets * (ex.restSeconds + 40),
+    0,
+  );
+  return Math.max(5, Math.round(seconds / 60 / 5) * 5);
+}
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -192,8 +215,11 @@ export default function GenerateRoutineScreen() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<PreviewRoutine | null>(null);
+  const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Asked when the selection spans several training days: one session
+  // or a push/pull/legs split. Reset whenever the muscle set changes.
+  const [askSplit, setAskSplit] = useState(false);
 
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
@@ -212,6 +238,7 @@ export default function GenerateRoutineScreen() {
 
   const toggleMuscle = (muscleId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAskSplit(false);
     setSelectedMuscles((prev) =>
       prev.includes(muscleId)
         ? prev.filter((id) => id !== muscleId)
@@ -238,7 +265,9 @@ export default function GenerateRoutineScreen() {
     setSelectedGoal(goalId);
   };
 
-  const fetchGeneratedRoutine = async (): Promise<PreviewRoutine> => {
+  const fetchGeneratedRoutine = async (
+    mode: GenerationMode,
+  ): Promise<PreviewResult> => {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
     const apiUrl = getApiUrl();
     const response = await fetch(
@@ -252,10 +281,11 @@ export default function GenerateRoutineScreen() {
         body: JSON.stringify({
           muscleGroups: selectedMuscles,
           difficulty: selectedDifficulty,
-          name: routineName || undefined,
+          name: mode === "single" ? routineName || undefined : undefined,
           equipment:
             selectedEquipment.length > 0 ? selectedEquipment : undefined,
           goal: selectedGoal,
+          mode,
         }),
       },
     );
@@ -266,44 +296,52 @@ export default function GenerateRoutineScreen() {
     }
 
     const data = await response.json();
-    const rawExercises = Array.isArray(data.exercises) ? data.exercises : [];
-    const exercises: RoutineExercise[] = rawExercises.map(
-      (ex: any, index: number) => ({
-        // Slug-derived id so this exercise's history matches the same lift
-        // saved from a template or the exercise library.
-        exerciseId:
-          typeof ex.name === "string" && ex.name
-            ? exerciseSlug(ex.name)
-            : uuidv4(),
-        exerciseName: ex.name,
-        order: index,
-      }),
-    );
+    // `sessions` is the current shape; fall back to the legacy single
+    // routine (name + exercises) for an older server.
+    const rawSessions: any[] =
+      Array.isArray(data.sessions) && data.sessions.length > 0
+        ? data.sessions
+        : [{ name: data.name, exercises: data.exercises }];
+
+    const sessions: PreviewSession[] = rawSessions.map((sess, si) => ({
+      key: `${si}-${Date.now()}`,
+      defaultName:
+        typeof sess.name === "string" && sess.name
+          ? sess.name
+          : "Generated Workout",
+      name: "",
+      exercises: (Array.isArray(sess.exercises) ? sess.exercises : []).map(
+        (ex: any, index: number) => ({
+          // Slug-derived id so this exercise's history matches the same
+          // lift saved from a template or the exercise library.
+          exerciseId:
+            typeof ex.name === "string" && ex.name
+              ? exerciseSlug(ex.name)
+              : uuidv4(),
+          exerciseName: ex.name,
+          order: index,
+          sets: typeof ex.sets === "number" ? ex.sets : 3,
+          restSeconds: typeof ex.restSeconds === "number" ? ex.restSeconds : 60,
+        }),
+      ),
+    }));
 
     return {
-      defaultName:
-        typeof data.name === "string" && data.name
-          ? data.name
-          : "Generated Workout",
-      exercises,
+      mode: data.mode === "split" ? "split" : "single",
+      sessions,
       partialMuscles: Array.isArray(data.partialMuscles)
         ? data.partialMuscles
         : [],
     };
   };
 
-  const generateRoutine = async () => {
-    if (selectedMuscles.length === 0) {
-      setError("Please select at least one muscle group");
-      return;
-    }
-
+  const runGeneration = async (mode: GenerationMode) => {
     setError(null);
+    setAskSplit(false);
     setIsGenerating(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     try {
-      const result = await fetchGeneratedRoutine();
+      const result = await fetchGeneratedRoutine(mode);
       setPreview(result);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: any) {
@@ -315,34 +353,87 @@ export default function GenerateRoutineScreen() {
     }
   };
 
-  const regenerateRoutine = async () => {
-    if (isGenerating || isSaving) return;
-    setError(null);
-    setIsGenerating(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    try {
-      const result = await fetchGeneratedRoutine();
-      setPreview(result);
-    } catch (err: any) {
-      console.error("Error regenerating routine:", err);
-      setError(err.message || "Failed to regenerate. Please try again.");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setIsGenerating(false);
+  const generateRoutine = async () => {
+    if (selectedMuscles.length === 0) {
+      setError("Please select at least one muscle group");
+      return;
     }
+    // Several training days selected (e.g. chest + back + legs): ask
+    // instead of silently cramming everything into one session.
+    if (shouldOfferSplit(selectedMuscles)) {
+      setError(null);
+      setAskSplit(true);
+      return;
+    }
+    await runGeneration("single");
+  };
+
+  const regenerateRoutine = async () => {
+    if (isGenerating || isSaving || !preview) return;
+    await runGeneration(preview.mode);
+  };
+
+  const switchMode = async () => {
+    if (isGenerating || isSaving || !preview) return;
+    await runGeneration(preview.mode === "split" ? "single" : "split");
+  };
+
+  const renameSession = (key: string, value: string) => {
+    setPreview((prev) =>
+      prev
+        ? {
+            ...prev,
+            sessions: prev.sessions.map((sess) =>
+              sess.key === key ? { ...sess, name: value } : sess,
+            ),
+          }
+        : prev,
+    );
+  };
+
+  const removeExercise = (key: string, index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPreview((prev) =>
+      prev
+        ? {
+            ...prev,
+            sessions: prev.sessions.map((sess) =>
+              sess.key === key
+                ? {
+                    ...sess,
+                    exercises: sess.exercises
+                      .filter((_, i) => i !== index)
+                      .map((ex, i) => ({ ...ex, order: i })),
+                  }
+                : sess,
+            ),
+          }
+        : prev,
+    );
   };
 
   const savePreviewedRoutine = async () => {
     if (!preview || isSaving) return;
+    const toSave = preview.sessions.filter((sess) => sess.exercises.length > 0);
+    if (toSave.length === 0) return;
     setIsSaving(true);
     try {
-      const newRoutine: Routine = {
-        id: uuidv4(),
-        name: routineName.trim() || preview.defaultName,
-        exercises: preview.exercises,
-        createdAt: new Date().toISOString(),
-      };
-      await storage.saveRoutine(newRoutine);
+      for (const sess of toSave) {
+        const newRoutine: Routine = {
+          id: uuidv4(),
+          name: sess.name.trim() || sess.defaultName,
+          // Strip preview-only fields before persisting.
+          exercises: sess.exercises.map(
+            ({ exerciseId, exerciseName, order }) => ({
+              exerciseId,
+              exerciseName,
+              order,
+            }),
+          ),
+          createdAt: new Date().toISOString(),
+        };
+        await storage.saveRoutine(newRoutine);
+      }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       navigation.navigate("Main", { screen: "RoutinesTab" });
     } catch (err: any) {
@@ -368,6 +459,11 @@ export default function GenerateRoutineScreen() {
   )?.label;
 
   if (preview) {
+    const savable = preview.sessions.filter(
+      (sess) => sess.exercises.length > 0,
+    );
+    const isSplit = preview.mode === "split" && preview.sessions.length > 1;
+    const canSwitch = shouldOfferSplit(selectedMuscles);
     return (
       <ThemedView style={styles.container}>
         <ScrollView
@@ -376,41 +472,25 @@ export default function GenerateRoutineScreen() {
             paddingTop: headerHeight + Spacing.lg,
             paddingBottom: insets.bottom + Spacing["3xl"],
             paddingHorizontal: Spacing.lg,
+            width: "100%",
+            maxWidth: 720,
+            alignSelf: "center",
           }}
           showsVerticalScrollIndicator={false}
         >
           <ThemedText type="h2" style={{ marginBottom: Spacing.xs }}>
-            Your workout
+            {isSplit
+              ? `Your ${preview.sessions.length} workouts`
+              : "Your workout"}
           </ThemedText>
           <ThemedText
             type="small"
             style={{ color: theme.textSecondary, marginBottom: Spacing.lg }}
           >
-            Review the exercises below. Rename, regenerate, or save.
+            {isSplit
+              ? "Each one saves as its own routine. Rename them, remove exercises, or regenerate."
+              : "Rename it, remove exercises you don't want, regenerate, or save."}
           </ThemedText>
-
-          <ThemedText
-            type="caption"
-            style={{ color: theme.textSecondary, marginBottom: Spacing.xs }}
-          >
-            Routine name
-          </ThemedText>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: theme.backgroundDefault,
-                color: theme.text,
-                borderColor: theme.border,
-                marginBottom: Spacing.lg,
-              },
-            ]}
-            placeholder={preview.defaultName}
-            placeholderTextColor={theme.textSecondary}
-            value={routineName}
-            onChangeText={setRoutineName}
-            maxLength={100}
-          />
 
           {preview.partialMuscles.length > 0 ? (
             <View
@@ -425,48 +505,87 @@ export default function GenerateRoutineScreen() {
                 style={{ color: theme.text, marginLeft: Spacing.sm, flex: 1 }}
               >
                 No exercises matched for:{" "}
-                {preview.partialMuscles
-                  .map((m) => m.replace("_", " "))
-                  .join(", ")}
-                . Try regenerating or relaxing equipment filters.
+                {muscleListLabel(preview.partialMuscles)}. Try relaxing the
+                equipment filter.
               </ThemedText>
             </View>
           ) : null}
 
-          <View
-            style={[
-              styles.previewCard,
-              {
-                backgroundColor: theme.backgroundSecondary,
-                borderColor: theme.border,
-              },
-            ]}
-          >
-            <ThemedText type="h4" style={{ marginBottom: Spacing.md }}>
-              {preview.exercises.length} exercise
-              {preview.exercises.length === 1 ? "" : "s"}
-            </ThemedText>
-            {preview.exercises.map((ex, index) => (
-              <View key={ex.exerciseId} style={styles.previewRow}>
+          {preview.sessions.map((sess) => (
+            <View
+              key={sess.key}
+              style={[
+                styles.previewCard,
+                {
+                  backgroundColor: theme.backgroundSecondary,
+                  borderColor: theme.border,
+                },
+              ]}
+            >
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: theme.backgroundDefault,
+                    color: theme.text,
+                    borderColor: theme.border,
+                    marginBottom: Spacing.sm,
+                  },
+                ]}
+                placeholder={sess.defaultName}
+                placeholderTextColor={theme.textSecondary}
+                value={sess.name}
+                onChangeText={(v) => renameSession(sess.key, v)}
+                maxLength={100}
+                accessibilityLabel="Workout name"
+              />
+              <ThemedText
+                type="caption"
+                style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+              >
+                {sess.exercises.length} exercise
+                {sess.exercises.length === 1 ? "" : "s"}
+                {sess.exercises.length > 0
+                  ? ` \· ~${estimateMinutes(sess)} min`
+                  : ""}
+              </ThemedText>
+              {sess.exercises.map((ex, index) => (
                 <View
-                  style={[
-                    styles.previewNumber,
-                    { backgroundColor: theme.primary },
-                  ]}
+                  key={`${ex.exerciseId}-${index}`}
+                  style={styles.previewRow}
                 >
-                  <ThemedText
-                    type="small"
-                    style={{ color: "#FFFFFF", fontWeight: "600" }}
+                  <View
+                    style={[
+                      styles.previewNumber,
+                      { backgroundColor: theme.primary },
+                    ]}
                   >
-                    {index + 1}
+                    <ThemedText
+                      type="small"
+                      style={{ color: "#FFFFFF", fontWeight: "600" }}
+                    >
+                      {index + 1}
+                    </ThemedText>
+                  </View>
+                  <ThemedText type="body" style={{ flex: 1 }}>
+                    {ex.exerciseName}
                   </ThemedText>
+                  <AnimatedPress
+                    onPress={() => removeExercise(sess.key, index)}
+                    accessibilityLabel={`Remove ${ex.exerciseName}`}
+                    style={styles.removeButton}
+                  >
+                    <Feather name="x" size={18} color={theme.textSecondary} />
+                  </AnimatedPress>
                 </View>
-                <ThemedText type="body" style={{ flex: 1 }}>
-                  {ex.exerciseName}
+              ))}
+              {sess.exercises.length === 0 ? (
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  All exercises removed \— this workout won&apos;t be saved.
                 </ThemedText>
-              </View>
-            ))}
-          </View>
+              ) : null}
+            </View>
+          ))}
 
           {error ? (
             <View
@@ -487,9 +606,7 @@ export default function GenerateRoutineScreen() {
 
           <Button
             onPress={savePreviewedRoutine}
-            disabled={
-              isSaving || isGenerating || preview.exercises.length === 0
-            }
+            disabled={isSaving || isGenerating || savable.length === 0}
             style={styles.generateButton}
           >
             {isSaving ? (
@@ -511,7 +628,9 @@ export default function GenerateRoutineScreen() {
                     fontWeight: "700",
                   }}
                 >
-                  Save Routine
+                  {savable.length > 1
+                    ? `Save ${savable.length} Workouts`
+                    : "Save Routine"}
                 </ThemedText>
               </View>
             )}
@@ -546,6 +665,23 @@ export default function GenerateRoutineScreen() {
               </View>
             )}
           </AnimatedPress>
+
+          {canSwitch ? (
+            <AnimatedPress
+              onPress={switchMode}
+              disabled={isGenerating || isSaving}
+              style={[
+                styles.textButton,
+                { opacity: isGenerating || isSaving ? 0.5 : 1 },
+              ]}
+            >
+              <ThemedText type="small" style={{ color: theme.primary }}>
+                {preview.mode === "split"
+                  ? "Combine into one workout instead"
+                  : "Split into separate workouts instead"}
+              </ThemedText>
+            </AnimatedPress>
+          ) : null}
 
           <AnimatedPress
             onPress={backToForm}
@@ -823,34 +959,155 @@ export default function GenerateRoutineScreen() {
           </View>
         ) : null}
 
-        <Button
-          onPress={generateRoutine}
-          disabled={isGenerating || selectedMuscles.length === 0}
-          style={styles.generateButton}
-          testID="button-generate"
-        >
-          {isGenerating ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator color="#FFFFFF" size="small" />
-              <ThemedText style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}>
-                Building your workout...
-              </ThemedText>
-            </View>
-          ) : (
-            <View style={styles.loadingContainer}>
-              <Feather name="zap" size={20} color="#FFFFFF" />
+        {askSplit ? (
+          <View
+            style={[
+              styles.previewCard,
+              {
+                backgroundColor: theme.backgroundSecondary,
+                borderColor: theme.primary,
+              },
+            ]}
+          >
+            <ThemedText type="h4" style={{ marginBottom: Spacing.xs }}>
+              How do you want to train these?
+            </ThemedText>
+            <ThemedText
+              type="small"
+              style={{ color: theme.textSecondary, marginBottom: Spacing.md }}
+            >
+              You picked {selectedMuscles.length} muscle groups across different
+              training days.
+            </ThemedText>
+
+            <AnimatedPress
+              onPress={() => runGeneration("split")}
+              disabled={isGenerating}
+              style={[
+                styles.choiceCard,
+                {
+                  borderColor: theme.primary,
+                  backgroundColor: theme.backgroundDefault,
+                },
+              ]}
+              testID="choice-split"
+            >
+              <View style={styles.choiceHeader}>
+                <Feather name="columns" size={18} color={theme.primary} />
+                <ThemedText type="body" style={{ fontWeight: "700", flex: 1 }}>
+                  Split into {proposeSplit(selectedMuscles).length} workouts
+                </ThemedText>
+                <View
+                  style={[styles.badgePill, { backgroundColor: theme.primary }]}
+                >
+                  <ThemedText
+                    type="caption"
+                    style={{ color: "#FFFFFF", fontWeight: "600" }}
+                  >
+                    Recommended
+                  </ThemedText>
+                </View>
+              </View>
+              {proposeSplit(selectedMuscles).map((plan) => (
+                <ThemedText
+                  key={plan.title}
+                  type="small"
+                  style={{ color: theme.textSecondary, marginTop: 2 }}
+                >
+                  {plan.title} \· {plan.subtitle}
+                </ThemedText>
+              ))}
               <ThemedText
-                style={{
-                  color: "#FFFFFF",
-                  marginLeft: Spacing.sm,
-                  fontWeight: "700",
-                }}
+                type="caption"
+                style={{ color: theme.textSecondary, marginTop: Spacing.xs }}
               >
-                Generate Routine
+                Better recovery and more volume per muscle. Saves as separate
+                routines.
               </ThemedText>
-            </View>
-          )}
-        </Button>
+            </AnimatedPress>
+
+            <AnimatedPress
+              onPress={() => runGeneration("single")}
+              disabled={isGenerating}
+              style={[
+                styles.choiceCard,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.backgroundDefault,
+                },
+              ]}
+              testID="choice-single"
+            >
+              <View style={styles.choiceHeader}>
+                <Feather name="square" size={18} color={theme.text} />
+                <ThemedText type="body" style={{ fontWeight: "700", flex: 1 }}>
+                  One combined workout
+                </ThemedText>
+              </View>
+              <ThemedText
+                type="caption"
+                style={{ color: theme.textSecondary, marginTop: 2 }}
+              >
+                Hits every selected muscle in a single session (fewer exercises
+                per muscle).
+              </ThemedText>
+            </AnimatedPress>
+
+            {isGenerating ? (
+              <View
+                style={[
+                  styles.loadingContainer,
+                  { justifyContent: "center", marginTop: Spacing.sm },
+                ]}
+              >
+                <ActivityIndicator color={theme.text} size="small" />
+                <ThemedText style={{ marginLeft: Spacing.sm }}>
+                  Building your workouts...
+                </ThemedText>
+              </View>
+            ) : (
+              <AnimatedPress
+                onPress={() => setAskSplit(false)}
+                style={styles.textButton}
+              >
+                <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                  Cancel
+                </ThemedText>
+              </AnimatedPress>
+            )}
+          </View>
+        ) : (
+          <Button
+            onPress={generateRoutine}
+            disabled={isGenerating || selectedMuscles.length === 0}
+            style={styles.generateButton}
+            testID="button-generate"
+          >
+            {isGenerating ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ThemedText
+                  style={{ color: "#FFFFFF", marginLeft: Spacing.sm }}
+                >
+                  Building your workout...
+                </ThemedText>
+              </View>
+            ) : (
+              <View style={styles.loadingContainer}>
+                <Feather name="zap" size={20} color="#FFFFFF" />
+                <ThemedText
+                  style={{
+                    color: "#FFFFFF",
+                    marginLeft: Spacing.sm,
+                    fontWeight: "700",
+                  }}
+                >
+                  Generate Routine
+                </ThemedText>
+              </View>
+            )}
+          </Button>
+        )}
       </ScrollView>
     </ThemedView>
   );
@@ -942,5 +1199,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: Spacing.md,
+  },
+  removeButton: {
+    padding: Spacing.xs,
+  },
+  choiceCard: {
+    borderWidth: 1.5,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  choiceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  badgePill: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
   },
 });

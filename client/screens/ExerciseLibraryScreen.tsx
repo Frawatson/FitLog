@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Modal,
   ScrollView,
+  Image,
 } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -23,6 +24,8 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import { syncToServer } from "@/lib/syncService";
 import * as storage from "@/lib/storage";
 import { exerciseSlug } from "@/lib/exerciseSlug";
+import { searchExercises } from "@/lib/exerciseSearch";
+import { apiImageSource } from "@/lib/mediaSource";
 import type { Routine } from "@/types";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -34,7 +37,23 @@ interface LibraryExercise {
   equipment: string | null;
   targetMuscle: string | null;
   hasGif: boolean;
+  // Curated famous name ("Barbell Bench Press") — listed under Popular
+  // and ranked first in search.
+  popular?: boolean;
+  imageId?: string;
 }
+
+// Muscle-group chips. The catalog has ~1.4k exercises; narrowing by
+// region first makes browsing practical.
+const BODY_FILTERS: { id: string; label: string; parts: string[] }[] = [
+  { id: "chest", label: "Chest", parts: ["chest"] },
+  { id: "back", label: "Back", parts: ["back"] },
+  { id: "shoulders", label: "Shoulders", parts: ["shoulders", "neck"] },
+  { id: "arms", label: "Arms", parts: ["upper arms", "lower arms"] },
+  { id: "legs", label: "Legs", parts: ["upper legs", "lower legs"] },
+  { id: "core", label: "Core", parts: ["waist"] },
+  { id: "cardio", label: "Cardio", parts: ["cardio"] },
+];
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -47,6 +66,7 @@ export default function ExerciseLibraryScreen() {
   const [exercises, setExercises] = useState<LibraryExercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [bodyFilter, setBodyFilter] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] = useState("");
   const [showInfo, setShowInfo] = useState(false);
   const [addedExercises, setAddedExercises] = useState<Set<string>>(new Set());
@@ -140,30 +160,55 @@ export default function ExerciseLibraryScreen() {
     setPendingExercise(null);
   };
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return exercises;
-    const q = search.toLowerCase();
-    return exercises.filter(
-      (ex) =>
-        ex.name.toLowerCase().includes(q) ||
-        ex.bodyPart?.toLowerCase().includes(q) ||
-        ex.equipment?.toLowerCase().includes(q),
+  const regionFiltered = useMemo(() => {
+    if (!bodyFilter) return exercises;
+    const parts = new Set(
+      BODY_FILTERS.find((f) => f.id === bodyFilter)?.parts ?? [],
     );
-  }, [exercises, search]);
+    return exercises.filter((ex) =>
+      parts.has((ex.bodyPart || "").toLowerCase()),
+    );
+  }, [exercises, bodyFilter]);
+
+  const isSearching = search.trim().length > 0;
+
+  // Searching: one ranked "best matches" list. Browsing: Popular first,
+  // then everything A–Z.
+  const filtered = useMemo(
+    () =>
+      isSearching ? searchExercises(regionFiltered, search) : regionFiltered,
+    [regionFiltered, search, isSearching],
+  );
 
   const sections = useMemo(() => {
+    if (isSearching) {
+      return filtered.length > 0
+        ? [{ key: "results", title: "Best matches", data: filtered }]
+        : [];
+    }
+    const result: { key: string; title: string; data: LibraryExercise[] }[] =
+      [];
+    const popular = filtered
+      .filter((ex) => ex.popular)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (popular.length > 0) {
+      result.push({ key: "popular", title: "Popular", data: popular });
+    }
     const grouped: Record<string, LibraryExercise[]> = {};
     for (const ex of filtered) {
-      const letter = ex.name[0].toUpperCase();
+      const letter = (ex.name[0] || "#").toUpperCase();
       if (!grouped[letter]) grouped[letter] = [];
       grouped[letter].push(ex);
     }
-    return Object.keys(grouped)
-      .sort()
-      .map((letter) => ({ title: letter, data: grouped[letter] }));
-  }, [filtered]);
-
-  const gifCount = exercises.filter((e) => e.hasGif).length;
+    for (const letter of Object.keys(grouped).sort()) {
+      result.push({
+        key: `az-${letter}`,
+        title: letter,
+        data: grouped[letter],
+      });
+    }
+    return result;
+  }, [filtered, isSearching]);
 
   if (loading) {
     return (
@@ -187,7 +232,7 @@ export default function ExerciseLibraryScreen() {
     <View style={[styles.container, { backgroundColor: theme.backgroundRoot }]}>
       <SectionList
         sections={sections}
-        keyExtractor={(item) => item.name}
+        keyExtractor={(item, index) => `${item.name}-${index}`}
         contentContainerStyle={{
           paddingTop: headerHeight + Spacing.md,
           paddingBottom: insets.bottom + Spacing.xl,
@@ -208,7 +253,7 @@ export default function ExerciseLibraryScreen() {
               <Feather name="search" size={18} color={theme.textSecondary} />
               <TextInput
                 style={[styles.searchInput, { color: theme.text }]}
-                placeholder="Search exercises..."
+                placeholder="Search (e.g. bench press, RDL, pull up)"
                 placeholderTextColor={theme.textSecondary}
                 value={search}
                 onChangeText={setSearch}
@@ -220,11 +265,49 @@ export default function ExerciseLibraryScreen() {
                 </Pressable>
               )}
             </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipRow}
+            >
+              {BODY_FILTERS.map((f) => {
+                const active = bodyFilter === f.id;
+                return (
+                  <Pressable
+                    key={f.id}
+                    onPress={() => setBodyFilter(active ? null : f.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor: active
+                          ? Colors.light.primary
+                          : theme.backgroundCard,
+                        borderColor: active
+                          ? Colors.light.primary
+                          : theme.border,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: active ? "#FFFFFF" : theme.text,
+                        fontWeight: active ? "600" : "400",
+                      }}
+                    >
+                      {f.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             <ThemedText
               type="small"
               style={{ opacity: 0.6, marginTop: Spacing.sm }}
             >
-              {filtered.length} exercises — {gifCount} with GIF demos
+              {filtered.length} exercise{filtered.length === 1 ? "" : "s"}
             </ThemedText>
           </View>
         }
@@ -247,22 +330,30 @@ export default function ExerciseLibraryScreen() {
               { backgroundColor: theme.backgroundCard },
             ]}
           >
-            <View
-              style={[
-                styles.gifIndicator,
-                {
-                  backgroundColor: item.hasGif
-                    ? Colors.light.primary + "20"
-                    : Colors.light.error + "20",
-                },
-              ]}
-            >
-              <Feather
-                name={item.hasGif ? "check" : "x"}
-                size={14}
-                color={item.hasGif ? Colors.light.primary : Colors.light.error}
+            {item.imageId ? (
+              <Image
+                source={apiImageSource(`/api/exercises/thumb/${item.imageId}`)}
+                style={styles.thumb}
+                accessibilityIgnoresInvertColors
               />
-            </View>
+            ) : (
+              <View
+                style={[
+                  styles.thumb,
+                  {
+                    backgroundColor: theme.backgroundSecondary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  },
+                ]}
+              >
+                <Feather
+                  name="activity"
+                  size={18}
+                  color={theme.textSecondary}
+                />
+              </View>
+            )}
             <View style={styles.exerciseInfo}>
               <ThemedText type="body" style={{ fontWeight: "500" }}>
                 {item.name}
@@ -468,12 +559,21 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     gap: Spacing.md,
   },
-  gifIndicator: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+  thumb: {
+    width: 48,
+    height: 48,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: "#FFFFFF",
+  },
+  chipRow: {
+    gap: Spacing.sm,
+    paddingTop: Spacing.md,
+  },
+  chip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
   exerciseInfo: {
     flex: 1,

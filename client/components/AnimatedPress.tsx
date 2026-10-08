@@ -14,6 +14,9 @@ interface AnimatedPressProps {
   disabled?: boolean;
   testID?: string;
   hitSlop?: number;
+  // Screen readers can't infer a label for icon-only presses.
+  accessibilityLabel?: string;
+  accessibilityRole?: "button" | "link" | "tab";
 }
 
 const springConfig: WithSpringConfig = {
@@ -32,6 +35,8 @@ export function AnimatedPress({
   disabled = false,
   testID,
   hitSlop,
+  accessibilityLabel,
+  accessibilityRole = "button",
 }: AnimatedPressProps) {
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
@@ -63,6 +68,9 @@ export function AnimatedPress({
       style={[animatedStyle, style]}
       testID={testID}
       hitSlop={hitSlop}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={{ disabled }}
     >
       {children}
     </AnimatedPressable>

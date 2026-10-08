@@ -30,6 +30,7 @@ import * as storage from "@/lib/storage";
 import { syncToServer } from "@/lib/syncService";
 import { exerciseSlug } from "@/lib/exerciseSlug";
 import { webSafeAlert } from "@/lib/webSafeAlert";
+import { searchExercises } from "@/lib/exerciseSearch";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -56,6 +57,8 @@ export default function EditRoutineScreen() {
   const [showExerciseInfo, setShowExerciseInfo] = useState(false);
   const [selectedExerciseName, setSelectedExerciseName] = useState("");
   const [exerciseSearch, setExerciseSearch] = useState("");
+  // Curated famous names from the library, ranked first in the picker.
+  const [popularNames, setPopularNames] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadData();
@@ -134,6 +137,13 @@ export default function EditRoutineScreen() {
         const localNames = new Set(
           localExercises.map((e) => e.name.toLowerCase()),
         );
+        setPopularNames(
+          new Set(
+            libResult.data
+              .filter((e: any) => e.popular)
+              .map((e: any) => String(e.name)),
+          ),
+        );
         libraryExercises = libResult.data
           .filter((e: any) => !localNames.has(e.name.toLowerCase()))
           .map((e: any) => ({
@@ -210,26 +220,36 @@ export default function EditRoutineScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const filteredExercises = useMemo(() => {
-    if (!exerciseSearch.trim()) return allExercises;
-    const q = exerciseSearch.toLowerCase();
-    return allExercises.filter(
-      (ex) =>
-        ex.name.toLowerCase().includes(q) ||
-        ex.muscleGroup.toLowerCase().includes(q),
-    );
-  }, [allExercises, exerciseSearch]);
+  const isSearchingExercises = exerciseSearch.trim().length > 0;
 
-  const groupedExercises = filteredExercises.reduce(
-    (acc, ex) => {
-      if (!acc[ex.muscleGroup]) {
-        acc[ex.muscleGroup] = [];
-      }
-      acc[ex.muscleGroup].push(ex);
-      return acc;
-    },
-    {} as Record<string, Exercise[]>,
-  );
+  // Searching: one ranked list (common names like "RDL" or "bench press"
+  // land on the right lift). Browsing: grouped by muscle, well-known
+  // exercises first in each group.
+  const groupedExercises = useMemo(() => {
+    const withMeta = allExercises.map((ex) => ({
+      ...ex,
+      bodyPart: ex.muscleGroup,
+      popular: popularNames.has(ex.name),
+    }));
+    if (isSearchingExercises) {
+      const ranked = searchExercises(withMeta, exerciseSearch);
+      return ranked.length > 0
+        ? ({ "Best matches": ranked } as Record<string, Exercise[]>)
+        : ({} as Record<string, Exercise[]>);
+    }
+    const grouped: Record<string, (Exercise & { popular: boolean })[]> = {};
+    for (const ex of withMeta) {
+      if (!grouped[ex.muscleGroup]) grouped[ex.muscleGroup] = [];
+      grouped[ex.muscleGroup].push(ex);
+    }
+    for (const list of Object.values(grouped)) {
+      list.sort(
+        (a, b) =>
+          Number(b.popular) - Number(a.popular) || a.name.localeCompare(b.name),
+      );
+    }
+    return grouped as Record<string, Exercise[]>;
+  }, [allExercises, popularNames, exerciseSearch, isSearchingExercises]);
 
   if (showExerciseList) {
     return (

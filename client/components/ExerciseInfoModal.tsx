@@ -45,6 +45,9 @@ export function ExerciseInfoModal({
   const [loading, setLoading] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
+  // Id of the latest lookup; responses for older lookups are dropped so
+  // a slow reply for a previous exercise can't show its image here.
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (visible && exerciseName) {
@@ -66,12 +69,14 @@ export function ExerciseInfoModal({
   }, [visible, exerciseName]);
 
   const fetchExerciseInfo = async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     try {
       const result = await syncToServer<ExerciseInfo>(
         `/api/exercises/gif?name=${encodeURIComponent(exerciseName)}`,
         "GET",
       );
+      if (requestId !== requestIdRef.current) return;
       if (result.success && result.data) {
         const data = result.data;
         // Convert relative gifUrl to absolute URL for Image component
@@ -86,7 +91,7 @@ export function ExerciseInfoModal({
     } catch (err) {
       console.error("Error fetching exercise info:", err);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
