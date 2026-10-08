@@ -5,7 +5,7 @@ import Animated from "react-native-reanimated";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -201,7 +201,10 @@ export default function NutritionScreen() {
   };
 
   const navigateDate = (direction: number) => {
-    const current = new Date(selectedDate);
+    // parseLocalDate, NOT new Date(string): a bare "YYYY-MM-DD" parses as
+    // UTC midnight, which is the *previous* local day west of UTC — the
+    // arrows then stick or skip days for every US-timezone user.
+    const current = parseLocalDate(selectedDate);
     if (periodMode === "day") {
       current.setDate(current.getDate() + direction);
     } else if (periodMode === "week") {

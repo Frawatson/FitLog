@@ -486,7 +486,7 @@ Return JSON only:
   // Serve exercise GIF images from database
   app.get("/api/exercises/image/:exerciseId", async (req: Request, res: Response) => {
     try {
-      const gifData = await getExerciseGifDataById(req.params.exerciseId);
+      const gifData = await getExerciseGifDataById(String(req.params.exerciseId));
       if (!gifData) return res.status(404).send("Image not found");
 
       const buffer = Buffer.from(gifData, "base64");
@@ -1020,7 +1020,7 @@ Return JSON only:
     try {
       const userId = (req as any).userId;
       const { clientId } = req.params;
-      const deleted = await deleteRun(userId, clientId);
+      const deleted = await deleteRun(userId, String(clientId));
       if (!deleted) {
         return res.status(404).json({ error: "Run not found" });
       }

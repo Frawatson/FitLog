@@ -18,6 +18,7 @@ export interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
   variant?: "filled" | "outline";
+  testID?: string;
 }
 
 const springConfig: WithSpringConfig = {
@@ -35,6 +36,7 @@ export function Button({
   style,
   disabled = false,
   variant = "filled",
+  testID,
 }: ButtonProps) {
   const { theme } = useTheme();
   const translateY = useSharedValue(0);
@@ -70,6 +72,7 @@ export function Button({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      testID={testID}
       style={[
         styles.button,
         {

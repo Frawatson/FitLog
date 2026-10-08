@@ -1,0 +1,10 @@
+# Force LF in the working tree for all text files. Prettier (no config =
+# endOfLine "lf") fails the lint on CRLF, and core.autocrlf=true on Windows
+# otherwise rewrites the tree to CRLF on every checkout/stash.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.gif binary
+*.webp binary

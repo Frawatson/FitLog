@@ -8,7 +8,7 @@ import {
   Text,
   Modal,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 
 export type ErrorFallbackProps = {

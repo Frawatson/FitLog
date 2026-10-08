@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Pressable, StyleSheet, ScrollView } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";

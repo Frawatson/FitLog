@@ -7,12 +7,13 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import {
-  useFonts,
-  Montserrat_400Regular,
-  Montserrat_600SemiBold,
-  Montserrat_700Bold,
-} from "@expo-google-fonts/montserrat";
+// Weight-specific subpath imports, NOT the package barrel. The barrel
+// re-exports (and therefore bundles) all 18 Montserrat weights + italics —
+// about 6 MB of fonts in the web export for the 3 weights we use.
+import { useFonts } from "@expo-google-fonts/montserrat/useFonts";
+import { Montserrat_400Regular } from "@expo-google-fonts/montserrat/400Regular";
+import { Montserrat_600SemiBold } from "@expo-google-fonts/montserrat/600SemiBold";
+import { Montserrat_700Bold } from "@expo-google-fonts/montserrat/700Bold";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";

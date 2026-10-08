@@ -3,6 +3,7 @@ import cluster from "node:cluster";
 import os from "node:os";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
+import compression from "compression";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import helmet from "helmet";
@@ -35,10 +36,26 @@ if (isProduction && cluster.isPrimary) {
       cluster.fork();
     }
 
+    let shuttingDown = false;
+
     cluster.on("exit", (worker, code) => {
+      if (shuttingDown) return;
       log(`Worker ${worker.process.pid} exited (code ${code}). Restarting...`);
       cluster.fork();
     });
+
+    // Railway sends SIGTERM on every redeploy. Without this, workers are
+    // killed mid-request and their DB connections leak until the pool's
+    // idle timeout.
+    for (const signal of ["SIGTERM", "SIGINT"] as const) {
+      process.once(signal, () => {
+        shuttingDown = true;
+        log(`Master: received ${signal}, shutting down workers`);
+        for (const worker of Object.values(cluster.workers ?? {})) {
+          worker?.kill(signal);
+        }
+      });
+    }
   })();
 } else {
   // Worker process (production) or single process (development)
@@ -192,7 +209,12 @@ async function startServer() {
       next();
     });
 
-    app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+    // Project assets (app icon, images) are not content-hashed, so cap the
+    // cache at a day and let ETag revalidation handle the rest.
+    app.use(
+      "/assets",
+      express.static(path.resolve(process.cwd(), "assets"), { maxAge: "1d" }),
+    );
 
     // PWA manifest — declared in code so the brand color stays in sync
     // and the icon URL points at the already-served /assets path (no
@@ -200,6 +222,7 @@ async function startServer() {
     // Home Screen" with a real app icon instead of a screenshot stub.
     app.get("/manifest.webmanifest", (_req: Request, res: Response) => {
       res.setHeader("content-type", "application/manifest+json");
+      res.setHeader("cache-control", "public, max-age=3600");
       res.json({
         // `name` is what Chrome / Android show in the install dialog and
         // in the long-form app label. `short_name` is what Android shows
@@ -228,16 +251,17 @@ async function startServer() {
       });
     });
 
-    // Minimal no-op service worker. Chrome's installability heuristic
-    // requires one to be present + activated even if it doesn't cache
-    // anything. A future iteration can add an offline shell.
+    // Minimal service worker kept for continuity with already-installed
+    // clients (unregistering is messier than serving a benign one). No
+    // fetch listener: Chrome treats an empty fetch handler as pure
+    // overhead on every navigation, and installability no longer
+    // requires one. A future iteration can add an offline shell.
     app.get("/sw.js", (_req: Request, res: Response) => {
       res.setHeader("content-type", "application/javascript");
       res.setHeader("cache-control", "no-cache");
       res.send(
         "self.addEventListener('install',()=>self.skipWaiting());" +
-          "self.addEventListener('activate',(e)=>e.waitUntil(self.clients.claim()));" +
-          "self.addEventListener('fetch',()=>{});",
+          "self.addEventListener('activate',(e)=>e.waitUntil(self.clients.claim()));",
       );
     });
 
@@ -256,8 +280,31 @@ async function startServer() {
     // dist/ holds the Expo web export (built by `npm run web:build`).
     // index:false on both so "/" falls through to the SPA fallback for
     // SEO meta injection rather than getting served as raw HTML.
-    app.use(express.static(path.resolve(process.cwd(), "static-build"), { index: false }));
-    app.use(express.static(path.resolve(process.cwd(), "dist"), { index: false }));
+    //
+    // Everything the Expo export emits under _expo/static/ and assets/ is
+    // content-hashed (a new build produces new filenames), so those files
+    // are safe to cache forever. Anything else (metadata.json, favicon)
+    // falls back to ETag revalidation.
+    const isHashedAsset = (filePath: string) => {
+      const normalized = filePath.replace(/\\/g, "/");
+      return (
+        normalized.includes("/_expo/static/") ||
+        /\.[0-9a-f]{32}\.\w+$/.test(normalized)
+      );
+    };
+    const hashedCaching = {
+      index: false as const,
+      setHeaders: (res: Response, filePath: string) => {
+        if (isHashedAsset(filePath)) {
+          res.setHeader(
+            "cache-control",
+            "public, max-age=31536000, immutable",
+          );
+        }
+      },
+    };
+    app.use(express.static(path.resolve(process.cwd(), "static-build"), hashedCaching));
+    app.use(express.static(path.resolve(process.cwd(), "dist"), hashedCaching));
 
     // SPA fallback with SEO meta injection. React Navigation's web linking
     // maps URLs like /community, /profile/settings, /posts/42 to in-app
@@ -373,6 +420,10 @@ async function startServer() {
       if (!req.accepts("html")) return next();
       const html = loadIndexHtml();
       if (!html) return next();
+      // The shell references the current content-hashed bundle, so it must
+      // always be revalidated — a cached stale shell would point at JS that
+      // no longer exists after a deploy.
+      res.setHeader("cache-control", "no-cache");
       res.type("html").send(injectMeta(html, req));
     });
 
@@ -458,6 +509,11 @@ async function startServer() {
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }));
 
+  // Gzip responses (the web JS bundle compresses ~4x; large JSON payloads
+  // like the feed and food logs similarly). Must be mounted before the
+  // static handlers so they stream through it.
+  app.use(compression());
+
   // General API rate limiter (100 requests per minute)
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -471,10 +527,17 @@ async function startServer() {
   setupCors(app);
   setupBodyParsing(app);
 
-  app.use(session({
+  // Session middleware is scoped to /api only. Mounted globally it ran a
+  // session SELECT (plus a touch UPDATE) against Postgres for every static
+  // asset request — every JS/font/PNG on a page load. disableTouch skips
+  // the per-request expiry UPDATE too; the cookie already lives 30 days
+  // and the JWT (same lifetime) is the primary credential, so a sliding
+  // session window isn't worth a DB write per API call.
+  app.use("/api", session({
     store: new PgSession({
       pool,
       tableName: "session",
+      disableTouch: true,
     }),
     secret: process.env.SESSION_SECRET!,
     resave: false,
@@ -506,4 +569,19 @@ async function startServer() {
       log(`express server serving on port ${port}`);
     }
   });
+
+  // Graceful shutdown: stop accepting connections, let in-flight requests
+  // finish, release the DB pool, then exit. The 10s cap guarantees the
+  // process dies even if a request hangs (Railway force-kills soon after
+  // SIGTERM anyway).
+  for (const signal of ["SIGTERM", "SIGINT"] as const) {
+    process.once(signal, () => {
+      log(`${process.pid}: received ${signal}, draining connections`);
+      const forceExit = setTimeout(() => process.exit(0), 10_000);
+      forceExit.unref();
+      server.close(() => {
+        pool.end().finally(() => process.exit(0));
+      });
+    });
+  }
 }

@@ -16,6 +16,8 @@ interface SkeletonProps {
   width?: number | string;
   height?: number;
   lines?: number;
+  // Number of card placeholders to render (card variant only).
+  count?: number;
   style?: ViewStyle;
 }
 
@@ -53,6 +55,7 @@ export function SkeletonLoader({
   width,
   height,
   lines = 3,
+  count = 1,
   style,
 }: SkeletonProps) {
   switch (variant) {
@@ -70,11 +73,15 @@ export function SkeletonLoader({
 
     case "card":
       return (
-        <View style={[styles.card, style]}>
-          <SkeletonPulse style={{ width: "60%", height: 16, marginBottom: Spacing.md }} />
-          <SkeletonPulse style={{ width: "100%", height: 12, marginBottom: Spacing.sm }} />
-          <SkeletonPulse style={{ width: "80%", height: 12 }} />
-        </View>
+        <>
+          {Array.from({ length: count }).map((_, i) => (
+            <View key={i} style={[styles.card, style]}>
+              <SkeletonPulse style={{ width: "60%", height: 16, marginBottom: Spacing.md }} />
+              <SkeletonPulse style={{ width: "100%", height: 12, marginBottom: Spacing.sm }} />
+              <SkeletonPulse style={{ width: "80%", height: 12 }} />
+            </View>
+          ))}
+        </>
       );
 
     case "list":

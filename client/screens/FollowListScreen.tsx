@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, Pressable } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";

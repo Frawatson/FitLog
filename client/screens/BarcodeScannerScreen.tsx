@@ -1,13 +1,14 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Pressable, ActivityIndicator, Alert, Platform } from "react-native";
+import { View, StyleSheet, Pressable, ActivityIndicator, Platform } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
+import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, Colors } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -80,23 +81,26 @@ export default function BarcodeScannerScreen() {
         },
       } as any);
     } else {
-      Alert.alert(
-        "Product Not Found",
-        `Barcode ${data} was not found in the database. You can add the food manually.`,
-        [
+      // showSystemMenu renders a real modal on web (Alert.alert is a
+      // silent no-op there — the screen used to hang on "Looking up
+      // product..." forever when a barcode wasn't found).
+      showSystemMenu({
+        title: "Product Not Found",
+        message: `Barcode ${data} was not found in the database. You can add the food manually.`,
+        options: [
           {
-            text: "Add Manually",
+            label: "Add Manually",
             onPress: () => navigation.navigate("AddFood"),
           },
           {
-            text: "Scan Again",
+            label: "Scan Again",
             onPress: () => {
               scannedRef.current = false;
               setIsLooking(false);
             },
           },
-        ]
-      );
+        ],
+      });
     }
   };
 

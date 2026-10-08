@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Alert, View, StyleSheet, FlatList, Pressable, Modal, TextInput } from "react-native";
+import { View, StyleSheet, FlatList, Pressable, Modal, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { HeaderButton } from "@react-navigation/elements";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { v4 as uuidv4 } from "uuid";
 
@@ -23,6 +23,7 @@ import type { Routine, RoutineExercise, Exercise } from "@/types";
 import * as storage from "@/lib/storage";
 import { syncToServer } from "@/lib/syncService";
 import { exerciseSlug } from "@/lib/exerciseSlug";
+import { webSafeAlert } from "@/lib/webSafeAlert";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -42,6 +43,7 @@ export default function EditRoutineScreen() {
   
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<RoutineExercise[]>([]);
+  const [existingRoutine, setExistingRoutine] = useState<Routine | null>(null);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [showExerciseList, setShowExerciseList] = useState(false);
   const [showDiscardModal, setShowDiscardModal] = useState(false);
@@ -54,7 +56,14 @@ export default function EditRoutineScreen() {
   }, []);
   
   const handleCancel = () => {
-    if (name || exercises.length > 0) {
+    // Only warn about discarding when something actually changed. In edit
+    // mode `name` is always populated, so the old `name || exercises.length`
+    // check showed the discard modal even for an untouched routine.
+    const isDirty = existingRoutine
+      ? name !== existingRoutine.name ||
+        JSON.stringify(exercises) !== JSON.stringify(existingRoutine.exercises)
+      : Boolean(name) || exercises.length > 0;
+    if (isDirty) {
       setShowDiscardModal(true);
     } else {
       navigation.goBack();
@@ -90,6 +99,20 @@ export default function EditRoutineScreen() {
   }, [name, exercises, theme, showExerciseList]);
   
   const loadData = async () => {
+    // Load the routine being edited FIRST — its name/exercises drive the
+    // form. Previously this waited behind the (network) library fetch, so
+    // on a slow connection the edit form sat empty and could clobber a
+    // name the user had started typing.
+    if (routineId) {
+      const routines = await storage.getRoutines();
+      const existing = routines.find((r) => r.id === routineId);
+      if (existing) {
+        setExistingRoutine(existing);
+        setName(existing.name);
+        setExercises(existing.exercises);
+      }
+    }
+
     const localExercises = await storage.getExercises();
 
     // Also fetch the full library for a comprehensive exercise list
@@ -113,15 +136,6 @@ export default function EditRoutineScreen() {
 
     setAllExercises([...localExercises, ...libraryExercises]);
 
-    if (routineId) {
-      const routines = await storage.getRoutines();
-      const existing = routines.find((r) => r.id === routineId);
-      if (existing) {
-        setName(existing.name);
-        setExercises(existing.exercises);
-      }
-    }
-
     const prefillExercise = route.params?.prefillExercise;
     if (prefillExercise && isNew) {
       setExercises((prev) => {
@@ -133,17 +147,24 @@ export default function EditRoutineScreen() {
   
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert("Error", "Please enter a routine name");
+      // Alert.alert is a silent no-op on react-native-web — the Save
+      // button just looked dead.
+      webSafeAlert("Missing name", "Please enter a routine name.");
       return;
     }
-    
+
     const routine: Routine = {
+      // Spread the loaded routine first so editing preserves metadata the
+      // form doesn't manage (isFavorite, category, lastCompletedAt, the
+      // original createdAt). Rebuilding from scratch silently dropped all
+      // of them on every edit.
+      ...(existingRoutine ?? {}),
       id: routineId || uuidv4(),
       name: name.trim(),
       exercises,
-      createdAt: new Date().toISOString(),
+      createdAt: existingRoutine?.createdAt ?? new Date().toISOString(),
     };
-    
+
     await storage.saveRoutine(routine);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.goBack();

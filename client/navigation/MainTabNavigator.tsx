@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import type { NavigatorScreenParams } from "@react-navigation/native";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import { BlurView } from "expo-blur";
 import { Platform } from "react-native";
 
@@ -38,7 +38,10 @@ export default function MainTabNavigator() {
       // mobile/tablet web, fall back to the default bottom bar.
       tabBar={isDesktopWeb ? (props) => <SidebarTabBar {...props} /> : undefined}
       screenOptions={{
-        lazy: false,
+        // Tabs mount on first focus (the default). `lazy: false` previously
+        // mounted all 5 tabs at startup, which loaded Leaflet, fetched map
+        // tiles, and triggered a geolocation read before the user ever
+        // opened the Run tab.
         tabBarPosition: isDesktopWeb ? "left" : "bottom",
         tabBarActiveTintColor: Colors.light.primary,
         tabBarInactiveTintColor: theme.tabIconDefault,

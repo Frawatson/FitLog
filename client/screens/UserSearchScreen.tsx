@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, TextInput, Pressable } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 
 import { ThemedText } from "@/components/ThemedText";
 import { AnimatedPress } from "@/components/AnimatedPress";

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from "react";
 import { View, StyleSheet, Animated, Easing, Dimensions, Platform } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
