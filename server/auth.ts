@@ -577,6 +577,33 @@ router.post("/logout", (req: Request, res: Response) => {
   });
 });
 
+// Session-cookie -> API token exchange. iOS copies Safari's cookies into
+// a web app added to the Home Screen but NOT its local storage, so the
+// installed app arrives logged in by cookie with no stored token — and
+// the client's data layer only talks to the server when it holds one
+// (name showed, everything else was empty). The client calls this once
+// to obtain a token for the session it already has.
+// Session-only on purpose (a bearer holder already has a token). CSRF:
+// the session cookie is SameSite=Lax, so cross-site POSTs don't carry
+// it, and CORS keeps other origins from reading the response.
+router.post("/token", async (req: Request, res: Response) => {
+  const userId = req.session.userId;
+  if (!userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  try {
+    const user = await getUserById(userId);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ error: "User not found" });
+    }
+    res.json({ token: generateToken(userId) });
+  } catch (error) {
+    console.error("Token exchange error:", error);
+    res.status(500).json({ error: "Failed to issue token" });
+  }
+});
+
 router.get("/me", async (req: Request, res: Response) => {
   const userId = await getUserIdFromRequest(req);
   if (!userId) {

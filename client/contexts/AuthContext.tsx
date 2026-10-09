@@ -181,6 +181,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Trade a cookie session for an API token and store it. Returns the
+  // token, or null when there's no usable session.
+  const exchangeSessionForToken = async (): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        new URL("/api/auth/token", getApiUrl()).toString(),
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (typeof data?.token !== "string" || !data.token) return null;
+      await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      setAuthToken(data.token);
+      setCachedAuthToken(data.token);
+      // Anything read before the token existed came back empty.
+      storage.invalidateCache();
+      return data.token;
+    } catch {
+      return null;
+    }
+  };
+
   const handleAuthResponse = async (
     response: Response | null,
     token?: string | null,
@@ -193,6 +218,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         // NOTE: never log the user object — it carries health PII.
         const userData = await response.json();
+        // Signed in by session cookie alone (e.g. a Home Screen web app
+        // on iOS, which inherits Safari's cookies but not its storage):
+        // get a token BEFORE anything loads, since the data layer only
+        // calls the server when it holds one.
+        if (!token) {
+          token = await exchangeSessionForToken();
+        }
         const toBackfill = await hydrateLocalProfile(userData);
         if (toBackfill) backfillUnitSystem(toBackfill, token);
         setUser(userData);
