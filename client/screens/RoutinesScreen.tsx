@@ -27,6 +27,7 @@ import * as storage from "@/lib/storage";
 import { routineReferenceData } from "@/lib/sharedRoutines";
 import { stashTransient } from "@/lib/transientParams";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { formatRoutineDays } from "../../shared/trainingSchedule";
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Routine>);
 
@@ -142,6 +143,9 @@ export default function RoutinesScreen() {
                 <ThemedText type="small" style={{ opacity: 0.6 }}>
                   {item.exercises.length} exercise
                   {item.exercises.length !== 1 ? "s" : ""}
+                  {formatRoutineDays(item)
+                    ? `  ·  ${formatRoutineDays(item)}`
+                    : ""}
                   {item.lastCompletedAt
                     ? `  \u00B7  ${new Date(item.lastCompletedAt).toLocaleDateString()}`
                     : ""}

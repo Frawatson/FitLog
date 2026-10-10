@@ -32,6 +32,10 @@ import { exerciseSlug } from "@/lib/exerciseSlug";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { searchExercises } from "@/lib/exerciseSearch";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { routineDays, WEEKDAY_SHORT } from "../../shared/trainingSchedule";
+
+// Monday-first, as people read a training week.
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -50,6 +54,7 @@ export default function EditRoutineScreen() {
 
   const [name, setName] = useState("");
   const [exercises, setExercises] = useState<RoutineExercise[]>([]);
+  const [days, setDays] = useState<number[]>([]);
   const [existingRoutine, setExistingRoutine] = useState<Routine | null>(null);
   const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [showExerciseList, setShowExerciseList] = useState(false);
@@ -70,8 +75,10 @@ export default function EditRoutineScreen() {
     // check showed the discard modal even for an untouched routine.
     const isDirty = existingRoutine
       ? name !== existingRoutine.name ||
-        JSON.stringify(exercises) !== JSON.stringify(existingRoutine.exercises)
-      : Boolean(name) || exercises.length > 0;
+        JSON.stringify(exercises) !==
+          JSON.stringify(existingRoutine.exercises) ||
+        days.join() !== routineDays(existingRoutine).join()
+      : Boolean(name) || exercises.length > 0 || days.length > 0;
     if (isDirty) {
       setShowDiscardModal(true);
     } else {
@@ -107,7 +114,7 @@ export default function EditRoutineScreen() {
         ),
       });
     }
-  }, [name, exercises, theme, showExerciseList]);
+  }, [name, exercises, days, theme, showExerciseList]);
 
   const loadData = async () => {
     // Load the routine being edited FIRST — its name/exercises drive the
@@ -121,6 +128,7 @@ export default function EditRoutineScreen() {
         setExistingRoutine(existing);
         setName(existing.name);
         setExercises(existing.exercises);
+        setDays(routineDays(existing));
       }
     }
 
@@ -193,6 +201,7 @@ export default function EditRoutineScreen() {
       id: routineId || uuidv4(),
       name: name.trim(),
       exercises,
+      scheduledDays: days,
       createdAt: existingRoutine?.createdAt ?? new Date().toISOString(),
     };
 
@@ -346,6 +355,58 @@ export default function EditRoutineScreen() {
         />
 
         <ThemedText type="h4" style={styles.sectionTitle}>
+          Training Days
+        </ThemedText>
+        <View style={styles.dayRow} accessibilityRole="none">
+          {WEEK_ORDER.map((d) => {
+            const on = days.includes(d);
+            return (
+              <Pressable
+                key={d}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setDays((prev) =>
+                    prev.includes(d)
+                      ? prev.filter((x) => x !== d)
+                      : [...prev, d].sort((a, b) => a - b),
+                  );
+                }}
+                accessibilityRole="checkbox"
+                aria-checked={on}
+                accessibilityLabel={`Train on ${WEEKDAY_SHORT[d]}`}
+                style={[
+                  styles.dayChip,
+                  {
+                    backgroundColor: on
+                      ? Colors.light.primary
+                      : theme.backgroundDefault,
+                    borderColor: on ? Colors.light.primary : theme.border,
+                  },
+                ]}
+              >
+                <ThemedText
+                  type="small"
+                  style={{
+                    fontWeight: "600",
+                    color: on ? "#FFFFFF" : theme.text,
+                  }}
+                >
+                  {WEEKDAY_SHORT[d]}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+        <ThemedText
+          type="small"
+          style={[styles.dayHint, { color: theme.textSecondary }]}
+        >
+          {days.length
+            ? "Shows on your dashboard on these days. Days with nothing scheduled count as rest days for your streak."
+            : "Optional. Pick the days you do this routine to plan your week."}
+        </ThemedText>
+
+        <ThemedText type="h4" style={styles.sectionTitle}>
           Exercises
         </ThemedText>
 
@@ -487,6 +548,23 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: Spacing.md,
+  },
+  dayRow: {
+    flexDirection: "row",
+    gap: Spacing.xs,
+  },
+  dayChip: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    minHeight: 40,
+  },
+  dayHint: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xl,
   },
   exerciseList: {
     gap: Spacing.sm,

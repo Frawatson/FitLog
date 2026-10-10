@@ -6,6 +6,12 @@ import {
   trainingRingFraction,
 } from "../client/lib/dailyTraining";
 import type { Routine, Workout } from "../client/types";
+import {
+  formatRoutineDays,
+  isPlannedRestDay,
+  isValidScheduledDays,
+  routineDays,
+} from "../shared/trainingSchedule";
 
 let failures = 0;
 function check(cond: boolean, msg: string) {
@@ -158,6 +164,60 @@ check(
   runDay.kind === "done" && trainingRingFraction(runDay) === 1,
   "a run counts as training, ring full",
 );
+
+// Explicit training days (the routine editor's picker).
+const pushDay = { ...routine("Push Day"), scheduledDays: [1, 4] };
+const legDay = { ...routine("Leg Day"), scheduledDays: [3] };
+const renamed = { ...routine("Thursday-Shoulder+Chest"), scheduledDays: [] };
+const explicit = [pushDay, legDay, renamed];
+const mon = todayTraining({
+  workouts: [],
+  runs: [],
+  routines: explicit,
+  now: at(5, 9),
+});
+check(
+  mon.kind === "planned" && mon.routine.name === "Push Day",
+  "explicit days: Monday plans Push Day (no weekday in the name)",
+);
+const thuExplicit = todayTraining({
+  workouts: [],
+  runs: [],
+  routines: explicit,
+  now: at(8, 9),
+});
+check(
+  thuExplicit.kind === "planned" && thuExplicit.routine.name === "Push Day",
+  "a routine can be scheduled on several days",
+);
+const tueExplicit = todayTraining({
+  workouts: [],
+  runs: [],
+  routines: explicit,
+  now: at(6, 9),
+});
+check(tueExplicit.kind === "rest", "unscheduled weekday is a rest day");
+check(
+  routineDays(renamed).length === 0,
+  "an empty schedule turns off weekday-name inference",
+);
+check(
+  routineDays({ ...routine("Friday-Back+Arms") }).join() === "5",
+  "no explicit days: inferred from the name",
+);
+check(
+  isPlannedRestDay(week, 0) && !isPlannedRestDay(week, 4),
+  "Sunday-Recovery week: Sunday is a planned rest day, Thursday isn't",
+);
+check(!isPlannedRestDay([routine("Push Day")], 2), "no plan: no rest days");
+check(isValidScheduledDays([0, 6]), "valid days accepted");
+check(
+  !isValidScheduledDays([7]) &&
+    !isValidScheduledDays([1, 1]) &&
+    !isValidScheduledDays("1"),
+  "invalid days rejected",
+);
+check(formatRoutineDays(pushDay) === "Mon · Thu", "days label");
 
 console.log(failures ? `${failures} FAILURE(S)` : "ALL PASS");
 process.exit(failures ? 1 : 0);

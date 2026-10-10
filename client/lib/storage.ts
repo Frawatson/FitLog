@@ -438,6 +438,7 @@ async function getRoutinesImpl(): Promise<Routine[]> {
           lastCompletedAt: r.lastCompletedAt,
           isFavorite: r.isFavorite,
           category: r.category,
+          scheduledDays: r.scheduledDays,
         }));
         const routines = await mergeServerList(
           serverRoutines,
@@ -487,6 +488,7 @@ export async function saveRoutine(routine: Routine): Promise<void> {
       lastCompletedAt: routine.lastCompletedAt,
       isFavorite: routine.isFavorite,
       category: routine.category,
+      scheduledDays: routine.scheduledDays,
     });
   }
 }

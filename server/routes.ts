@@ -82,6 +82,7 @@ import {
   invalidateCatalog,
 } from "./exerciseCatalog";
 import { generateRoutine } from "./routineGenerator";
+import { isValidScheduledDays } from "../shared/trainingSchedule";
 import {
   LIMITS,
   POST_TYPES,
@@ -1182,8 +1183,16 @@ Return JSON only:
           lastCompletedAt,
           isFavorite,
           category,
+          scheduledDays,
         } = req.body;
 
+        if (
+          scheduledDays !== undefined &&
+          scheduledDays !== null &&
+          !isValidScheduledDays(scheduledDays)
+        ) {
+          return res.status(400).json({ error: "Invalid training days" });
+        }
         if (
           !clientId ||
           !name ||
@@ -1225,6 +1234,7 @@ Return JSON only:
           lastCompletedAt,
           isFavorite,
           category,
+          scheduledDays: scheduledDays ?? undefined,
         });
         res.json({ success: true });
       } catch (error) {

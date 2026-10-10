@@ -347,6 +347,9 @@ export async function initializeDatabase(): Promise<void> {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routines' AND column_name = 'category') THEN
           ALTER TABLE routines ADD COLUMN category VARCHAR(50);
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routines' AND column_name = 'scheduled_days') THEN
+          ALTER TABLE routines ADD COLUMN scheduled_days SMALLINT[];
+        END IF;
       END $$;
 
       -- Workouts: notes, total_volume_kg
@@ -774,11 +777,12 @@ export interface RoutineData {
   lastCompletedAt?: string;
   isFavorite?: boolean;
   category?: string;
+  scheduledDays?: number[];
 }
 
 export async function getRoutines(userId: number): Promise<RoutineData[]> {
   const result = await pool.query(
-    `SELECT client_id, name, exercises, created_at, last_completed_at, is_favorite, category
+    `SELECT client_id, name, exercises, created_at, last_completed_at, is_favorite, category, scheduled_days
      FROM routines WHERE user_id = $1 ORDER BY created_at DESC`,
     [userId],
   );
@@ -790,6 +794,7 @@ export async function getRoutines(userId: number): Promise<RoutineData[]> {
     lastCompletedAt: row.last_completed_at?.toISOString(),
     isFavorite: row.is_favorite ?? false,
     category: row.category ?? undefined,
+    scheduledDays: row.scheduled_days ?? undefined,
   }));
 }
 
@@ -798,14 +803,18 @@ export async function saveRoutine(
   routine: RoutineData,
 ): Promise<void> {
   await pool.query(
-    `INSERT INTO routines (user_id, client_id, name, exercises, created_at, last_completed_at, is_favorite, category)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    // scheduled_days: omitted (null) keeps the stored schedule, so saves
+    // from older app versions that don't know the field can't wipe it;
+    // an empty array clears it.
+    `INSERT INTO routines (user_id, client_id, name, exercises, created_at, last_completed_at, is_favorite, category, scheduled_days)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      ON CONFLICT (user_id, client_id) DO UPDATE SET
        name = EXCLUDED.name,
        exercises = EXCLUDED.exercises,
        last_completed_at = EXCLUDED.last_completed_at,
        is_favorite = EXCLUDED.is_favorite,
-       category = EXCLUDED.category`,
+       category = EXCLUDED.category,
+       scheduled_days = COALESCE(EXCLUDED.scheduled_days, routines.scheduled_days)`,
     [
       userId,
       routine.clientId,
@@ -815,6 +824,7 @@ export async function saveRoutine(
       routine.lastCompletedAt || null,
       routine.isFavorite ?? false,
       routine.category || null,
+      routine.scheduledDays ?? null,
     ],
   );
 }

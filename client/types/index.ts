@@ -57,6 +57,9 @@ export interface Routine {
   lastCompletedAt?: string;
   isFavorite?: boolean;
   category?: string;
+  // Weekdays this routine is trained on (0 = Sunday). Unset: inferred
+  // from a weekday in the name; [] = not scheduled.
+  scheduledDays?: number[];
 }
 
 // Workout Logging Types

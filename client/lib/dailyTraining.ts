@@ -1,34 +1,17 @@
 import type { Routine, RunEntry, Workout } from "@/types";
 import { activityDay, getLocalDateString } from "@/lib/dateUtils";
 
+import {
+  hasWeeklyPlan,
+  isRestRoutine,
+  routinesForWeekday,
+} from "../../shared/trainingSchedule";
+
 // What today's training looks like, for the dashboard's workout ring.
-// There is no explicit schedule; a routine named for a weekday
-// ("Thursday-Shoulder+Chest", "Mon - Legs") is the plan for that day,
-// and one named rest/recovery/off marks a planned rest day.
+// Today's plan comes from the routines scheduled for this weekday (see
+// shared/trainingSchedule); rest/recovery routines mark a rest day.
 
-const WEEKDAY_PATTERN =
-  /^\s*(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tues|tue|wed|thurs|thur|thu|fri|sat)(?![a-z])/i;
-const WEEKDAY_INDEX: Record<string, number> = {
-  sun: 0,
-  mon: 1,
-  tue: 2,
-  wed: 3,
-  thu: 4,
-  fri: 5,
-  sat: 6,
-};
-
-export function routineWeekday(name: string): number | null {
-  const m = WEEKDAY_PATTERN.exec(name);
-  return m ? WEEKDAY_INDEX[m[1].slice(0, 3).toLowerCase()] : null;
-}
-
-export function isRestRoutine(routine: Routine): boolean {
-  return (
-    /\b(rest|recovery|off)\b/i.test(routine.name) ||
-    routine.exercises.length === 0
-  );
-}
+export { routineWeekday } from "../../shared/trainingSchedule";
 
 export interface TrainingSession {
   type: "workout" | "run";
@@ -92,12 +75,9 @@ export function todayTraining({
     };
   }
 
-  const scheduled = routines.filter((r) => routineWeekday(r.name) !== null);
-  if (scheduled.length === 0) return { kind: "open" };
+  if (!hasWeeklyPlan(routines)) return { kind: "open" };
 
-  const forToday = scheduled.filter(
-    (r) => routineWeekday(r.name) === now.getDay(),
-  );
+  const forToday = routinesForWeekday(routines, now.getDay());
   const training = forToday.find((r) => !isRestRoutine(r));
   if (training) return { kind: "planned", routine: training };
   // A rest/recovery routine for today, or today simply isn't in the plan.
