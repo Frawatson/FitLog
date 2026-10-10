@@ -87,6 +87,10 @@ export function Card({
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      // A card without onPress is just a container: keep it out of the
+      // keyboard tab order and don't announce it as interactive.
+      tabIndex={onPress ? 0 : -1}
+      accessibilityRole={onPress ? "button" : undefined}
       style={[
         styles.card,
         {

@@ -113,11 +113,14 @@ export function SystemMenuRoot(): React.ReactElement | null {
       <Pressable
         style={styles.backdrop}
         onPress={dismiss}
-        accessibilityRole="button"
+        accessibilityRole="none"
+        tabIndex={-1}
         accessibilityLabel="Close menu"
       >
         {/* Stop click-through on the sheet itself */}
         <Pressable
+          accessibilityRole="none"
+          tabIndex={-1}
           style={[styles.sheet, { backgroundColor: theme.backgroundCard }]}
           onPress={() => {}}
         >

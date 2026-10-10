@@ -69,6 +69,10 @@ function WebMap({ currentLocation, route }: MapDisplayProps) {
         zoom: loc ? 15 : 2,
         zoomControl: true,
       });
+      // Leaflet's container is keyboard-focusable (arrow keys pan).
+      const container = map.getContainer();
+      container.setAttribute("role", "region");
+      container.setAttribute("aria-label", "Run map");
 
       // OpenStreetMap standard tiles: free and keyless. CARTO's basemaps
       // now require an API key and serve an "API KEY REQUIRED" image for

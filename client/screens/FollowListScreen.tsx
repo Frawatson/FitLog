@@ -220,6 +220,7 @@ export default function FollowListScreen() {
             </View>
             {user && item.userId !== Number(user.id) && (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => handleFollow(item)}
                 style={[
                   styles.followBtn,

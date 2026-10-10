@@ -114,8 +114,15 @@ export function ExerciseInfoModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
+      <Pressable
+        accessibilityRole="none"
+        tabIndex={-1}
+        style={styles.overlay}
+        onPress={onClose}
+      >
         <Pressable
+          accessibilityRole="none"
+          tabIndex={-1}
           style={[styles.sheet, { backgroundColor: theme.backgroundCard }]}
           onPress={(e) => e.stopPropagation()}
         >
@@ -257,6 +264,7 @@ export function ExerciseInfoModal({
 
           {/* Close button */}
           <Pressable
+            accessibilityRole="button"
             onPress={onClose}
             style={[
               styles.closeButton,

@@ -52,6 +52,14 @@ export function AnimatedPress({
     }
   };
 
+  // Pointer hover (web/desktop): a small lift so presses feel clickable.
+  const handleHoverIn = () => {
+    if (!disabled) translateY.value = withSpring(-2, springConfig);
+  };
+  const handleHoverOut = () => {
+    translateY.value = withSpring(0, springConfig);
+  };
+
   const handlePressOut = () => {
     if (!disabled) {
       translateY.value = withSpring(0, springConfig);
@@ -64,13 +72,15 @@ export function AnimatedPress({
       onPress={disabled ? undefined : onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
+      onHoverIn={handleHoverIn}
+      onHoverOut={handleHoverOut}
       disabled={disabled}
       style={[animatedStyle, style]}
       testID={testID}
       hitSlop={hitSlop}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
-      accessibilityState={{ disabled }}
+      aria-disabled={disabled}
     >
       {children}
     </AnimatedPressable>

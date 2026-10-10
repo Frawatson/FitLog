@@ -95,6 +95,8 @@ export default function ForgotPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Pressable
+            accessibilityLabel="Back"
+            accessibilityRole="button"
             onPress={() => navigation.goBack()}
             style={styles.backButton}
             testID="button-back"
@@ -199,6 +201,7 @@ export default function ForgotPasswordScreen() {
 
             {sent ? (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => {
                   setSent(false);
                   setError("");
@@ -216,6 +219,7 @@ export default function ForgotPasswordScreen() {
 
             <View style={styles.footer}>
               <Pressable
+                accessibilityRole="button"
                 onPress={() => navigation.goBack()}
                 testID="button-back-login"
               >

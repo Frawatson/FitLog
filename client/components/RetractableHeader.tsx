@@ -77,6 +77,7 @@ export function RetractableHeader({
         </View>
         {rightAction ? (
           <Pressable
+            accessibilityRole="button"
             onPress={rightAction.onPress}
             hitSlop={8}
             accessibilityLabel={rightAction.accessibilityLabel}

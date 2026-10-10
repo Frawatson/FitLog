@@ -487,6 +487,7 @@ export default function PostDetailScreen() {
                 />
                 <View style={{ flex: 1 }}>
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() =>
                       navigation.navigate("SocialProfile", {
                         userId: post.userId,
@@ -504,14 +505,24 @@ export default function PostDetailScreen() {
                 </View>
                 {isOwner ? (
                   <View style={{ flexDirection: "row", gap: Spacing.md }}>
-                    <Pressable onPress={handleEditPost} hitSlop={8}>
+                    <Pressable
+                      accessibilityLabel="Edit"
+                      accessibilityRole="button"
+                      onPress={handleEditPost}
+                      hitSlop={8}
+                    >
                       <Feather
                         name="edit-2"
                         size={18}
                         color={Colors.light.primary}
                       />
                     </Pressable>
-                    <Pressable onPress={handleDeletePost} hitSlop={8}>
+                    <Pressable
+                      accessibilityLabel="Delete"
+                      accessibilityRole="button"
+                      onPress={handleDeletePost}
+                      hitSlop={8}
+                    >
                       <Feather
                         name="trash-2"
                         size={18}
@@ -521,6 +532,8 @@ export default function PostDetailScreen() {
                   </View>
                 ) : (
                   <Pressable
+                    accessibilityLabel="More options"
+                    accessibilityRole="button"
                     onPress={() => {
                       showSystemMenu({
                         title: "Post Options",
@@ -569,7 +582,10 @@ export default function PostDetailScreen() {
                       justifyContent: "flex-end",
                     }}
                   >
-                    <Pressable onPress={() => setEditingPost(false)}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => setEditingPost(false)}
+                    >
                       <ThemedText
                         type="small"
                         style={{ color: theme.textSecondary }}
@@ -577,7 +593,10 @@ export default function PostDetailScreen() {
                         Cancel
                       </ThemedText>
                     </Pressable>
-                    <Pressable onPress={handleSaveEditPost}>
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={handleSaveEditPost}
+                    >
                       <ThemedText
                         type="small"
                         style={{
@@ -774,6 +793,9 @@ export default function PostDetailScreen() {
               {/* Like/comment counts */}
               <View style={styles.actions}>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${post.likedByMe ? "Unlike" : "Like"}, ${post.likesCount} ${post.likesCount === 1 ? "like" : "likes"}`}
+                  aria-pressed={!!post.likedByMe}
                   onPress={handleLike}
                   style={styles.actionBtn}
                   hitSlop={8}
@@ -833,6 +855,7 @@ export default function PostDetailScreen() {
                   }}
                 >
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() =>
                       navigation.navigate("SocialProfile", {
                         userId: item.userId,
@@ -873,7 +896,10 @@ export default function PostDetailScreen() {
                         justifyContent: "flex-end",
                       }}
                     >
-                      <Pressable onPress={() => setEditingCommentId(null)}>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => setEditingCommentId(null)}
+                      >
                         <ThemedText
                           type="caption"
                           style={{ color: theme.textSecondary }}
@@ -881,7 +907,10 @@ export default function PostDetailScreen() {
                           Cancel
                         </ThemedText>
                       </Pressable>
-                      <Pressable onPress={handleSaveEditComment}>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={handleSaveEditComment}
+                      >
                         <ThemedText
                           type="caption"
                           style={{
@@ -901,6 +930,8 @@ export default function PostDetailScreen() {
               {user && item.userId === Number(user.id) ? (
                 <View style={{ flexDirection: "row", gap: Spacing.sm }}>
                   <Pressable
+                    accessibilityLabel="Edit"
+                    accessibilityRole="button"
                     onPress={() => handleEditComment(item)}
                     hitSlop={8}
                   >
@@ -911,6 +942,8 @@ export default function PostDetailScreen() {
                     />
                   </Pressable>
                   <Pressable
+                    accessibilityLabel="Close"
+                    accessibilityRole="button"
                     onPress={() => handleDeleteComment(item.id)}
                     hitSlop={8}
                   >
@@ -919,6 +952,8 @@ export default function PostDetailScreen() {
                 </View>
               ) : user ? (
                 <Pressable
+                  accessibilityLabel="Report"
+                  accessibilityRole="button"
                   onPress={() => handleReportComment(item.id)}
                   hitSlop={8}
                 >
@@ -967,6 +1002,8 @@ export default function PostDetailScreen() {
             blurOnSubmit={false}
           />
           <Pressable
+            accessibilityLabel="Send"
+            accessibilityRole="button"
             onPress={handleSendComment}
             disabled={sending || !commentText.trim()}
             hitSlop={8}

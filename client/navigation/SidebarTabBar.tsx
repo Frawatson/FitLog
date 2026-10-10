@@ -70,7 +70,7 @@ export function SidebarTabBar({
               onPress={onPress}
               accessibilityRole="tab"
               accessibilityLabel={label}
-              accessibilityState={isActive ? { selected: true } : {}}
+              aria-selected={isActive}
               style={({ hovered, pressed }: any) => [
                 styles.item,
                 {

@@ -30,6 +30,7 @@ export function SegmentedControl({
         const isSelected = index === selectedIndex;
         return (
           <Pressable
+            accessibilityRole="button"
             key={option}
             onPress={() => onChange(index)}
             style={[

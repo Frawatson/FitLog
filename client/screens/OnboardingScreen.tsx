@@ -476,6 +476,7 @@ export default function OnboardingScreen() {
           const isSelected = goal === g.value;
           return (
             <Pressable
+              accessibilityRole="button"
               key={g.value}
               onPress={() => {
                 Haptics.selectionAsync();
@@ -522,6 +523,7 @@ export default function OnboardingScreen() {
       </ThemedText>
 
       <Pressable
+        accessibilityRole="button"
         onPress={() => {
           Haptics.selectionAsync();
           setActivityLevel("1-2");
@@ -558,6 +560,7 @@ export default function OnboardingScreen() {
       </Pressable>
 
       <Pressable
+        accessibilityRole="button"
         onPress={() => {
           Haptics.selectionAsync();
           setActivityLevel("3-4");
@@ -594,6 +597,7 @@ export default function OnboardingScreen() {
       </Pressable>
 
       <Pressable
+        accessibilityRole="button"
         onPress={() => {
           Haptics.selectionAsync();
           setActivityLevel("5-6");
@@ -731,6 +735,8 @@ export default function OnboardingScreen() {
         <View style={styles.footerButtons}>
           {step > 1 ? (
             <Pressable
+              accessibilityLabel="Back"
+              accessibilityRole="button"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setStep(step - 1);

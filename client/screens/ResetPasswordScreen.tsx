@@ -232,6 +232,8 @@ export default function ResetPasswordScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Pressable
+            accessibilityLabel="Back"
+            accessibilityRole="button"
             onPress={() => navigation.goBack()}
             style={styles.backButton}
             testID="button-back"

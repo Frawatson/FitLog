@@ -133,7 +133,12 @@ const PostCard = React.memo(function PostCard({
           </View>
         </View>
         {onMorePress && (
-          <Pressable onPress={() => onMorePress(post)} hitSlop={8}>
+          <Pressable
+            accessibilityLabel="More options"
+            accessibilityRole="button"
+            onPress={() => onMorePress(post)}
+            hitSlop={8}
+          >
             <Feather
               name="more-horizontal"
               size={18}
@@ -268,6 +273,9 @@ const PostCard = React.memo(function PostCard({
 
       <View style={styles.postActions}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${post.likedByMe ? "Unlike" : "Like"}, ${post.likesCount} ${post.likesCount === 1 ? "like" : "likes"}`}
+          aria-pressed={!!post.likedByMe}
           onPress={() => onLike(post)}
           style={styles.actionBtn}
           hitSlop={8}
@@ -283,6 +291,8 @@ const PostCard = React.memo(function PostCard({
           </ThemedText>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Comments, ${post.commentsCount}`}
           onPress={() => onPress(post)}
           style={styles.actionBtn}
           hitSlop={8}
@@ -359,6 +369,7 @@ export default function SocialFeedScreen() {
           {Platform.OS === "web" ? (
             // Desktop has no pull-to-refresh; give it a real button.
             <Pressable
+              accessibilityRole="button"
               onPress={onRefresh}
               hitSlop={8}
               style={{ marginRight: Spacing.lg }}
@@ -368,6 +379,7 @@ export default function SocialFeedScreen() {
             </Pressable>
           ) : null}
           <Pressable
+            accessibilityRole="button"
             onPress={() => navigation.navigate("Notifications")}
             hitSlop={8}
             style={{ marginRight: Spacing.lg }}
@@ -736,6 +748,7 @@ export default function SocialFeedScreen() {
             />
           ) : loadMoreFailed ? (
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 setLoadMoreFailed(false);
                 onEndReached();
@@ -770,6 +783,7 @@ export default function SocialFeedScreen() {
       />
 
       <AnimatedPress
+        accessibilityLabel="New post"
         onPress={() => navigation.navigate("CreatePost", undefined)}
         style={[
           styles.fab,

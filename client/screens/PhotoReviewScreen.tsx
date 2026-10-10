@@ -308,6 +308,7 @@ export default function PhotoReviewScreen() {
         return (
           <Card key={index} style={styles.itemCard}>
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 if (Platform.OS !== "web") Haptics.selectionAsync();
                 setExpandedIndex(isExpanded ? null : index);
@@ -336,6 +337,8 @@ export default function PhotoReviewScreen() {
               </View>
               <View style={styles.itemHeaderRight}>
                 <Pressable
+                  accessibilityLabel="Close"
+                  accessibilityRole="button"
                   onPress={() => removeItem(index)}
                   hitSlop={8}
                   style={styles.removeBtn}

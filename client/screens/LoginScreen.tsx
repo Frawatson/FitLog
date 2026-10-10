@@ -140,6 +140,7 @@ export default function LoginScreen() {
             />
 
             <Pressable
+              accessibilityRole="button"
               onPress={() => navigation.navigate("ForgotPassword")}
               style={styles.forgotPassword}
             >
@@ -160,7 +161,10 @@ export default function LoginScreen() {
               <ThemedText type="body" style={{ opacity: 0.7 }}>
                 Don&apos;t have an account?
               </ThemedText>
-              <Pressable onPress={() => navigation.navigate("Onboarding")}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.navigate("Onboarding")}
+              >
                 <ThemedText
                   type="body"
                   style={{ color: Colors.light.primary, fontWeight: "600" }}

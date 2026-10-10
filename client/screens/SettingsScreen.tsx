@@ -311,6 +311,7 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <Switch
+                  aria-label="Dark mode"
                   value={
                     themePreference === "dark" ||
                     (themePreference === "system" && isDark)
@@ -386,6 +387,7 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <Switch
+                  aria-label="Workout reminders"
                   value={notifSettings.workoutReminders}
                   onValueChange={handleToggleWorkoutReminders}
                   disabled={togglingWorkout}
@@ -432,6 +434,7 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <Switch
+                  aria-label="Streak alerts"
                   value={notifSettings.streakAlerts}
                   onValueChange={handleToggleStreakAlerts}
                   disabled={togglingStreak}
@@ -475,6 +478,7 @@ export default function SettingsScreen() {
                   </View>
                 </View>
                 <Switch
+                  aria-label="Use location for runs"
                   value={locationOn}
                   onValueChange={handleToggleLocation}
                   disabled={togglingLocation}
@@ -596,6 +600,8 @@ export default function SettingsScreen() {
         {/* Outer Pressable dismisses on overlay tap; inner Pressable
             absorbs touches so chevron / Done presses don't bubble up. */}
         <Pressable
+          accessibilityRole="none"
+          tabIndex={-1}
           style={styles.modalOverlay}
           onPress={() => {
             flushTimeChange();
@@ -603,6 +609,8 @@ export default function SettingsScreen() {
           }}
         >
           <Pressable
+            accessibilityRole="none"
+            tabIndex={-1}
             style={[
               styles.modalContent,
               { backgroundColor: theme.backgroundDefault },
@@ -616,6 +624,8 @@ export default function SettingsScreen() {
             <View style={styles.timePickerContainer}>
               <View style={styles.timeColumn}>
                 <Pressable
+                  accessibilityLabel="Later hour"
+                  accessibilityRole="button"
                   onPress={() => {
                     const newHour = (notifSettings.reminderTime.hour + 1) % 24;
                     handleReminderTimeChange(
@@ -648,6 +658,8 @@ export default function SettingsScreen() {
                   </ThemedText>
                 </View>
                 <Pressable
+                  accessibilityLabel="Earlier hour"
+                  accessibilityRole="button"
                   onPress={() => {
                     const newHour =
                       (notifSettings.reminderTime.hour - 1 + 24) % 24;
@@ -670,6 +682,8 @@ export default function SettingsScreen() {
 
               <View style={styles.timeColumn}>
                 <Pressable
+                  accessibilityLabel="Later minutes"
+                  accessibilityRole="button"
                   onPress={() => {
                     const newMin =
                       (notifSettings.reminderTime.minute + 15) % 60;
@@ -698,6 +712,8 @@ export default function SettingsScreen() {
                   </ThemedText>
                 </View>
                 <Pressable
+                  accessibilityLabel="Earlier minutes"
+                  accessibilityRole="button"
                   onPress={() => {
                     const newMin =
                       (notifSettings.reminderTime.minute - 15 + 60) % 60;
@@ -716,6 +732,8 @@ export default function SettingsScreen() {
 
               <View style={[styles.timeColumn, { marginLeft: Spacing.md }]}>
                 <Pressable
+                  accessibilityLabel="Switch AM/PM"
+                  accessibilityRole="button"
                   onPress={() => {
                     const currentHour = notifSettings.reminderTime.hour;
                     const newHour =
@@ -743,6 +761,8 @@ export default function SettingsScreen() {
                   </ThemedText>
                 </View>
                 <Pressable
+                  accessibilityLabel="Switch AM/PM"
+                  accessibilityRole="button"
                   onPress={() => {
                     const currentHour = notifSettings.reminderTime.hour;
                     const newHour =
@@ -762,6 +782,7 @@ export default function SettingsScreen() {
             </View>
 
             <Pressable
+              accessibilityRole="button"
               onPress={() => {
                 flushTimeChange();
                 setShowTimePicker(false);

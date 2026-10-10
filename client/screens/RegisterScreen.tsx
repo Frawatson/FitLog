@@ -209,7 +209,10 @@ export default function RegisterScreen() {
               <ThemedText type="body" style={{ opacity: 0.7 }}>
                 Already have an account?
               </ThemedText>
-              <Pressable onPress={() => navigation.goBack()}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigation.goBack()}
+              >
                 <ThemedText
                   type="body"
                   style={{ color: Colors.light.primary, fontWeight: "600" }}

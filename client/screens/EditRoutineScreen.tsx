@@ -91,7 +91,10 @@ export default function EditRoutineScreen() {
       navigation.setOptions({
         headerTitle: "Add Exercise",
         headerLeft: () => (
-          <HeaderButton onPress={() => setShowExerciseList(false)}>
+          <HeaderButton
+            accessibilityLabel="Back"
+            onPress={() => setShowExerciseList(false)}
+          >
             <Feather name="arrow-left" size={24} color={theme.text} />
           </HeaderButton>
         ),
@@ -101,7 +104,7 @@ export default function EditRoutineScreen() {
       navigation.setOptions({
         headerTitle: isNew ? "New Routine" : "Edit Routine",
         headerLeft: () => (
-          <HeaderButton onPress={handleCancel}>
+          <HeaderButton accessibilityLabel="Close" onPress={handleCancel}>
             <Feather name="x" size={24} color={theme.text} />
           </HeaderButton>
         ),
@@ -286,7 +289,11 @@ export default function EditRoutineScreen() {
             autoCorrect={false}
           />
           {exerciseSearch.length > 0 && (
-            <Pressable onPress={() => setExerciseSearch("")}>
+            <Pressable
+              accessibilityLabel="Close"
+              accessibilityRole="button"
+              onPress={() => setExerciseSearch("")}
+            >
               <Feather name="x" size={18} color={theme.textSecondary} />
             </Pressable>
           )}
@@ -312,6 +319,8 @@ export default function EditRoutineScreen() {
                   ]}
                 >
                   <Pressable
+                    accessibilityLabel="More info"
+                    accessibilityRole="button"
                     onPress={() => {
                       setSelectedExerciseName(ex.name);
                       setShowExerciseInfo(true);
@@ -421,6 +430,8 @@ export default function EditRoutineScreen() {
                 ]}
               >
                 <Pressable
+                  accessibilityLabel="More info"
+                  accessibilityRole="button"
                   onPress={() => {
                     setSelectedExerciseName(exercise.exerciseName);
                     setShowExerciseInfo(true);
@@ -434,7 +445,12 @@ export default function EditRoutineScreen() {
                     {index + 1}. {exercise.exerciseName}
                   </ThemedText>
                 </View>
-                <Pressable onPress={() => removeExercise(index)} hitSlop={8}>
+                <Pressable
+                  accessibilityLabel="Delete"
+                  accessibilityRole="button"
+                  onPress={() => removeExercise(index)}
+                  hitSlop={8}
+                >
                   <Feather
                     name="trash-2"
                     size={18}
@@ -472,6 +488,8 @@ export default function EditRoutineScreen() {
         onRequestClose={() => setShowDiscardModal(false)}
       >
         <Pressable
+          accessibilityRole="none"
+          tabIndex={-1}
           style={styles.modalOverlay}
           onPress={() => setShowDiscardModal(false)}
         >

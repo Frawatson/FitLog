@@ -174,7 +174,7 @@ export default function AddFoodScreen() {
     if (showForm) {
       navigation.setOptions({
         headerLeft: () => (
-          <HeaderButton onPress={resetForm}>
+          <HeaderButton accessibilityLabel="Back" onPress={resetForm}>
             <Feather name="arrow-left" size={24} color={theme.text} />
           </HeaderButton>
         ),
@@ -811,7 +811,11 @@ export default function AddFoodScreen() {
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 ? (
-              <Pressable onPress={() => setSearchQuery("")}>
+              <Pressable
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+                onPress={() => setSearchQuery("")}
+              >
                 <Feather name="x" size={20} color={theme.textSecondary} />
               </Pressable>
             ) : null}
@@ -862,6 +866,8 @@ export default function AddFoodScreen() {
                       </ThemedText>
                     </View>
                     <Pressable
+                      accessibilityLabel={`Add ${item.name}`}
+                      accessibilityRole="button"
                       onPress={() => handleQuickAddApiFood(item)}
                       hitSlop={8}
                     >

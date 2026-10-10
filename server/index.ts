@@ -432,6 +432,10 @@ async function startServer() {
       #boot-splash .ring{width:36px;height:36px;border-radius:50%;border:3px solid rgba(27,58,39,.25);border-top-color:#1B3A27;animation:bootspin .8s linear infinite}
       @media (prefers-color-scheme:dark){#boot-splash .ring{border-color:rgba(156,197,169,.25);border-top-color:#9CC5A9}}
       @keyframes bootspin{to{transform:rotate(360deg)}}
+      /* Keyboard focus ring (react-native-web removes outlines). Only for
+         keyboard focus, not mouse/touch. */
+      :focus-visible{outline:2px solid #2F7D4F !important;outline-offset:2px !important}
+      @media (prefers-color-scheme:dark){:focus-visible{outline-color:#9CC5A9 !important}}
     </style>`,
       ].join("\n    ");
       const splash =

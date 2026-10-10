@@ -446,6 +446,8 @@ export default function CreatePostScreen() {
             resizeMode="cover"
           />
           <Pressable
+            accessibilityLabel="Close"
+            accessibilityRole="button"
             onPress={() => {
               setImageUri(null);
               setImageBase64(null);
@@ -461,6 +463,7 @@ export default function CreatePostScreen() {
         </View>
       ) : (
         <Pressable
+          accessibilityRole="button"
           onPress={handleAddPhoto}
           style={[styles.addPhotoBtn, { borderColor: theme.border }]}
         >
@@ -672,6 +675,7 @@ export default function CreatePostScreen() {
           Visible to:
         </ThemedText>
         <Pressable
+          accessibilityRole="button"
           onPress={() =>
             setVisibility(visibility === "followers" ? "public" : "followers")
           }

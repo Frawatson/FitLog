@@ -728,7 +728,14 @@ export default function RunTrackerScreen() {
               })}
             </ThemedText>
           </View>
-          <Pressable onPress={toggleMute} style={styles.muteButton}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              audioMuted ? "Unmute voice cues" : "Mute voice cues"
+            }
+            onPress={toggleMute}
+            style={styles.muteButton}
+          >
             <Feather
               name={audioMuted ? "volume-x" : "volume-2"}
               size={18}
@@ -899,6 +906,7 @@ export default function RunTrackerScreen() {
             <View style={styles.activeControls}>
               {isPaused ? (
                 <AnimatedPress
+                  accessibilityLabel="Resume run"
                   onPress={resumeRun}
                   style={[styles.controlButton, styles.resumeButton]}
                 >
@@ -906,6 +914,7 @@ export default function RunTrackerScreen() {
                 </AnimatedPress>
               ) : (
                 <AnimatedPress
+                  accessibilityLabel="Pause run"
                   onPress={pauseRun}
                   style={[styles.controlButton, styles.pauseButton]}
                 >
@@ -913,6 +922,7 @@ export default function RunTrackerScreen() {
                 </AnimatedPress>
               )}
               <AnimatedPress
+                accessibilityLabel="Finish run"
                 onPress={stopRun}
                 style={[styles.controlButton, styles.stopButton]}
               >

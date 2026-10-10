@@ -197,6 +197,21 @@ export function WorkoutCalendar({
 
             return (
               <Pressable
+                accessibilityRole={day ? "button" : "none"}
+                tabIndex={day ? 0 : -1}
+                accessibilityLabel={
+                  day
+                    ? `${currentMonth} ${day}${isToday ? ", today" : ""}${
+                        hasWorkout && hasRun
+                          ? ", workout and run"
+                          : hasWorkout
+                            ? ", workout"
+                            : hasRun
+                              ? ", run"
+                              : ""
+                      }`
+                    : undefined
+                }
                 key={dayIndex}
                 style={[
                   styles.dayCell,

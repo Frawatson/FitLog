@@ -69,6 +69,8 @@ export function Button({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
+      accessibilityRole="button"
+      aria-disabled={disabled}
       testID={testID}
       style={[
         styles.button,

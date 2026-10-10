@@ -243,6 +243,7 @@ export default function ProgressChartsScreen() {
       <View style={styles.periodSelector}>
         {(["7d", "30d", "90d", "all"] as Period[]).map((p) => (
           <Pressable
+            accessibilityRole="button"
             key={p}
             onPress={() => setPeriod(p)}
             style={[

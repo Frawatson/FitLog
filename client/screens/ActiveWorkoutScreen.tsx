@@ -101,7 +101,7 @@ export default function ActiveWorkoutScreen() {
 
     navigation.setOptions({
       headerLeft: () => (
-        <HeaderButton onPress={handleCancel}>
+        <HeaderButton accessibilityLabel="Close" onPress={handleCancel}>
           <Feather name="x" size={24} color={theme.text} />
         </HeaderButton>
       ),
@@ -554,6 +554,7 @@ export default function ActiveWorkoutScreen() {
           <View style={styles.restPickerRow}>
             {[30, 60, 90, 120, 180].map((seconds) => (
               <Pressable
+                accessibilityRole="button"
                 key={seconds}
                 onPress={() => saveRestDuration(seconds)}
                 style={[
@@ -620,6 +621,8 @@ export default function ActiveWorkoutScreen() {
               }}
             >
               <Pressable
+                accessibilityLabel="More info"
+                accessibilityRole="button"
                 onPress={() => {
                   setSelectedExerciseName(exercise.exerciseName);
                   setShowExerciseInfo(true);
@@ -629,6 +632,7 @@ export default function ActiveWorkoutScreen() {
                 <Feather name="info" size={18} color={Colors.light.primary} />
               </Pressable>
               <Pressable
+                accessibilityRole="button"
                 onPress={() =>
                   navigation.navigate("ExerciseHistory", {
                     exerciseId: exercise.exerciseId,
@@ -725,6 +729,11 @@ export default function ActiveWorkoutScreen() {
                   placeholderTextColor={theme.textSecondary}
                 />
                 <AnimatedPress
+                  accessibilityLabel={
+                    set.completed
+                      ? `Set ${setIndex + 1} done, tap to undo`
+                      : `Mark set ${setIndex + 1} done`
+                  }
                   onPress={() => toggleSetComplete(exerciseIndex, setIndex)}
                   style={[
                     styles.checkButton,

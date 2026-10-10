@@ -51,6 +51,7 @@ export function SelectField({
         </Text>
       ) : null}
       <TouchableOpacity
+        accessibilityRole="button"
         style={[
           styles.selectButton,
           { backgroundColor: theme.backgroundSecondary },
@@ -76,6 +77,7 @@ export function SelectField({
         onRequestClose={() => setModalVisible(false)}
       >
         <TouchableOpacity
+          accessibilityRole="button"
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setModalVisible(false)}
@@ -92,7 +94,11 @@ export function SelectField({
               <Text style={[styles.modalTitle, { color: theme.text }]}>
                 {label || "Select Option"}
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity
+                accessibilityLabel="Close"
+                accessibilityRole="button"
+                onPress={() => setModalVisible(false)}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </TouchableOpacity>
             </View>
@@ -101,6 +107,7 @@ export function SelectField({
               keyExtractor={(item) => item.value}
               renderItem={({ item }) => (
                 <TouchableOpacity
+                  accessibilityRole="button"
                   style={[
                     styles.optionItem,
                     item.value === value && {

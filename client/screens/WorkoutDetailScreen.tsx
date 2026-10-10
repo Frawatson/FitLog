@@ -124,6 +124,7 @@ export default function WorkoutDetailScreen() {
           This workout may have been deleted
         </ThemedText>
         <Pressable
+          accessibilityRole="button"
           onPress={() => navigation.goBack()}
           style={{ marginTop: Spacing.xl }}
         >

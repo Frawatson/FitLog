@@ -112,12 +112,19 @@ export function WebInstallPrompt() {
                 : 'Tap the Share button, then "Add to Home Screen".'}
             </ThemedText>
           </View>
-          <Pressable onPress={dismiss} hitSlop={8} style={styles.dismiss}>
+          <Pressable
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+            onPress={dismiss}
+            hitSlop={8}
+            style={styles.dismiss}
+          >
             <Feather name="x" size={18} color={theme.textSecondary} />
           </Pressable>
         </View>
         {variant === "chrome" ? (
           <Pressable
+            accessibilityRole="button"
             onPress={install}
             style={[
               styles.installBtn,

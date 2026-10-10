@@ -461,6 +461,7 @@ export default function ProfileScreen() {
                 {/* Bio (social) — inline below email. Pencil toggles edit mode. */}
                 {!editingBio ? (
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => setEditingBio(true)}
                     style={{ marginTop: Spacing.sm }}
                   >
@@ -516,6 +517,7 @@ export default function ProfileScreen() {
                       </ThemedText>
                       <View style={{ flexDirection: "row", gap: Spacing.md }}>
                         <Pressable
+                          accessibilityRole="button"
                           onPress={() => {
                             setBioText(socialProfile?.bio || "");
                             setEditingBio(false);
@@ -529,7 +531,11 @@ export default function ProfileScreen() {
                             Cancel
                           </ThemedText>
                         </Pressable>
-                        <Pressable onPress={handleSaveBio} disabled={savingBio}>
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={handleSaveBio}
+                          disabled={savingBio}
+                        >
                           {savingBio ? (
                             <ActivityIndicator
                               size="small"
@@ -570,7 +576,11 @@ export default function ProfileScreen() {
                   </>
                 ) : null}
               </View>
-              <Pressable onPress={() => navigation.navigate("EditProfile")}>
+              <Pressable
+                accessibilityLabel="Edit"
+                accessibilityRole="button"
+                onPress={() => navigation.navigate("EditProfile")}
+              >
                 <Feather name="edit-2" size={20} color={Colors.light.primary} />
               </Pressable>
             </Card>
@@ -585,6 +595,7 @@ export default function ProfileScreen() {
                 </ThemedText>
                 <View style={styles.statsRow}>
                   <Pressable
+                    accessibilityRole="button"
                     style={styles.statItem}
                     onPress={() =>
                       user &&
@@ -605,6 +616,7 @@ export default function ProfileScreen() {
                     </ThemedText>
                   </Pressable>
                   <Pressable
+                    accessibilityRole="button"
                     style={styles.statItem}
                     onPress={() =>
                       user &&
@@ -650,6 +662,7 @@ export default function ProfileScreen() {
                     </ThemedText>
                   </View>
                   <Switch
+                    aria-label="Public profile"
                     value={!!socialProfile.isPublic}
                     onValueChange={handleTogglePublic}
                     trackColor={{
@@ -666,6 +679,10 @@ export default function ProfileScreen() {
               <View style={styles.sectionHeader}>
                 <ThemedText type="h4">Body Weight</ThemedText>
                 <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showWeightInput ? "Cancel weight entry" : "Log body weight"
+                  }
                   onPress={() => {
                     const next = !showWeightInput;
                     setShowWeightInput(next);
@@ -756,6 +773,7 @@ export default function ProfileScreen() {
               {bodyWeights.length > 1 ? (
                 <View style={styles.weightHistory}>
                   <Pressable
+                    accessibilityRole="button"
                     onPress={() => setShowWeightHistory(!showWeightHistory)}
                     style={{
                       flexDirection: "row",
@@ -793,6 +811,7 @@ export default function ProfileScreen() {
                               {new Date(entry.date).toLocaleDateString()}
                             </ThemedText>
                             <Pressable
+                              accessibilityRole="button"
                               onPress={() => handleDeleteWeight(entry)}
                               hitSlop={8}
                               accessibilityLabel="Delete weight entry"
@@ -807,6 +826,7 @@ export default function ProfileScreen() {
                         </View>
                       ))}
                       <Pressable
+                        accessibilityRole="button"
                         onPress={() => navigation.navigate("ProgressCharts")}
                       >
                         <ThemedText
@@ -829,7 +849,11 @@ export default function ProfileScreen() {
               <Card style={styles.sectionCard}>
                 <View style={styles.sectionHeader}>
                   <ThemedText type="h4">Macro Targets</ThemedText>
-                  <Pressable onPress={() => navigation.navigate("EditMacros")}>
+                  <Pressable
+                    accessibilityLabel="Edit"
+                    accessibilityRole="button"
+                    onPress={() => navigation.navigate("EditMacros")}
+                  >
                     <Feather
                       name="edit-2"
                       size={18}
@@ -1040,6 +1064,7 @@ export default function ProfileScreen() {
 
             <View style={styles.modalButtons}>
               <Pressable
+                accessibilityRole="button"
                 onPress={handleDeleteModalCancel}
                 disabled={isDeleting}
                 style={[
@@ -1051,6 +1076,7 @@ export default function ProfileScreen() {
                 <ThemedText type="body">Cancel</ThemedText>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
                 onPress={handleDeleteModalNext}
                 disabled={isDeleting}
                 style={[styles.modalButton, styles.modalButtonDelete]}

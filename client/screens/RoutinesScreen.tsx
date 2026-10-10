@@ -128,7 +128,10 @@ export default function RoutinesScreen() {
 
     return (
       <Card style={styles.routineCard}>
-        <Pressable onPress={() => toggleExpand(item.id)}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => toggleExpand(item.id)}
+        >
           <View style={styles.routineHeader}>
             <View style={{ flex: 1 }}>
               <ThemedText type="h3">{item.name}</ThemedText>
@@ -158,6 +161,7 @@ export default function RoutinesScreen() {
               </View>
             </View>
             <AnimatedPress
+              accessibilityLabel={`Start ${item.name}`}
               onPress={() => handleStartWorkout(item)}
               style={styles.playButton}
             >
@@ -188,6 +192,7 @@ export default function RoutinesScreen() {
           style={[styles.secondaryActions, { borderTopColor: theme.border }]}
         >
           <Pressable
+            accessibilityRole="button"
             onPress={() => {
               Haptics.selectionAsync();
               navigation.navigate("EditRoutine", { routineId: item.id });
@@ -227,6 +232,7 @@ export default function RoutinesScreen() {
             </ThemedText>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             onPress={() => handleDelete(item)}
             style={[
               styles.secondaryButton,
@@ -338,8 +344,15 @@ export default function RoutinesScreen() {
 
     return (
       <View style={StyleSheet.absoluteFill}>
-        <Pressable style={styles.modalOverlay} onPress={cancelDelete}>
+        <Pressable
+          accessibilityRole="none"
+          tabIndex={-1}
+          style={styles.modalOverlay}
+          onPress={cancelDelete}
+        >
           <Pressable
+            accessibilityRole="none"
+            tabIndex={-1}
             style={[
               styles.modalContent,
               { backgroundColor: theme.backgroundCard },
@@ -358,6 +371,7 @@ export default function RoutinesScreen() {
             </ThemedText>
             <View style={styles.modalButtons}>
               <Pressable
+                accessibilityRole="button"
                 style={[
                   styles.modalButton,
                   { backgroundColor: theme.backgroundDefault },

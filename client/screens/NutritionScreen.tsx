@@ -387,6 +387,7 @@ export default function NutritionScreen() {
             <View style={styles.periodToggle}>
               {(["day", "week", "month"] as PeriodMode[]).map((mode) => (
                 <Pressable
+                  accessibilityRole="button"
                   key={mode}
                   onPress={() => {
                     // Keep the currently-viewed date when switching modes so
@@ -420,13 +421,20 @@ export default function NutritionScreen() {
             </View>
 
             <View style={styles.dateSelector}>
-              <Pressable onPress={() => navigateDate(-1)} hitSlop={8}>
+              <Pressable
+                accessibilityLabel={`Previous ${periodMode}`}
+                accessibilityRole="button"
+                onPress={() => navigateDate(-1)}
+                hitSlop={8}
+              >
                 <Feather name="chevron-left" size={24} color={theme.text} />
               </Pressable>
               <ThemedText type="h3">
                 {formatPeriodLabel(selectedDate, periodMode)}
               </ThemedText>
               <Pressable
+                accessibilityLabel={`Next ${periodMode}`}
+                accessibilityRole="button"
                 onPress={() => navigateDate(1)}
                 hitSlop={8}
                 disabled={isAtToday}
@@ -720,7 +728,8 @@ export default function NutritionScreen() {
         accessibilityLabel={
           isAnalyzing ? "Analyzing food photo" : "Take a photo of food"
         }
-        accessibilityState={{ disabled: isAnalyzing, busy: isAnalyzing }}
+        aria-disabled={isAnalyzing}
+        aria-busy={isAnalyzing}
         style={[styles.fab, { bottom: tabBarHeight + Spacing.lg }]}
         testID="button-camera-fab"
       >

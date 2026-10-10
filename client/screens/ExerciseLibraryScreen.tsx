@@ -260,7 +260,11 @@ export default function ExerciseLibraryScreen() {
                 autoCorrect={false}
               />
               {search.length > 0 && (
-                <Pressable onPress={() => setSearch("")}>
+                <Pressable
+                  accessibilityLabel="Close"
+                  accessibilityRole="button"
+                  onPress={() => setSearch("")}
+                >
                   <Feather name="x" size={18} color={theme.textSecondary} />
                 </Pressable>
               )}
@@ -277,7 +281,7 @@ export default function ExerciseLibraryScreen() {
                     key={f.id}
                     onPress={() => setBodyFilter(active ? null : f.id)}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
+                    aria-selected={active}
                     style={[
                       styles.chip,
                       {
@@ -321,6 +325,7 @@ export default function ExerciseLibraryScreen() {
         )}
         renderItem={({ item }) => (
           <Pressable
+            accessibilityRole="button"
             onPress={() => {
               setSelectedExercise(item.name);
               setShowInfo(true);
@@ -377,6 +382,8 @@ export default function ExerciseLibraryScreen() {
               </View>
             ) : (
               <Pressable
+                accessibilityLabel={`Add ${item.name} to routine`}
+                accessibilityRole="button"
                 onPress={() => handleAdd(item)}
                 hitSlop={8}
                 style={styles.addButton}
@@ -424,8 +431,15 @@ export default function ExerciseLibraryScreen() {
         animationType="fade"
         onRequestClose={dismissModal}
       >
-        <Pressable style={styles.modalOverlay} onPress={dismissModal}>
+        <Pressable
+          accessibilityRole="none"
+          tabIndex={-1}
+          style={styles.modalOverlay}
+          onPress={dismissModal}
+        >
           <Pressable
+            accessibilityRole="none"
+            tabIndex={-1}
             style={[
               styles.modalContent,
               { backgroundColor: theme.backgroundCard },
@@ -443,6 +457,7 @@ export default function ExerciseLibraryScreen() {
             </ThemedText>
 
             <Pressable
+              accessibilityRole="button"
               onPress={handleNewRoutine}
               style={[
                 styles.routineOption,
@@ -480,6 +495,7 @@ export default function ExerciseLibraryScreen() {
                 <ScrollView style={{ maxHeight: 240 }}>
                   {routines.map((routine) => (
                     <Pressable
+                      accessibilityRole="button"
                       key={routine.id}
                       onPress={() => handleAddToRoutine(routine)}
                       style={[

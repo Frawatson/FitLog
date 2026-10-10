@@ -274,6 +274,7 @@ export default function SocialProfileScreen() {
       {/* Stats Row */}
       <View style={styles.statsRow}>
         <Pressable
+          accessibilityRole="button"
           style={styles.statItem}
           onPress={() =>
             navigation.navigate("FollowList", {
@@ -288,6 +289,7 @@ export default function SocialProfileScreen() {
           </ThemedText>
         </Pressable>
         <Pressable
+          accessibilityRole="button"
           style={styles.statItem}
           onPress={() =>
             navigation.navigate("FollowList", {
@@ -329,6 +331,9 @@ export default function SocialProfileScreen() {
             {profile.isFollowedByMe ? "Following" : "Follow"}
           </Button>
           <AnimatedPress
+            accessibilityLabel={
+              profile.isBlockedByMe ? "Unblock user" : "Block user"
+            }
             onPress={handleBlock}
             style={[
               styles.blockBtn,

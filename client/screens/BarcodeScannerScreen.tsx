@@ -189,6 +189,8 @@ export default function BarcodeScannerScreen() {
 
       {/* Close button */}
       <Pressable
+        accessibilityLabel="Close"
+        accessibilityRole="button"
         style={styles.closeButton}
         onPress={() => navigation.goBack()}
         hitSlop={12}

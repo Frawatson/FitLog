@@ -144,6 +144,7 @@ export default function UserSearchScreen() {
             />
             {query.length > 0 && (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => handleSearch("")}
                 hitSlop={8}
                 accessibilityLabel="Clear search"
@@ -175,6 +176,7 @@ export default function UserSearchScreen() {
             </View>
             {user && item.userId !== Number(user.id) && (
               <Pressable
+                accessibilityRole="button"
                 onPress={() => handleFollow(item)}
                 style={[
                   styles.followBtn,
@@ -207,7 +209,11 @@ export default function UserSearchScreen() {
               >
                 Search failed. Check your connection.
               </ThemedText>
-              <Pressable onPress={handleSubmitSearch} hitSlop={8}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleSubmitSearch}
+                hitSlop={8}
+              >
                 <ThemedText
                   type="body"
                   style={{ color: Colors.light.primary, fontWeight: "600" }}
