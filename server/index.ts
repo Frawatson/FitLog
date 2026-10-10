@@ -11,6 +11,7 @@ import { registerRoutes } from "./routes";
 import authRouter, { authLimiter } from "./auth";
 import { clusterWorkerCount, initializeDatabase, pool } from "./db";
 import { privacyHtml, termsHtml } from "./legalPages";
+import { serviceWorkerSource } from "./serviceWorker";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -259,18 +260,12 @@ async function startServer() {
       });
     });
 
-    // Minimal service worker kept for continuity with already-installed
-    // clients (unregistering is messier than serving a benign one). No
-    // fetch listener: Chrome treats an empty fetch handler as pure
-    // overhead on every navigation, and installability no longer
-    // requires one. A future iteration can add an offline shell.
+    // Service worker: offline app shell (see serviceWorker.ts). no-cache
+    // so browsers pick up a new version on the next visit.
     app.get("/sw.js", (_req: Request, res: Response) => {
       res.setHeader("content-type", "application/javascript");
       res.setHeader("cache-control", "no-cache");
-      res.send(
-        "self.addEventListener('install',()=>self.skipWaiting());" +
-          "self.addEventListener('activate',(e)=>e.waitUntil(self.clients.claim()));",
-      );
+      res.send(serviceWorkerSource);
     });
 
     // Legal pages — served as plain static HTML so they load instantly,

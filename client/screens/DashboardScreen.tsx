@@ -44,6 +44,8 @@ import type {
 } from "@/types";
 import * as storage from "@/lib/storage";
 import { primeBootstrap, takePrimedResponse } from "@/lib/syncService";
+import { computeStreak } from "../../shared/streak";
+import { isPlannedRestDay } from "../../shared/trainingSchedule";
 import {
   todayTraining,
   trainingRingFraction,
@@ -59,6 +61,7 @@ import { getUnreadCountApi } from "@/lib/socialStorage";
 import { timeAgo } from "@/lib/timeAgo";
 import {
   activityDate,
+  activityDay,
   formatMinutes,
   getLocalDateString,
   localTimeZone,
@@ -357,11 +360,25 @@ export default function DashboardScreen() {
         if (response.ok) {
           const streakData = await response.json();
           setStreak(streakData);
+          return;
         }
       }
     } catch (error) {
       console.log("Error fetching streak:", error);
     }
+    // Server unreachable (offline): same rules, on the data on this device.
+    setStreak(
+      computeStreak(
+        [
+          ...workoutData
+            .filter((w) => w.completedAt)
+            .map((w) => activityDay(w)),
+          ...runData.map((r) => activityDay(r)),
+        ],
+        getLocalDateString(),
+        (weekday) => isPlannedRestDay(routineData, weekday),
+      ),
+    );
   };
 
   useFocusEffect(
