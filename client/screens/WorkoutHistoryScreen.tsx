@@ -23,7 +23,11 @@ import type { Workout, RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
 import { formatDistance } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { activityDay, getLocalDateString } from "@/lib/dateUtils";
+import {
+  activityDay,
+  formatMinutes,
+  getLocalDateString,
+} from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -230,7 +234,9 @@ export default function WorkoutHistoryScreen() {
                         style={{ color: theme.textSecondary }}
                       >
                         {w.exercises.length} exercises · {totalSets} sets
-                        {w.durationMinutes ? ` · ${w.durationMinutes}m` : ""}
+                        {w.durationMinutes
+                          ? ` · ${formatMinutes(w.durationMinutes)}`
+                          : ""}
                       </ThemedText>
                     </View>
                     <Feather
@@ -277,7 +283,7 @@ export default function WorkoutHistoryScreen() {
                       style={{ color: theme.textSecondary }}
                     >
                       {r.durationSeconds
-                        ? `${Math.round(r.durationSeconds / 60)} min`
+                        ? formatMinutes(r.durationSeconds / 60)
                         : ""}
                       {r.calories ? ` · ${r.calories} cal` : ""}
                     </ThemedText>

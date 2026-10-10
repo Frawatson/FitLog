@@ -56,7 +56,11 @@ import { formatDistanceValue, formatDistanceUnit } from "@/lib/units";
 import { checkAchievements, type Achievement } from "@/lib/achievements";
 import { getUnreadCountApi } from "@/lib/socialStorage";
 import { timeAgo } from "@/lib/timeAgo";
-import { activityDate, getLocalDateString } from "@/lib/dateUtils";
+import {
+  activityDate,
+  formatMinutes,
+  getLocalDateString,
+} from "@/lib/dateUtils";
 
 interface StreakData {
   currentStreak: number;
@@ -941,7 +945,7 @@ export default function DashboardScreen() {
                         {item.type === "run" &&
                         "durationMin" in item &&
                         item.durationMin
-                          ? `${item.durationMin} min`
+                          ? formatMinutes(item.durationMin)
                           : ""}
                       </ThemedText>
                     </View>

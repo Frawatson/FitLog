@@ -24,6 +24,7 @@ import { stashTransient } from "@/lib/transientParams";
 import { completedWorkoutSummary } from "@/lib/workoutPosts";
 import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { formatMinutes } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type RouteType = RouteProp<RootStackParamList, "WorkoutComplete">;
@@ -237,7 +238,8 @@ export default function WorkoutCompleteScreen() {
             {workout ? (
               <>
                 <ThemedText type="body" style={styles.subtitle}>
-                  {workout.routineName} - {workout.durationMinutes} minutes
+                  {workout.routineName} -{" "}
+                  {formatMinutes(workout.durationMinutes ?? 0)}
                 </ThemedText>
 
                 <View style={styles.statsRow}>

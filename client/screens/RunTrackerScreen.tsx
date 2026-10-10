@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { View, StyleSheet, Platform, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated from "react-native-reanimated";
@@ -31,6 +31,10 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
 import { webSafeAlert } from "@/lib/webSafeAlert";
+import {
+  checkLocationPermission,
+  requestLocationPermission,
+} from "@/lib/locationConsent";
 import {
   formatDistanceValue,
   formatDistanceUnit,
@@ -134,8 +138,16 @@ export default function RunTrackerScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
+  // Re-checked on focus so turning location off (or back on) in
+  // Settings applies when the user returns to this tab.
+  useFocusEffect(
+    useCallback(() => {
+      checkPermission();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []),
+  );
+
   useEffect(() => {
-    checkPermission();
     loadUnitPreference();
     // loadRunHistory is intentionally NOT called here — useFocusEffect
     // below runs on initial mount too, so calling it from both fires
@@ -181,19 +193,21 @@ export default function RunTrackerScreen() {
   );
 
   const checkPermission = async () => {
-    const { status } = await Location.getForegroundPermissionsAsync();
+    const status = await checkLocationPermission();
     setPermission(status);
     if (status === "granted") {
       getCurrentLocation();
     }
   };
 
-  const requestPermission = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
+  const requestPermission = async (): Promise<boolean> => {
+    const status = await requestLocationPermission();
     setPermission(status);
     if (status === "granted") {
       getCurrentLocation();
+      return true;
     }
+    return false;
   };
 
   const getCurrentLocation = async () => {
@@ -348,8 +362,15 @@ export default function RunTrackerScreen() {
   };
 
   const startRun = async () => {
-    if (permission !== "granted") {
-      requestPermission();
+    // First run (or after turning location back on): ask, then start
+    // straight away instead of making the user tap Start a second time.
+    if (permission !== "granted" && !(await requestPermission())) {
+      if (Platform.OS === "web") {
+        webSafeAlert(
+          "Location needed",
+          "Allow location access to track your run's distance and route.",
+        );
+      }
       return;
     }
 
@@ -385,6 +406,7 @@ export default function RunTrackerScreen() {
     if (!watching) {
       if (timerRef.current) clearInterval(timerRef.current);
       setIsRunning(false);
+      setPermission(await checkLocationPermission());
       webSafeAlert(
         "Location unavailable",
         "We could not access your location, so the run cannot be tracked. Check your browser/location permissions and try again.",
@@ -653,7 +675,12 @@ export default function RunTrackerScreen() {
             <ThemedText type="body" style={styles.permissionText}>
               Allow location access to track distance, pace, and route.
             </ThemedText>
-            <Button onPress={requestPermission} style={styles.permissionButton}>
+            <Button
+              onPress={() => {
+                requestPermission();
+              }}
+              style={styles.permissionButton}
+            >
               Enable Location
             </Button>
           </View>

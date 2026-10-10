@@ -39,6 +39,7 @@ import { takeTransient } from "@/lib/transientParams";
 import { routineReferenceData } from "@/lib/sharedRoutines";
 import { completedWorkoutSummary } from "@/lib/workoutPosts";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { formatMinutes } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -508,8 +509,8 @@ export default function CreatePostScreen() {
             {postType === "routine"
               ? `Workout plan \u00B7 ${referenceData.exerciseCount} exercises \u2014 others can save it`
               : postType === "workout"
-                ? `${referenceData.durationMinutes}min \u00B7 ${referenceData.exerciseCount} exercises`
-                : `${referenceData.durationMinutes}min${referenceData.pace ? ` \u00B7 ${referenceData.pace}` : ""}`}
+                ? `${formatMinutes(referenceData.durationMinutes)} \u00B7 ${referenceData.exerciseCount} exercises`
+                : `${formatMinutes(referenceData.durationMinutes)}${referenceData.pace ? ` \u00B7 ${referenceData.pace}` : ""}`}
           </ThemedText>
         </View>
       )}
@@ -565,7 +566,8 @@ export default function CreatePostScreen() {
                 {w.routineName}
               </ThemedText>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                {w.durationMinutes}min {"\u00B7"} {w.exercises.length} exercises
+                {formatMinutes(w.durationMinutes ?? 0)} {"\u00B7"}{" "}
+                {w.exercises.length} exercises
               </ThemedText>
             </AnimatedPress>
           ))}
@@ -650,7 +652,7 @@ export default function CreatePostScreen() {
                 {r.distanceKm.toFixed(2)} km
               </ThemedText>
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                {Math.round(r.durationSeconds / 60)}min
+                {formatMinutes(r.durationSeconds / 60)}
               </ThemedText>
             </AnimatedPress>
           ))}

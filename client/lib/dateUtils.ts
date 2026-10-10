@@ -39,3 +39,12 @@ export function activityDay(session: {
 }): string {
   return getLocalDateString(activityDate(session));
 }
+
+// A duration for display: "45 min" under an hour, "1h 14m" from an hour.
+export function formatMinutes(minutes: number): string {
+  const total = Math.max(0, Math.round(minutes));
+  if (total < 60) return `${total} min`;
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
+}

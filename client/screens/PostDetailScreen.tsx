@@ -63,6 +63,7 @@ import {
 } from "@/lib/units";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { formatMinutes } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type DetailRoute = RouteProp<RootStackParamList, "PostDetail">;
@@ -632,7 +633,8 @@ export default function PostDetailScreen() {
                       }}
                     >
                       {[
-                        ref.durationMinutes && `${ref.durationMinutes}m`,
+                        ref.durationMinutes &&
+                          formatMinutes(ref.durationMinutes),
                         workoutCounts.totalSets &&
                           `${workoutCounts.totalSets} sets`,
                         workoutCounts.exerciseCount &&
@@ -757,7 +759,7 @@ export default function PostDetailScreen() {
                     {[
                       ref.distanceKm != null &&
                         formatDistance(ref.distanceKm, unitSystem),
-                      ref.durationMinutes && `${ref.durationMinutes}m`,
+                      ref.durationMinutes && formatMinutes(ref.durationMinutes),
                       ref.paceMinPerKm != null
                         ? `${formatPace(ref.paceMinPerKm, unitSystem)} ${formatPaceUnit(unitSystem)}`
                         : ref.pace || null,

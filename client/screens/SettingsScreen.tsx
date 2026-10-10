@@ -31,6 +31,11 @@ import * as notifications from "@/lib/notifications";
 import type { NotificationSettings } from "@/lib/notifications";
 import { exportUserDataCsv } from "@/lib/dataExport";
 import { webSafeAlert } from "@/lib/webSafeAlert";
+import {
+  checkLocationPermission,
+  requestLocationPermission,
+  revokeLocationConsent,
+} from "@/lib/locationConsent";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -73,6 +78,35 @@ export default function SettingsScreen() {
       setIsExporting(false);
     }
   };
+  const [locationOn, setLocationOn] = useState(false);
+  const [togglingLocation, setTogglingLocation] = useState(false);
+
+  const handleToggleLocation = async (value: boolean) => {
+    if (togglingLocation) return;
+    setTogglingLocation(true);
+    try {
+      if (value) {
+        const status = await requestLocationPermission();
+        if (status !== "granted") {
+          webSafeAlert(
+            "Location blocked",
+            Platform.OS === "web"
+              ? "Your browser is blocking location for this site. Allow it in the browser's site settings, then try again."
+              : "Please allow location for this app in your device settings.",
+          );
+          return;
+        }
+        setLocationOn(true);
+      } else {
+        await revokeLocationConsent();
+        setLocationOn(false);
+      }
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } finally {
+      setTogglingLocation(false);
+    }
+  };
+
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
     workoutReminders: false,
@@ -123,8 +157,12 @@ export default function SettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       const load = async () => {
-        const notifData = await notifications.getNotificationSettings();
+        const [notifData, locationStatus] = await Promise.all([
+          notifications.getNotificationSettings(),
+          checkLocationPermission(),
+        ]);
         setNotifSettings(notifData);
+        setLocationOn(locationStatus === "granted");
         setIsLoading(false);
       };
       load();
@@ -417,6 +455,36 @@ export default function SettingsScreen() {
                   Notifications only work on mobile devices via Expo Go
                 </ThemedText>
               ) : null}
+            </Card>
+
+            <Card style={styles.sectionCard}>
+              <ThemedText type="h4" style={{ marginBottom: Spacing.lg }}>
+                Location
+              </ThemedText>
+
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Feather name="map-pin" size={20} color={theme.text} />
+                  <View style={styles.settingText}>
+                    <ThemedText type="body">Use Location for Runs</ThemedText>
+                    <ThemedText type="small" style={{ opacity: 0.6 }}>
+                      {locationOn
+                        ? "Allowed. Runs and the map use your location."
+                        : "Off. You'll be asked when you start a run."}
+                    </ThemedText>
+                  </View>
+                </View>
+                <Switch
+                  value={locationOn}
+                  onValueChange={handleToggleLocation}
+                  disabled={togglingLocation}
+                  trackColor={{
+                    false: theme.border,
+                    true: Colors.light.primary,
+                  }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
             </Card>
 
             <Card style={styles.sectionCard}>

@@ -19,6 +19,7 @@ import type { Workout, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
 import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { formatMinutes } from "@/lib/dateUtils";
 
 type WorkoutDetailRouteProp = RouteProp<RootStackParamList, "WorkoutDetail">;
 
@@ -175,10 +176,10 @@ export default function WorkoutDetailScreen() {
           <View style={styles.statItem}>
             <Feather name="clock" size={20} color={Colors.light.primary} />
             <ThemedText type="h3" style={styles.statValue}>
-              {workout.durationMinutes}
+              {formatMinutes(workout.durationMinutes ?? 0)}
             </ThemedText>
             <ThemedText type="small" style={styles.statLabel}>
-              minutes
+              duration
             </ThemedText>
           </View>
           <View style={styles.statDivider} />

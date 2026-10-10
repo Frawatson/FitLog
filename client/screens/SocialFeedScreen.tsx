@@ -51,6 +51,7 @@ import { timeAgo } from "@/lib/timeAgo";
 import { formatDistance, formatPace, formatPaceUnit } from "@/lib/units";
 import * as storage from "@/lib/storage";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { formatMinutes } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -175,7 +176,7 @@ const PostCard = React.memo(function PostCard({
             {ref.durationMinutes ? (
               <StatChip
                 icon="clock"
-                value={`${ref.durationMinutes}m`}
+                value={formatMinutes(ref.durationMinutes)}
                 theme={theme}
               />
             ) : null}
@@ -222,7 +223,7 @@ const PostCard = React.memo(function PostCard({
             {ref.durationMinutes ? (
               <StatChip
                 icon="clock"
-                value={`${ref.durationMinutes}m`}
+                value={formatMinutes(ref.durationMinutes)}
                 theme={theme}
               />
             ) : null}
