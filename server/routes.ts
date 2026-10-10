@@ -1161,6 +1161,43 @@ Return JSON only:
   );
 
   // Routines
+  // Everything the dashboard loads, in one request. Keys are the
+  // endpoints each part stands in for, with the same payloads; a part
+  // that fails is left out and the app fetches that one on its own.
+  app.get(
+    "/api/bootstrap",
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const userId = (req as any).userId;
+      const parts: Record<string, () => Promise<unknown>> = {
+        "/api/body-weights": () => getBodyWeights(userId),
+        "/api/macro-targets": () => getMacroTargets(userId),
+        "/api/routines": () => getRoutines(userId),
+        "/api/workouts?paged=1": () => getWorkouts(userId),
+        "/api/runs?paged=1": () => getRuns(userId),
+        "/api/food-logs": () => getFoodLogs(userId, {}),
+        "/api/notifications/unread-count": async () => ({
+          count: await getUnreadNotificationCount(userId),
+        }),
+        "/api/streak": async () => {
+          await rememberTimeZone(userId, req.query.tz);
+          return getUserStreak(userId);
+        },
+      };
+      const body: Record<string, unknown> = {};
+      await Promise.all(
+        Object.entries(parts).map(async ([key, load]) => {
+          try {
+            body[key] = await load();
+          } catch (error) {
+            console.error(`Bootstrap part ${key} failed:`, error);
+          }
+        }),
+      );
+      res.json(body);
+    },
+  );
+
   app.get("/api/routines", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;

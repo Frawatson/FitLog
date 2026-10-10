@@ -20,6 +20,8 @@ import {
   getPendingSyncItems,
   clearSyncQueue,
   addToSyncQueue,
+  clearPrimedResponses,
+  takePrimedResponse,
 } from "@/lib/syncService";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
 import { getLocalDateString, localTimeZone } from "@/lib/dateUtils";
@@ -222,6 +224,8 @@ function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
 }
 
 export function invalidateCache(prefix?: string): void {
+  // Every local write invalidates; bootstrap responses are from before it.
+  clearPrimedResponses();
   if (!prefix) {
     memCache.clear();
     return;
@@ -671,15 +675,15 @@ async function getBodyWeightsImpl(): Promise<BodyWeightEntry[]> {
 
     if (token) {
       try {
-        const response = await fetch(
-          new URL("/api/body-weights", getApiUrl()).toString(),
-          {
-            headers: await getAuthHeaders(),
-          },
-        );
+        const primedWeights = takePrimedResponse<any[]>("/api/body-weights");
+        const response = primedWeights
+          ? null
+          : await fetch(new URL("/api/body-weights", getApiUrl()).toString(), {
+              headers: await getAuthHeaders(),
+            });
 
-        if (response.ok) {
-          const serverData = await response.json();
+        if (primedWeights || response?.ok) {
+          const serverData = primedWeights ?? (await response!.json());
           const serverEntries: BodyWeightEntry[] = serverData.map(
             (item: any) => ({
               id: String(item.id),

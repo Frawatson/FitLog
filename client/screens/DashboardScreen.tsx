@@ -43,6 +43,7 @@ import type {
   UnitSystem,
 } from "@/types";
 import * as storage from "@/lib/storage";
+import { primeBootstrap, takePrimedResponse } from "@/lib/syncService";
 import {
   todayTraining,
   trainingRingFraction,
@@ -263,6 +264,9 @@ export default function DashboardScreen() {
   const loadData = async () => {
     if (!hasLoadedRef.current) setIsLoading(true);
 
+    // One request for everything below; each loader picks up its part.
+    await primeBootstrap(localTimeZone()).catch(() => {});
+
     const [
       profileData,
       macroData,
@@ -333,6 +337,11 @@ export default function DashboardScreen() {
       setUnreadCount(count);
     } catch {}
 
+    const primedStreak = takePrimedResponse<StreakData>("/api/streak");
+    if (primedStreak) {
+      setStreak(primedStreak);
+      return;
+    }
     try {
       const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {

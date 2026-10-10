@@ -28,6 +28,44 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let currentRun: Promise<void> | null = null;
 let runAgain = false;
 
+// Responses from GET /api/bootstrap (one request for everything the
+// dashboard loads), keyed by the endpoint each one stands in for. A GET
+// to one of those endpoints is answered from here once, within a few
+// seconds; any write discards the rest so a screen never reads data
+// from before the change.
+const PRIMED_TTL_MS = 5000;
+let primed: { at: number; data: Record<string, unknown> } | null = null;
+
+export function clearPrimedResponses(): void {
+  primed = null;
+}
+
+export function takePrimedResponse<T>(endpoint: string): T | undefined {
+  if (!primed) return undefined;
+  if (Date.now() - primed.at > PRIMED_TTL_MS) {
+    primed = null;
+    return undefined;
+  }
+  if (!Object.prototype.hasOwnProperty.call(primed.data, endpoint)) {
+    return undefined;
+  }
+  const value = primed.data[endpoint] as T;
+  delete primed.data[endpoint];
+  return value;
+}
+
+export async function primeBootstrap(timeZone?: string): Promise<void> {
+  const query = timeZone ? `?tz=${encodeURIComponent(timeZone)}` : "";
+  const result = await syncToServer<Record<string, unknown>>(
+    `/api/bootstrap${query}`,
+    "GET",
+  );
+  // An older server answers 404; callers then fetch individually.
+  if (result.success && result.data && typeof result.data === "object") {
+    primed = { at: Date.now(), data: { ...result.data } };
+  }
+}
+
 async function getAuthHeaders(): Promise<HeadersInit> {
   const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
   return token
@@ -49,6 +87,13 @@ export async function syncToServer<T>(
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
     if (!token) {
       return { success: false, error: "Not authenticated" };
+    }
+
+    if (method === "GET") {
+      const hit = takePrimedResponse<T>(endpoint);
+      if (hit !== undefined) return { success: true, data: hit };
+    } else {
+      clearPrimedResponses();
     }
 
     const url = new URL(endpoint, getApiUrl()).toString();
