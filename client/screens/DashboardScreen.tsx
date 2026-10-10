@@ -43,6 +43,11 @@ import type {
   UnitSystem,
 } from "@/types";
 import * as storage from "@/lib/storage";
+import {
+  todayTraining,
+  trainingRingFraction,
+  type TodayTraining,
+} from "@/lib/dailyTraining";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 import { getApiUrl } from "@/lib/query-client";
@@ -67,16 +72,18 @@ const RING_WIDTH = 10;
 const RADIUS = (RING_SIZE - RING_WIDTH) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
-function CalorieRing({
-  consumed,
-  target,
+function ProgressRing({
+  fraction,
+  color,
   theme,
+  children,
 }: {
-  consumed: number;
-  target: number;
+  fraction: number;
+  color: string;
   theme: any;
+  children: React.ReactNode;
 }) {
-  const pct = target > 0 ? Math.min(consumed / target, 1) : 0;
+  const pct = Math.min(Math.max(fraction, 0), 1);
   const strokeDashoffset = CIRCUMFERENCE * (1 - pct);
 
   return (
@@ -90,18 +97,20 @@ function CalorieRing({
           strokeWidth={RING_WIDTH}
           fill="none"
         />
-        <SvgCircle
-          cx={RING_SIZE / 2}
-          cy={RING_SIZE / 2}
-          r={RADIUS}
-          stroke={Colors.light.primary}
-          strokeWidth={RING_WIDTH}
-          fill="none"
-          strokeDasharray={CIRCUMFERENCE}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
-        />
+        {pct > 0 ? (
+          <SvgCircle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RADIUS}
+            stroke={color}
+            strokeWidth={RING_WIDTH}
+            fill="none"
+            strokeDasharray={CIRCUMFERENCE}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${RING_SIZE / 2} ${RING_SIZE / 2})`}
+          />
+        ) : null}
       </Svg>
       <View
         style={StyleSheet.compose(StyleSheet.absoluteFillObject, {
@@ -109,15 +118,107 @@ function CalorieRing({
           justifyContent: "center" as const,
         })}
       >
-        <ThemedText type="h2" style={{ fontSize: 22 }}>
-          {consumed}
-        </ThemedText>
-        <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-          / {target} cal
-        </ThemedText>
+        {children}
       </View>
     </View>
   );
+}
+
+function CalorieRing({
+  consumed,
+  target,
+  theme,
+}: {
+  consumed: number;
+  target: number;
+  theme: any;
+}) {
+  return (
+    <ProgressRing
+      fraction={target > 0 ? consumed / target : 0}
+      color={Colors.light.primary}
+      theme={theme}
+    >
+      <ThemedText type="h2" style={{ fontSize: 22 }}>
+        {consumed}
+      </ThemedText>
+      <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+        / {target} cal
+      </ThemedText>
+    </ProgressRing>
+  );
+}
+
+function WorkoutRing({
+  training,
+  theme,
+}: {
+  training: TodayTraining;
+  theme: any;
+}) {
+  if (training.kind === "rest") {
+    return (
+      <ProgressRing
+        fraction={1}
+        color={`${Colors.light.success}40`}
+        theme={theme}
+      >
+        <Feather name="moon" size={22} color={Colors.light.success} />
+        <ThemedText
+          type="caption"
+          style={{ color: theme.textSecondary, marginTop: 4 }}
+        >
+          Rest day
+        </ThemedText>
+      </ProgressRing>
+    );
+  }
+  if (training.kind === "done") {
+    const hasSets = training.totalSets > 0;
+    return (
+      <ProgressRing
+        fraction={trainingRingFraction(training)}
+        color={Colors.light.success}
+        theme={theme}
+      >
+        <Feather name="check" size={22} color={Colors.light.success} />
+        <ThemedText
+          type="caption"
+          style={{ color: theme.textSecondary, marginTop: 4 }}
+        >
+          {hasSets
+            ? `${training.completedSets}/${training.totalSets} sets`
+            : "Done"}
+        </ThemedText>
+      </ProgressRing>
+    );
+  }
+  return (
+    <ProgressRing fraction={0} color={Colors.light.success} theme={theme}>
+      <Feather name="play" size={22} color={theme.textSecondary} />
+      <ThemedText
+        type="caption"
+        style={{ color: theme.textSecondary, marginTop: 4 }}
+      >
+        Not started
+      </ThemedText>
+    </ProgressRing>
+  );
+}
+
+function workoutRingLabel(training: TodayTraining): string {
+  switch (training.kind) {
+    case "done":
+      return training.sessions.map((s) => s.name).join(" + ");
+    case "planned":
+      return training.routine.name;
+    case "rest":
+      return training.routine
+        ? `${training.routine.name} (optional)`
+        : "Nothing planned today";
+    case "open":
+      return "No workout yet";
+  }
 }
 
 // ── Main Dashboard ──────────────────────────────────────────────────
@@ -264,6 +365,27 @@ export default function DashboardScreen() {
     weekAgo.setDate(weekAgo.getDate() - 7);
     return activityDate(w) > weekAgo;
   }).length;
+
+  const training = todayTraining({ workouts, runs, routines });
+
+  const onWorkoutRingPress = () => {
+    if (training.kind === "done") {
+      const last = training.sessions[training.sessions.length - 1];
+      if (last.type === "workout") {
+        navigation.navigate("WorkoutDetail", { workoutId: last.id });
+      } else {
+        navigation.navigate("RunDetail", { runId: last.id });
+      }
+    } else if (training.kind === "planned") {
+      navigation.navigate("ActiveWorkout", { routineId: training.routine.id });
+    } else if (training.kind === "rest" && training.routine) {
+      navigation.navigate("ActiveWorkout", { routineId: training.routine.id });
+    } else if (routines.length > 0) {
+      navigation.navigate("SelectRoutine");
+    } else {
+      navigation.navigate("Main", { screen: "RoutinesTab" });
+    }
+  };
 
   const getName = () => {
     const fullName = user?.name || profile?.name || "Athlete";
@@ -463,26 +585,67 @@ export default function DashboardScreen() {
               </AnimatedPress>
             </View>
 
-            {/* ── 3. Today's Progress (Nutrition) ──────────────────── */}
-            {macros ? (
-              <Card style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <ThemedText type="h4">Today&apos;s Progress</ThemedText>
+            {/* ── 3. Today's Progress (Training + Nutrition) ── */}
+            <Card style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <ThemedText type="h4">Today&apos;s Progress</ThemedText>
+              </View>
+
+              <View style={styles.ringRow}>
+                <Pressable
+                  onPress={onWorkoutRingPress}
+                  style={styles.ringColumn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Workout: ${workoutRingLabel(training)}`}
+                >
+                  <WorkoutRing training={training} theme={theme} />
+                  <ThemedText type="small" style={styles.ringTitle}>
+                    Workout
+                  </ThemedText>
+                  <ThemedText
+                    type="caption"
+                    numberOfLines={2}
+                    style={[
+                      styles.ringSubtitle,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {workoutRingLabel(training)}
+                  </ThemedText>
+                </Pressable>
+
+                {macros ? (
                   <Pressable
                     onPress={() =>
                       navigation.navigate("Main", { screen: "NutritionTab" })
                     }
+                    style={styles.ringColumn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Calories: open nutrition"
                   >
-                    <ThemedText type="link">Details</ThemedText>
+                    <CalorieRing
+                      consumed={todayMacros.calories}
+                      target={macros.calories}
+                      theme={theme}
+                    />
+                    <ThemedText type="small" style={styles.ringTitle}>
+                      Calories
+                    </ThemedText>
+                    <ThemedText
+                      type="caption"
+                      numberOfLines={2}
+                      style={[
+                        styles.ringSubtitle,
+                        { color: theme.textSecondary },
+                      ]}
+                    >
+                      {Math.max(macros.calories - todayMacros.calories, 0)} left
+                    </ThemedText>
                   </Pressable>
-                </View>
+                ) : null}
+              </View>
 
-                <CalorieRing
-                  consumed={todayMacros.calories}
-                  target={macros.calories}
-                  theme={theme}
-                />
-
+              {macros ? (
                 <View style={styles.macroPills}>
                   {(
                     [
@@ -528,8 +691,10 @@ export default function DashboardScreen() {
                     </View>
                   ))}
                 </View>
-              </Card>
-            ) : (
+              ) : null}
+            </Card>
+
+            {!macros ? (
               <AnimatedPress
                 onPress={() => navigation.navigate("EditMacros")}
                 style={[
@@ -560,7 +725,7 @@ export default function DashboardScreen() {
                   color={theme.textSecondary}
                 />
               </AnimatedPress>
-            )}
+            ) : null}
 
             {/* ── Community Card ──────────────────────────────────── */}
             <AnimatedPress
@@ -874,6 +1039,23 @@ const styles = StyleSheet.create({
   },
 
   // Nutrition ring
+  ringRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    gap: Spacing.md,
+  },
+  ringColumn: {
+    flex: 1,
+    alignItems: "center",
+  },
+  ringTitle: {
+    fontWeight: "600",
+    marginTop: Spacing.sm,
+  },
+  ringSubtitle: {
+    textAlign: "center",
+    marginTop: 2,
+  },
   macroPills: {
     flexDirection: "row",
     gap: Spacing.sm,
