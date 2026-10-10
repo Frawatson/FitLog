@@ -2,6 +2,8 @@ import { Pool, types } from "pg";
 import cluster from "node:cluster";
 import crypto from "node:crypto";
 import os from "node:os";
+import { computeStreak, type StreakResult } from "../shared/streak";
+import { isPlannedRestDay } from "../shared/trainingSchedule";
 
 // Force pg to parse TIMESTAMP (without timezone) as UTC
 types.setTypeParser(1114, (str: string) => new Date(str + "Z"));
@@ -281,6 +283,9 @@ export async function initializeDatabase(): Promise<void> {
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'last_activity_date') THEN
           ALTER TABLE users ADD COLUMN last_activity_date DATE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'timezone') THEN
+          ALTER TABLE users ADD COLUMN timezone VARCHAR(64);
         END IF;
       END $$;
 
@@ -1077,23 +1082,100 @@ export async function deleteFoodLog(
 }
 
 // Streak tracking functions
-export async function getUserStreak(userId: number): Promise<{
-  currentStreak: number;
-  longestStreak: number;
-  lastActivityDate: string | null;
-}> {
+// IANA zone names only ("America/Chicago"); used to place workouts on
+// the user's local calendar days.
+export function isValidTimeZone(tz: unknown): tz is string {
+  if (
+    typeof tz !== "string" ||
+    tz.length > 64 ||
+    !/^[A-Za-z0-9_+\-/]+$/.test(tz)
+  ) {
+    return false;
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function rememberTimeZone(
+  userId: number,
+  tz: unknown,
+): Promise<void> {
+  if (!isValidTimeZone(tz)) return;
+  await pool.query(
+    "UPDATE users SET timezone = $2 WHERE id = $1 AND timezone IS DISTINCT FROM $2",
+    [userId, tz],
+  );
+}
+
+function localDateIn(tz: string, date: Date = new Date()): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+async function activityDaysIn(userId: number, tz: string): Promise<string[]> {
+  // Timestamps are stored as UTC without a zone; a session counts on the
+  // local day it started.
   const result = await pool.query(
-    "SELECT current_streak, longest_streak, to_char(last_activity_date, 'YYYY-MM-DD') AS last_activity_date FROM users WHERE id = $1",
+    `SELECT to_char((started_at AT TIME ZONE 'UTC') AT TIME ZONE $2, 'YYYY-MM-DD') AS d
+       FROM workouts WHERE user_id = $1 AND completed_at IS NOT NULL
+     UNION
+     SELECT to_char((started_at AT TIME ZONE 'UTC') AT TIME ZONE $2, 'YYYY-MM-DD')
+       FROM runs WHERE user_id = $1`,
+    [userId, tz],
+  );
+  return result.rows.map((r) => r.d);
+}
+
+// The streak, computed from the user's history every time (it used to be
+// a counter bumped on each save, which never dropped after missed days
+// and treated rest days as misses).
+export async function getUserStreak(userId: number): Promise<StreakResult> {
+  const userRow = await pool.query(
+    "SELECT timezone, longest_streak FROM users WHERE id = $1",
     [userId],
   );
-  if (result.rows.length === 0) {
+  if (userRow.rows.length === 0) {
     return { currentStreak: 0, longestStreak: 0, lastActivityDate: null };
   }
-  const row = result.rows[0];
+  const storedTz = userRow.rows[0].timezone;
+  const tz = isValidTimeZone(storedTz) ? storedTz : "UTC";
+
+  let days: string[];
+  try {
+    days = await activityDaysIn(userId, tz);
+  } catch {
+    // Zone unknown to the database: fall back to UTC days.
+    days = await activityDaysIn(userId, "UTC");
+  }
+  const routines = await pool.query(
+    "SELECT name, exercises, scheduled_days FROM routines WHERE user_id = $1",
+    [userId],
+  );
+  const plan = routines.rows.map((r) => ({
+    name: r.name,
+    exercises: r.exercises,
+    scheduledDays: r.scheduled_days,
+  }));
+
+  const streak = computeStreak(days, localDateIn(tz), (weekday) =>
+    isPlannedRestDay(plan, weekday),
+  );
+  // Keep a best ever recorded by the old counter.
   return {
-    currentStreak: row.current_streak || 0,
-    longestStreak: row.longest_streak || 0,
-    lastActivityDate: row.last_activity_date || null,
+    ...streak,
+    longestStreak: Math.max(
+      streak.longestStreak,
+      userRow.rows[0].longest_streak || 0,
+    ),
   };
 }
 
@@ -1229,67 +1311,20 @@ export async function updateUserPassword(
   );
 }
 
-function shiftDay(ymd: string, days: number): string {
-  const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().split("T")[0];
-}
-
-// The user's local calendar day for an activity, as sent by the client
-// (the day the session started). Accepted only if it is a real date
-// from two days before to one day after the server's UTC date — every
-// timezone's "today" falls in that window, plus a day of slack for a
-// session begun the evening before. Otherwise fall back to the server's
-// UTC date.
-export function resolveActivityDay(clientDay: unknown): string {
-  const utcToday = new Date().toISOString().split("T")[0];
-  if (
-    typeof clientDay === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(clientDay) &&
-    shiftDay(clientDay, 0) === clientDay &&
-    clientDay >= shiftDay(utcToday, -2) &&
-    clientDay <= shiftDay(utcToday, 1)
-  ) {
-    return clientDay;
-  }
-  return utcToday;
-}
-
-export async function updateUserStreak(
-  userId: number,
-  clientDay?: unknown,
-): Promise<{ currentStreak: number; longestStreak: number }> {
-  const today = resolveActivityDay(clientDay);
-  const yesterday = shiftDay(today, -1);
-
-  // Get current streak data
-  const current = await getUserStreak(userId);
-
-  let newStreak = current.currentStreak;
-  let newLongest = current.longestStreak;
-
-  if (current.lastActivityDate && current.lastActivityDate >= today) {
-    // Already counted this day (or a later one), no change
-    return { currentStreak: newStreak, longestStreak: newLongest };
-  } else if (current.lastActivityDate === yesterday) {
-    // Consecutive day - increment streak
-    newStreak = current.currentStreak + 1;
-  } else {
-    // Streak broken or first activity - reset to 1
-    newStreak = 1;
-  }
-
-  // Update longest streak if needed
-  if (newStreak > newLongest) {
-    newLongest = newStreak;
-  }
-
-  // Save to database
+// Recompute after a workout or run is saved and store it on the user
+// row (cached copy for lists; reads compute it fresh).
+export async function refreshUserStreak(userId: number): Promise<StreakResult> {
+  const streak = await getUserStreak(userId);
   await pool.query(
     `UPDATE users SET current_streak = $1, longest_streak = $2, last_activity_date = $3, updated_at = NOW() WHERE id = $4`,
-    [newStreak, newLongest, today, userId],
+    [
+      streak.currentStreak,
+      streak.longestStreak,
+      streak.lastActivityDate,
+      userId,
+    ],
   );
-
-  return { currentStreak: newStreak, longestStreak: newLongest };
+  return streak;
 }
 
 // Custom Exercises
@@ -2162,7 +2197,7 @@ export async function getSocialProfile(
            AND NOT EXISTS (SELECT 1 FROM user_blocks b
              WHERE (b.blocker_id = $2 AND b.blocked_id = f.following_id)
                 OR (b.blocker_id = f.following_id AND b.blocked_id = $2))) AS following_count,
-       u.current_streak, u.created_at,
+       u.created_at,
        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me,
        EXISTS(SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = $2 AND ub.blocked_id = u.id) AS is_blocked_by_me,
        (SELECT COUNT(*)::int FROM workouts w WHERE w.user_id = u.id) AS total_workouts,
@@ -2174,6 +2209,7 @@ export async function getSocialProfile(
   );
   if (result.rows.length === 0) return null;
   const row = result.rows[0];
+  const streak = await getUserStreak(targetUserId);
   return {
     userId: row.user_id,
     name: row.name,
@@ -2187,7 +2223,7 @@ export async function getSocialProfile(
     totalWorkouts: row.total_workouts,
     totalRuns: row.total_runs,
     totalDistanceKm: row.total_distance_km,
-    currentStreak: row.current_streak || 0,
+    currentStreak: streak.currentStreak,
     memberSince:
       row.created_at instanceof Date
         ? row.created_at.toISOString()

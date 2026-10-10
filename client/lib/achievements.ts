@@ -1,5 +1,13 @@
-import type { Workout, RunEntry, FoodLogEntry, BodyWeightEntry } from "@/types";
+import type {
+  Workout,
+  RunEntry,
+  FoodLogEntry,
+  BodyWeightEntry,
+  Routine,
+} from "@/types";
 import { activityDay, getLocalDateString } from "@/lib/dateUtils";
+import { computeStreak } from "../../shared/streak";
+import { isPlannedRestDay } from "../../shared/trainingSchedule";
 
 export interface Achievement {
   id: string;
@@ -17,6 +25,7 @@ interface AchievementData {
   runs: RunEntry[];
   bodyWeights: BodyWeightEntry[];
   foodLogDays: number; // number of days with food logged
+  routines?: Routine[]; // weekly plan: planned rest days don't break streaks
 }
 
 export function checkAchievements(
@@ -48,9 +57,16 @@ export function checkAchievements(
   const totalRuns = data.runs.length;
   const totalRunKm = data.runs.reduce((acc, r) => acc + r.distanceKm, 0);
 
-  // Calculate workout streak
-  const workoutStreak = calculateStreak(
-    completedWorkouts.map((w) => activityDay(w)),
+  // Same rules as the server's streak (shared/streak). Milestones go by
+  // the best streak, so an earned badge stays earned after a break.
+  const routines = data.routines ?? [];
+  const { longestStreak: workoutStreak } = computeStreak(
+    [
+      ...completedWorkouts.map((w) => activityDay(w)),
+      ...data.runs.map((r) => activityDay(r)),
+    ],
+    getLocalDateString(),
+    (weekday) => isPlannedRestDay(routines, weekday),
   );
 
   return [
@@ -216,27 +232,4 @@ export function checkAchievements(
       unlocked: data.bodyWeights.length >= 10,
     },
   ];
-}
-
-function calculateStreak(dates: string[]): number {
-  if (dates.length === 0) return 0;
-
-  const uniqueDays = new Set(dates);
-  const sortedDays = Array.from(uniqueDays).sort().reverse();
-
-  let streak = 0;
-  const today = new Date();
-  const checkDate = new Date(today);
-
-  for (let i = 0; i < 365; i++) {
-    const dateStr = getLocalDateString(checkDate);
-    if (uniqueDays.has(dateStr)) {
-      streak++;
-    } else if (i > 0) {
-      break;
-    }
-    checkDate.setDate(checkDate.getDate() - 1);
-  }
-
-  return streak;
 }

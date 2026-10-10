@@ -60,6 +60,7 @@ import {
   activityDate,
   formatMinutes,
   getLocalDateString,
+  localTimeZone,
 } from "@/lib/dateUtils";
 
 interface StreakData {
@@ -294,6 +295,7 @@ export default function DashboardScreen() {
         runs: runData,
         bodyWeights: weightData,
         foodLogDays: foodDays,
+        routines: routineData,
       },
       profileData?.unitSystem ?? "imperial",
     );
@@ -335,7 +337,12 @@ export default function DashboardScreen() {
       const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
         const response = await fetch(
-          new URL("/api/streak", getApiUrl()).toString(),
+          (() => {
+            const url = new URL("/api/streak", getApiUrl());
+            const tz = localTimeZone();
+            if (tz) url.searchParams.set("tz", tz);
+            return url.toString();
+          })(),
           { headers: { Authorization: `Bearer ${token}` } },
         );
         if (response.ok) {

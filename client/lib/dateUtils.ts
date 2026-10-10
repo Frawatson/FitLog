@@ -48,3 +48,12 @@ export function formatMinutes(minutes: number): string {
   const m = total % 60;
   return m ? `${h}h ${m}m` : `${h}h`;
 }
+
+// The device's IANA timezone ("America/Chicago"), or undefined.
+export function localTimeZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}

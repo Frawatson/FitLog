@@ -1,8 +1,7 @@
 // Checks that workouts and runs count toward the local day they started.
-// Pure logic, no database. Run in a non-UTC zone to exercise it:
+// Pure logic, no database. (Server-side streak days: verify-streak.ts.) Run in a non-UTC zone to exercise it:
 //   TZ=America/Chicago npx tsx scripts/verify-activity-day.ts
 import { activityDay } from "../client/lib/dateUtils";
-import { resolveActivityDay } from "../server/db";
 
 let failures = 0;
 function check(cond: boolean, msg: string) {
@@ -48,32 +47,6 @@ check(
     completedAt: end.toISOString(),
   }) === ymd(yesterdayLocal),
   "session crossing midnight counts on the start day",
-);
-
-// Server: accepts the client's local day only within a sane window.
-const utcToday = now.toISOString().split("T")[0];
-const shift = (n: number) => {
-  const d = new Date(`${utcToday}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + n);
-  return d.toISOString().split("T")[0];
-};
-check(
-  resolveActivityDay(shift(-1)) === shift(-1),
-  "server accepts yesterday's local day",
-);
-check(
-  resolveActivityDay(shift(1)) === shift(1),
-  "server accepts tomorrow (UTC+ zones)",
-);
-check(resolveActivityDay(shift(-5)) === utcToday, "server rejects a stale day");
-check(resolveActivityDay(shift(3)) === utcToday, "server rejects a future day");
-check(
-  resolveActivityDay("2026-02-31") === utcToday,
-  "server rejects an impossible date",
-);
-check(
-  resolveActivityDay(undefined) === utcToday,
-  "older clients fall back to UTC today",
 );
 
 console.log(failures ? `${failures} FAILURE(S)` : "ALL PASS");

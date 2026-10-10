@@ -25,7 +25,8 @@ import {
   updateFoodLog,
   deleteFoodLog,
   getUserStreak,
-  updateUserStreak,
+  refreshUserStreak,
+  rememberTimeZone,
   getCustomExercises,
   saveCustomExercise,
   deleteCustomExercise,
@@ -1335,19 +1336,10 @@ Return JSON only:
           totalVolumeKg,
         });
 
-        // Update the streak only for genuinely recent activity — an
-        // offline-queue replay of last week's workout is not activity
-        // today.
-        let streak;
-        const completedMs = completedAt ? Date.parse(completedAt) : NaN;
-        if (
-          Number.isFinite(completedMs) &&
-          Date.now() - completedMs < 48 * 60 * 60 * 1000
-        ) {
-          streak = await updateUserStreak(userId, req.body?.activityDate);
-        } else {
-          streak = await getUserStreak(userId);
-        }
+        // The streak is computed from history, so a late offline-queue
+        // replay lands on the day it actually happened.
+        await rememberTimeZone(userId, req.body?.timeZone);
+        const streak = await refreshUserStreak(userId);
         res.json({ success: true, streak });
       } catch (error) {
         console.error("Error saving workout:", error);
@@ -1426,18 +1418,8 @@ Return JSON only:
         maxHeartRate,
       });
 
-      // Same recency gate as workouts — replayed old runs don't count
-      // as activity today.
-      let streak;
-      const completedMs = completedAt ? Date.parse(completedAt) : NaN;
-      if (
-        Number.isFinite(completedMs) &&
-        Date.now() - completedMs < 48 * 60 * 60 * 1000
-      ) {
-        streak = await updateUserStreak(userId, req.body?.activityDate);
-      } else {
-        streak = await getUserStreak(userId);
-      }
+      await rememberTimeZone(userId, req.body?.timeZone);
+      const streak = await refreshUserStreak(userId);
       res.json({ success: true, streak });
     } catch (error) {
       console.error("Error saving run:", error);
@@ -1847,6 +1829,7 @@ Return JSON only:
   app.get("/api/streak", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
+      await rememberTimeZone(userId, req.query.tz);
       const streak = await getUserStreak(userId);
       res.json(streak);
     } catch (error) {

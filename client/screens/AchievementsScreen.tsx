@@ -37,13 +37,14 @@ export default function AchievementsScreen() {
     const requestId = ++loadRequestIdRef.current;
     if (!hasLoadedRef.current) setIsLoading(true);
     try {
-      const [workouts, runs, bodyWeights, allFoodLog, profile] =
+      const [workouts, runs, bodyWeights, allFoodLog, profile, routines] =
         await Promise.all([
           storage.getWorkouts(),
           storage.getRunHistory(),
           storage.getBodyWeights(),
           storage.getFoodLog(),
           storage.getUserProfile(),
+          storage.getRoutines(),
         ]);
       if (requestId !== loadRequestIdRef.current) return;
 
@@ -55,6 +56,7 @@ export default function AchievementsScreen() {
           runs,
           bodyWeights,
           foodLogDays: foodDays,
+          routines,
         },
         profile?.unitSystem ?? "imperial",
       );
