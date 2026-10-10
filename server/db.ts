@@ -876,13 +876,61 @@ export interface WorkoutData {
   totalVolumeKg?: number;
 }
 
-export async function getWorkouts(userId: number): Promise<WorkoutData[]> {
+// History pages (workouts, runs), newest first by start time. The cursor
+// is "<startedAt ISO>|<row id>" of the last item on the previous page;
+// comparison happens at millisecond precision because that's all the ISO
+// string carries.
+export interface HistoryPage<T> {
+  items: T[];
+  nextCursor: string | null;
+}
+
+export function parseHistoryCursor(
+  cursor: unknown,
+): { ts: string; id: number } | null {
+  if (typeof cursor !== "string" || cursor.length > 64) return null;
+  const [ts, idPart] = cursor.split("|");
+  const id = Number(idPart);
+  if (!ts || !Number.isInteger(id) || id <= 0 || id > 2147483647) return null;
+  if (Number.isNaN(Date.parse(ts))) return null;
+  return { ts, id };
+}
+
+export function historyPageSize(value: unknown): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 1 && n <= 200 ? n : 100;
+}
+
+const HISTORY_ORDER = `date_trunc('milliseconds', started_at) DESC, id DESC`;
+const HISTORY_AFTER_CURSOR = `($2::timestamptz IS NULL OR (date_trunc('milliseconds', started_at), id) < (($2::timestamptz AT TIME ZONE 'UTC'), $3::int))`;
+
+function toHistoryPage<T>(
+  rows: any[],
+  limit: number,
+  map: (row: any) => T,
+): HistoryPage<T> {
+  const hasMore = rows.length > limit;
+  const pageRows = hasMore ? rows.slice(0, limit) : rows;
+  const last = pageRows[pageRows.length - 1];
+  return {
+    items: pageRows.map(map),
+    nextCursor:
+      hasMore && last ? `${last.started_at.toISOString()}|${last.id}` : null,
+  };
+}
+
+export async function getWorkouts(
+  userId: number,
+  opts: { before?: { ts: string; id: number } | null; limit?: number } = {},
+): Promise<HistoryPage<WorkoutData>> {
+  const limit = opts.limit ?? 100;
   const result = await pool.query(
-    `SELECT client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes, notes, total_volume_kg
-     FROM workouts WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 100`,
-    [userId],
+    `SELECT id, client_id, routine_id, routine_name, exercises, started_at, completed_at, duration_minutes, notes, total_volume_kg
+     FROM workouts WHERE user_id = $1 AND ${HISTORY_AFTER_CURSOR}
+     ORDER BY ${HISTORY_ORDER} LIMIT $4`,
+    [userId, opts.before?.ts ?? null, opts.before?.id ?? null, limit + 1],
   );
-  return result.rows.map((row) => ({
+  return toHistoryPage(result.rows, limit, (row) => ({
     clientId: row.client_id,
     routineId: row.routine_id,
     routineName: row.routine_name,
@@ -941,13 +989,18 @@ export interface RunData {
   maxHeartRate?: number;
 }
 
-export async function getRuns(userId: number): Promise<RunData[]> {
+export async function getRuns(
+  userId: number,
+  opts: { before?: { ts: string; id: number } | null; limit?: number } = {},
+): Promise<HistoryPage<RunData>> {
+  const limit = opts.limit ?? 100;
   const result = await pool.query(
-    `SELECT client_id, distance_km, duration_seconds, pace_min_per_km, calories, started_at, completed_at, route, elevation_gain_m, avg_heart_rate, max_heart_rate
-     FROM runs WHERE user_id = $1 ORDER BY completed_at DESC LIMIT 100`,
-    [userId],
+    `SELECT id, client_id, distance_km, duration_seconds, pace_min_per_km, calories, started_at, completed_at, route, elevation_gain_m, avg_heart_rate, max_heart_rate
+     FROM runs WHERE user_id = $1 AND ${HISTORY_AFTER_CURSOR}
+     ORDER BY ${HISTORY_ORDER} LIMIT $4`,
+    [userId, opts.before?.ts ?? null, opts.before?.id ?? null, limit + 1],
   );
-  return result.rows.map((row) => ({
+  return toHistoryPage(result.rows, limit, (row) => ({
     clientId: row.client_id,
     distanceKm: row.distance_km,
     durationSeconds: row.duration_seconds,

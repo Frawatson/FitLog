@@ -39,7 +39,56 @@ const STORAGE_KEYS = {
   FOOD_LOG: "@merge_food_log",
   RUN_HISTORY: "@merge_run_history",
   POST_DRAFT: "@merge_post_draft",
+  HISTORY_BACKFILLED: "@merge_history_backfilled",
 };
+
+// Workouts and runs come from the server newest first, a page at a time.
+// Each load fetches the latest page; the first time an account has more
+// than that, the older pages are fetched once and kept locally (the
+// merge keeps local history), so a new device gets the full history
+// without every later load paying for it.
+const MAX_BACKFILL_PAGES = 50;
+
+async function fetchHistory(
+  endpoint: "/api/workouts" | "/api/runs",
+): Promise<any[] | null> {
+  const first = await syncToServer<any>(`${endpoint}?paged=1`, "GET");
+  if (!first.success || !first.data) return null;
+  // A server without paging returns the plain array.
+  if (Array.isArray(first.data)) return first.data;
+  const items: any[] = [...(first.data.items ?? [])];
+  let cursor: string | null = first.data.nextCursor ?? null;
+  if (!cursor) return items;
+
+  let done: Record<string, boolean> = {};
+  try {
+    done = JSON.parse(
+      (await AsyncStorage.getItem(STORAGE_KEYS.HISTORY_BACKFILLED)) || "{}",
+    );
+  } catch {}
+  if (done[endpoint]) return items;
+
+  for (let page = 0; cursor && page < MAX_BACKFILL_PAGES; page++) {
+    const next: { success: boolean; data?: any } = await syncToServer<any>(
+      `${endpoint}?paged=1&before=${encodeURIComponent(cursor)}`,
+      "GET",
+    );
+    if (!next.success || !next.data || Array.isArray(next.data)) {
+      // Try again on a later load.
+      return items;
+    }
+    items.push(...(next.data.items ?? []));
+    cursor = next.data.nextCursor ?? null;
+  }
+  if (!cursor) {
+    done[endpoint] = true;
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.HISTORY_BACKFILLED,
+      JSON.stringify(done),
+    ).catch(() => {});
+  }
+  return items;
+}
 
 // Local-only draft so a user who navigates away mid-compose doesn't lose
 // what they typed. Cleared on successful post. Photos + reference links
@@ -512,9 +561,9 @@ export function getWorkouts(): Promise<Workout[]> {
 async function getWorkoutsImpl(): Promise<Workout[]> {
   try {
     if (await isAuthenticated()) {
-      const result = await syncToServer<any[]>("/api/workouts", "GET");
-      if (result.success && result.data) {
-        const serverWorkouts: Workout[] = result.data.map((w) => ({
+      const serverData = await fetchHistory("/api/workouts");
+      if (serverData) {
+        const serverWorkouts: Workout[] = serverData.map((w) => ({
           id: w.clientId,
           routineId: w.routineId,
           routineName: w.routineName,
@@ -525,8 +574,8 @@ async function getWorkoutsImpl(): Promise<Workout[]> {
           notes: w.notes,
           totalVolumeKg: w.totalVolumeKg,
         }));
-        // unionLocal: the server returns at most 100 workouts, so local
-        // history older than that must survive the merge.
+        // unionLocal: each load fetches only the latest page, so older
+        // local history (and backfilled pages) must survive the merge.
         const workouts = await mergeServerList(
           serverWorkouts,
           await getWorkoutsLocal(),
@@ -1128,8 +1177,8 @@ export function getRunHistory(): Promise<RunEntry[]> {
 async function getRunHistoryImpl(): Promise<RunEntry[]> {
   try {
     if (await isAuthenticated()) {
-      const result = await syncToServer<any[]>("/api/runs", "GET");
-      if (result.success && result.data) {
+      const serverData = await fetchHistory("/api/runs");
+      if (serverData) {
         // Splits aren't carried in the server schema yet — merge them
         // back from the local copy keyed by clientId so cross-device
         // load doesn't wipe them out. heartRateZone is derived from
@@ -1139,7 +1188,7 @@ async function getRunHistoryImpl(): Promise<RunEntry[]> {
         const profile = await getUserProfile();
         const age = profile?.age ?? 30;
 
-        const serverRuns: RunEntry[] = result.data.map((r) => {
+        const serverRuns: RunEntry[] = serverData.map((r) => {
           const local = localById.get(r.clientId);
           const zoneInfo = r.avgHeartRate
             ? getZoneForHeartRate(r.avgHeartRate, age)
@@ -1161,8 +1210,8 @@ async function getRunHistoryImpl(): Promise<RunEntry[]> {
             splitsUnit: local?.splitsUnit,
           };
         });
-        // unionLocal: /api/runs is capped at 100 rows — keep older local
-        // history and any run whose POST is still queued.
+        // unionLocal: only the latest page is fetched per load — keep
+        // older local history and any run whose POST is still queued.
         const runs = (
           await mergeServerList(serverRuns, localBefore, "/api/runs", {
             unionLocal: true,

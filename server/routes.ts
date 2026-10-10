@@ -26,6 +26,8 @@ import {
   deleteFoodLog,
   getUserStreak,
   refreshUserStreak,
+  parseHistoryCursor,
+  historyPageSize,
   rememberTimeZone,
   getCustomExercises,
   saveCustomExercise,
@@ -1267,8 +1269,13 @@ Return JSON only:
   app.get("/api/workouts", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const workouts = await getWorkouts(userId);
-      res.json(workouts);
+      // ?paged=1 returns { items, nextCursor } and accepts ?before=; the
+      // plain array (latest 100) stays for older app versions.
+      const page = await getWorkouts(userId, {
+        before: parseHistoryCursor(req.query.before),
+        limit: historyPageSize(req.query.limit),
+      });
+      res.json(req.query.paged ? page : page.items);
     } catch (error) {
       console.error("Error getting workouts:", error);
       res.status(500).json({ error: "Failed to get workouts" });
@@ -1352,8 +1359,11 @@ Return JSON only:
   app.get("/api/runs", requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = (req as any).userId;
-      const runs = await getRuns(userId);
-      res.json(runs);
+      const page = await getRuns(userId, {
+        before: parseHistoryCursor(req.query.before),
+        limit: historyPageSize(req.query.limit),
+      });
+      res.json(req.query.paged ? page : page.items);
     } catch (error) {
       console.error("Error getting runs:", error);
       res.status(500).json({ error: "Failed to get runs" });
