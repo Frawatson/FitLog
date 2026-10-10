@@ -541,7 +541,25 @@ export async function initializeDatabase(): Promise<void> {
           ALTER TABLE exercise_gif_cache ADD COLUMN exercisedb_id VARCHAR(20);
         END IF;
       END $$;
+
+      -- Thumbnail/image lookups go by ExerciseDB id (several names can
+      -- share one image).
+      CREATE INDEX IF NOT EXISTS IDX_exercise_gif_cache_dbid
+        ON exercise_gif_cache (exercisedb_id) WHERE gif_data IS NOT NULL;
     `);
+
+    // Community user search matches names with ILIKE '%term%', which a
+    // btree can't serve. Trigram index; optional, so a database without
+    // pg_trgm still starts.
+    try {
+      await client.query(`
+        CREATE EXTENSION IF NOT EXISTS pg_trgm;
+        CREATE INDEX IF NOT EXISTS IDX_users_name_trgm
+          ON users USING gin (name gin_trgm_ops);
+      `);
+    } catch (error) {
+      console.warn("Skipping trigram index for user search:", error);
+    }
 
     console.log("Database tables initialized");
   } finally {
