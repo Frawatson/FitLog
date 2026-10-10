@@ -1302,7 +1302,7 @@ Return JSON only:
           Number.isFinite(completedMs) &&
           Date.now() - completedMs < 48 * 60 * 60 * 1000
         ) {
-          streak = await updateUserStreak(userId);
+          streak = await updateUserStreak(userId, req.body?.activityDate);
         } else {
           streak = await getUserStreak(userId);
         }
@@ -1392,7 +1392,7 @@ Return JSON only:
         Number.isFinite(completedMs) &&
         Date.now() - completedMs < 48 * 60 * 60 * 1000
       ) {
-        streak = await updateUserStreak(userId);
+        streak = await updateUserStreak(userId, req.body?.activityDate);
       } else {
         streak = await getUserStreak(userId);
       }

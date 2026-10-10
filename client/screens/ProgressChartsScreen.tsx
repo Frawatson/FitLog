@@ -25,7 +25,7 @@ import type {
 } from "@/types";
 import * as storage from "@/lib/storage";
 import { formatWeight, weightLabel } from "@/lib/units";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { activityDate, getLocalDateString } from "@/lib/dateUtils";
 
 const screenWidth = Dimensions.get("window").width;
 type Period = "7d" | "30d" | "90d" | "all";
@@ -87,9 +87,7 @@ export default function ProgressChartsScreen() {
         ),
     );
     setWorkouts(
-      allWorkouts.filter(
-        (w) => w.completedAt && new Date(w.completedAt) >= cutoff,
-      ),
+      allWorkouts.filter((w) => w.completedAt && activityDate(w) >= cutoff),
     );
 
     if (!hasLoadedRef.current) {
@@ -514,7 +512,7 @@ function getWeeklyVolumes(
   const weeks: Record<string, number> = {};
   for (const w of workouts) {
     if (!w.completedAt) continue;
-    const d = new Date(w.completedAt);
+    const d = activityDate(w);
     const weekStart = new Date(d);
     weekStart.setDate(d.getDate() - d.getDay());
     const key = getLocalDateString(weekStart);

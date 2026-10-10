@@ -163,10 +163,7 @@ export default function WorkoutDetailScreen() {
           {workout.routineName}
         </ThemedText>
         <ThemedText type="small" style={styles.dateText}>
-          {/* Workouts in progress have no completedAt — fall back to
-              startedAt so we never call new Date(undefined) and render
-              "Invalid Date" / crash. */}
-          {formatDate(workout.completedAt ?? workout.startedAt)}
+          {formatDate(workout.startedAt ?? workout.completedAt)}
         </ThemedText>
         <ThemedText type="small" style={styles.timeText}>
           {workout.completedAt

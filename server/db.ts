@@ -1051,7 +1051,7 @@ export async function getUserStreak(userId: number): Promise<{
   lastActivityDate: string | null;
 }> {
   const result = await pool.query(
-    "SELECT current_streak, longest_streak, last_activity_date FROM users WHERE id = $1",
+    "SELECT current_streak, longest_streak, to_char(last_activity_date, 'YYYY-MM-DD') AS last_activity_date FROM users WHERE id = $1",
     [userId],
   );
   if (result.rows.length === 0) {
@@ -1061,9 +1061,7 @@ export async function getUserStreak(userId: number): Promise<{
   return {
     currentStreak: row.current_streak || 0,
     longestStreak: row.longest_streak || 0,
-    lastActivityDate: row.last_activity_date
-      ? row.last_activity_date.toISOString().split("T")[0]
-      : null,
+    lastActivityDate: row.last_activity_date || null,
   };
 }
 
@@ -1199,13 +1197,37 @@ export async function updateUserPassword(
   );
 }
 
+function shiftDay(ymd: string, days: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().split("T")[0];
+}
+
+// The user's local calendar day for an activity, as sent by the client
+// (the day the session started). Accepted only if it is a real date
+// from two days before to one day after the server's UTC date — every
+// timezone's "today" falls in that window, plus a day of slack for a
+// session begun the evening before. Otherwise fall back to the server's
+// UTC date.
+export function resolveActivityDay(clientDay: unknown): string {
+  const utcToday = new Date().toISOString().split("T")[0];
+  if (
+    typeof clientDay === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(clientDay) &&
+    shiftDay(clientDay, 0) === clientDay &&
+    clientDay >= shiftDay(utcToday, -2) &&
+    clientDay <= shiftDay(utcToday, 1)
+  ) {
+    return clientDay;
+  }
+  return utcToday;
+}
+
 export async function updateUserStreak(
   userId: number,
+  clientDay?: unknown,
 ): Promise<{ currentStreak: number; longestStreak: number }> {
-  const today = new Date().toISOString().split("T")[0];
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
+  const today = resolveActivityDay(clientDay);
+  const yesterday = shiftDay(today, -1);
 
   // Get current streak data
   const current = await getUserStreak(userId);
@@ -1213,8 +1235,8 @@ export async function updateUserStreak(
   let newStreak = current.currentStreak;
   let newLongest = current.longestStreak;
 
-  if (current.lastActivityDate === today) {
-    // Already logged today, no change
+  if (current.lastActivityDate && current.lastActivityDate >= today) {
+    // Already counted this day (or a later one), no change
     return { currentStreak: newStreak, longestStreak: newLongest };
   } else if (current.lastActivityDate === yesterday) {
     // Consecutive day - increment streak

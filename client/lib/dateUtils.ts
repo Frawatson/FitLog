@@ -22,3 +22,20 @@ export function parseLocalDate(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
 }
+
+// The local day a workout or run counts toward: the day it started. A
+// session begun at 11 PM Thursday and finished after midnight belongs to
+// Thursday, not Friday.
+export function activityDate(session: {
+  startedAt?: string | null;
+  completedAt?: string | null;
+}): Date {
+  return new Date(session.startedAt || session.completedAt || 0);
+}
+
+export function activityDay(session: {
+  startedAt?: string | null;
+  completedAt?: string | null;
+}): string {
+  return getLocalDateString(activityDate(session));
+}

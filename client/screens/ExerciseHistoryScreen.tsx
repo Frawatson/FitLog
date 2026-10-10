@@ -67,7 +67,7 @@ export default function ExerciseHistoryScreen() {
         );
 
         exerciseSessions.push({
-          date: w.completedAt!,
+          date: w.startedAt || w.completedAt!,
           maxWeight,
           totalVolume,
           sets: completedSets.map((s) => ({ weight: s.weight, reps: s.reps })),

@@ -22,7 +22,7 @@ import {
   addToSyncQueue,
 } from "@/lib/syncService";
 import { AUTH_TOKEN_KEY } from "@/lib/authStorage";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { activityDay, getLocalDateString } from "@/lib/dateUtils";
 import { getZoneForHeartRate } from "@/lib/heartRateZones";
 import { clearScheduledNotifications } from "@/lib/notifications";
 
@@ -573,6 +573,7 @@ export async function saveWorkout(workout: Workout): Promise<void> {
       exercises: workout.exercises,
       startedAt: workout.startedAt,
       completedAt: workout.completedAt,
+      activityDate: activityDay(workout),
       durationMinutes: workout.durationMinutes,
       notes: workout.notes,
       totalVolumeKg: workout.totalVolumeKg,
@@ -1220,6 +1221,7 @@ export async function saveRunEntry(run: RunEntry): Promise<void> {
       calories: run.calories,
       startedAt: run.startedAt,
       completedAt: run.completedAt,
+      activityDate: activityDay(run),
       route: run.route,
       avgHeartRate: run.avgHeartRate,
       maxHeartRate: run.maxHeartRate,

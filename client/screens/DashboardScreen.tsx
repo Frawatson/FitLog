@@ -51,7 +51,7 @@ import { formatDistanceValue, formatDistanceUnit } from "@/lib/units";
 import { checkAchievements, type Achievement } from "@/lib/achievements";
 import { getUnreadCountApi } from "@/lib/socialStorage";
 import { timeAgo } from "@/lib/timeAgo";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { activityDate, getLocalDateString } from "@/lib/dateUtils";
 
 interface StreakData {
   currentStreak: number;
@@ -262,7 +262,7 @@ export default function DashboardScreen() {
     if (!w.completedAt) return false;
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    return new Date(w.completedAt) > weekAgo;
+    return activityDate(w) > weekAgo;
   }).length;
 
   const getName = () => {
@@ -285,14 +285,14 @@ export default function DashboardScreen() {
         type: "workout" as const,
         id: w.id,
         name: w.routineName,
-        date: w.completedAt!,
+        date: w.startedAt || w.completedAt!,
         exerciseCount: w.exercises.length,
       })),
     ...runs.map((r) => ({
       type: "run" as const,
       id: r.id,
       name: `${formatDistanceValue(r.distanceKm, profileUnits).toFixed(1)} ${formatDistanceUnit(profileUnits)} Run`,
-      date: r.completedAt || r.startedAt,
+      date: r.startedAt || r.completedAt,
       durationMin: r.durationSeconds
         ? Math.round(r.durationSeconds / 60)
         : undefined,

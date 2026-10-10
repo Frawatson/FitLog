@@ -4,7 +4,7 @@ import * as Sharing from "expo-sharing";
 import * as Haptics from "expo-haptics";
 
 import * as storage from "@/lib/storage";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { activityDay, getLocalDateString } from "@/lib/dateUtils";
 
 // Lifted out of ProfileScreen so the Settings screen can call it too.
 // Pure utility — no UI state of its own. Caller handles the user-facing
@@ -45,9 +45,7 @@ export async function exportUserDataCsv(): Promise<ExportOutcome> {
         w.exercises?.reduce((sum, e) => sum + (e.sets?.length || 0), 0) || 0;
       workoutRows.push(
         [
-          escapeCSV(
-            w.startedAt?.split("T")[0] || w.completedAt?.split("T")[0] || "",
-          ),
+          escapeCSV(w.startedAt || w.completedAt ? activityDay(w) : ""),
           escapeCSV(w.routineName || ""),
           w.durationMinutes || 0,
           escapeCSV(exercises),
@@ -65,7 +63,7 @@ export async function exportUserDataCsv(): Promise<ExportOutcome> {
           : "";
       runRows.push(
         [
-          escapeCSV(r.startedAt?.split("T")[0] || ""),
+          escapeCSV(r.startedAt || r.completedAt ? activityDay(r) : ""),
           r.distanceKm.toFixed(2),
           durationMin,
           pace,

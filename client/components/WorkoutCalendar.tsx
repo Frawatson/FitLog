@@ -6,7 +6,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Workout, RunEntry } from "@/types";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { activityDate, getLocalDateString } from "@/lib/dateUtils";
 
 const ACCENT_COLOR = "#1B3A27"; // Brand.green
 const RUN_COLOR = "#00CED1";
@@ -95,7 +95,7 @@ export function WorkoutCalendar({
       const workoutDates = new Set<string>();
       workouts.forEach((w) => {
         if (w.completedAt) {
-          const date = new Date(w.completedAt);
+          const date = activityDate(w);
           if (date.getMonth() === month && date.getFullYear() === year) {
             workoutDates.add(date.getDate().toString());
           }
@@ -104,9 +104,7 @@ export function WorkoutCalendar({
 
       const runDates = new Set<string>();
       runs.forEach((r) => {
-        // Fall back to startedAt so in-progress / interrupted runs still
-        // appear on the calendar — matches WorkoutHistoryScreen's list.
-        const date = new Date(r.completedAt || r.startedAt);
+        const date = activityDate(r);
         if (date.getMonth() === month && date.getFullYear() === year) {
           runDates.add(date.getDate().toString());
         }

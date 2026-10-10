@@ -23,7 +23,7 @@ import type { Workout, RunEntry, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
 import { formatDistance } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-import { getLocalDateString } from "@/lib/dateUtils";
+import { activityDay, getLocalDateString } from "@/lib/dateUtils";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -83,14 +83,13 @@ export default function WorkoutHistoryScreen() {
   const dayWorkouts = selectedDate
     ? workouts.filter((w) => {
         if (!w.completedAt) return false;
-        return getLocalDateString(new Date(w.completedAt)) === selectedDate;
+        return activityDay(w) === selectedDate;
       })
     : [];
 
   const dayRuns = selectedDate
     ? runs.filter((r) => {
-        const d = r.completedAt || r.startedAt;
-        return getLocalDateString(new Date(d)) === selectedDate;
+        return activityDay(r) === selectedDate;
       })
     : [];
 
