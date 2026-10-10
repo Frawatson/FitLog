@@ -1,19 +1,41 @@
 import { Pool, types } from "pg";
+import cluster from "node:cluster";
 import crypto from "node:crypto";
+import os from "node:os";
 
 // Force pg to parse TIMESTAMP (without timezone) as UTC
 types.setTypeParser(1114, (str: string) => new Date(str + "Z"));
 
-// Cluster mode forks N workers; each opens its own pool. With 4 workers
-// and max:30 we'd hit 120 connections — exceeds Railway's PG plan caps
-// (Hobby ~22, Pro ~100). Per-worker max:6 means up to 24 connections
-// across the cluster; idle connections drop after 30s so steady-state
-// is much lower.
+// Supabase's session-mode pooler allows 15 clients in total, shared by
+// every process that connects (all cluster workers, the old instance
+// still draining during a deploy, scripts). Going over doesn't queue —
+// the pooler rejects the query (EMAXCONNSESSION) and the request 500s.
+// So the cluster splits a fixed budget below that cap, and each pool
+// queues extra queries locally instead.
+export function clusterWorkerCount(): number {
+  const configured = Number(process.env.WEB_CONCURRENCY);
+  if (Number.isInteger(configured) && configured > 0) return configured;
+  return Math.min(os.cpus().length, 4);
+}
+
+function poolSizeForThisProcess(): number {
+  const budget = Number(process.env.DB_POOL_BUDGET) || 12;
+  if (cluster.isWorker) {
+    return Math.max(2, Math.floor(budget / clusterWorkerCount()));
+  }
+  // The cluster primary only runs migrations; development and scripts
+  // run a single process.
+  return process.env.NODE_ENV === "production" ? 2 : 3;
+}
+
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  max: 6,
-  idleTimeoutMillis: 30000,
+  max: poolSizeForThisProcess(),
+  // Short idle timeout so a draining instance hands its connections back
+  // quickly during a deploy.
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 15_000,
 });
 
 export async function initializeDatabase(): Promise<void> {

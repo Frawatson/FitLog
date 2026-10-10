@@ -2,6 +2,9 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import sharp from "sharp";
+import { promises as fsp } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 // exerciseDatabase import removed — using exercise_gif_cache (ExerciseDB) as the sole exercise source
 import {
   getBodyWeights,
@@ -716,10 +719,37 @@ Return JSON only:
 
   // Small static first-frame thumbnail for list rows, so the library
   // can be scanned visually without downloading ~100 KB animated GIFs
-  // per row. Rendered once per worker and kept in a bounded memory
-  // cache; clients cache it for good (ids never change images).
+  // per row. Clients cache it for good (ids never change images). On the
+  // server each thumbnail is rendered once per instance: kept in memory,
+  // on disk (shared by all workers, so a restarted or fresh worker
+  // doesn't re-query the database for every row), and concurrent
+  // requests for the same id share one render.
   const thumbCache = new Map<string, Buffer>();
   const THUMB_CACHE_MAX = 2000;
+  const thumbDir = path.join(os.tmpdir(), "fitlog-thumbs-v1");
+  const thumbsInFlight = new Map<string, Promise<Buffer | null>>();
+  fsp.mkdir(thumbDir, { recursive: true }).catch(() => {});
+
+  const renderThumb = async (id: string): Promise<Buffer | null> => {
+    const file = path.join(thumbDir, `${id}.webp`);
+    try {
+      return await fsp.readFile(file);
+    } catch {
+      // Not on disk yet.
+    }
+    const gifData = await getExerciseGifDataById(id);
+    if (!gifData) return null;
+    const thumb = await sharp(Buffer.from(gifData, "base64"), { page: 0 })
+      .resize(96, 96, { fit: "contain", background: "#ffffff" })
+      .webp({ quality: 70 })
+      .toBuffer();
+    const tmp = `${file}.${process.pid}.tmp`;
+    fsp
+      .writeFile(tmp, thumb)
+      .then(() => fsp.rename(tmp, file))
+      .catch(() => {});
+    return thumb;
+  };
   app.get(
     "/api/exercises/thumb/:exerciseId",
     async (req: Request, res: Response) => {
@@ -730,12 +760,14 @@ Return JSON only:
         }
         let thumb = thumbCache.get(id);
         if (!thumb) {
-          const gifData = await getExerciseGifDataById(id);
-          if (!gifData) return res.status(404).send("Image not found");
-          thumb = await sharp(Buffer.from(gifData, "base64"), { page: 0 })
-            .resize(96, 96, { fit: "contain", background: "#ffffff" })
-            .webp({ quality: 70 })
-            .toBuffer();
+          let pending = thumbsInFlight.get(id);
+          if (!pending) {
+            pending = renderThumb(id).finally(() => thumbsInFlight.delete(id));
+            thumbsInFlight.set(id, pending);
+          }
+          const rendered = await pending;
+          if (!rendered) return res.status(404).send("Image not found");
+          thumb = rendered;
           if (thumbCache.size >= THUMB_CACHE_MAX) {
             const oldest = thumbCache.keys().next().value;
             if (oldest !== undefined) thumbCache.delete(oldest);

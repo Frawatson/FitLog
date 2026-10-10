@@ -1,6 +1,5 @@
 import "dotenv/config";
 import cluster from "node:cluster";
-import os from "node:os";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import compression from "compression";
@@ -10,7 +9,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import authRouter, { authLimiter } from "./auth";
-import { initializeDatabase, pool } from "./db";
+import { clusterWorkerCount, initializeDatabase, pool } from "./db";
 import { privacyHtml, termsHtml } from "./legalPages";
 import * as fs from "fs";
 import * as path from "path";
@@ -28,8 +27,10 @@ if (isProduction && cluster.isPrimary) {
   // Master process: initialize DB once, then fork workers
   (async () => {
     await initializeDatabase();
+    // Workers open their own pools; free the primary's connections.
+    await pool.end();
 
-    const numWorkers = Math.min(os.cpus().length, 4);
+    const numWorkers = clusterWorkerCount();
     log(
       `Master ${process.pid}: DB initialized, starting ${numWorkers} workers`,
     );
@@ -558,6 +559,16 @@ async function startServer() {
   // static handlers so they stream through it.
   app.use(compression());
 
+  // Image GETs (exercise thumbnails, post photos, avatars) are counted
+  // separately: scrolling the exercise library alone loads hundreds of
+  // thumbnails, which used to exhaust the general limit and start
+  // failing the user's real API calls.
+  const isMediaGet = (req: Request) =>
+    req.method === "GET" &&
+    /^\/(exercises\/(thumb|image)\/[^/]+|social\/posts\/\d+\/image|social\/users\/\d+\/avatar)$/.test(
+      req.path,
+    );
+
   // General API rate limiter (100 requests per minute)
   const apiLimiter = rateLimit({
     windowMs: 60 * 1000,
@@ -565,8 +576,18 @@ async function startServer() {
     message: { error: "Too many requests. Please slow down." },
     standardHeaders: true,
     legacyHeaders: false,
+    skip: isMediaGet,
+  });
+  const mediaLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 1500,
+    message: { error: "Too many requests. Please slow down." },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => !isMediaGet(req),
   });
   app.use("/api", apiLimiter);
+  app.use("/api", mediaLimiter);
 
   setupCors(app);
   setupBodyParsing(app);
