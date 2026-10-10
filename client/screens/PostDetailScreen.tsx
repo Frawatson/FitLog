@@ -28,6 +28,10 @@ import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
 import { sharePostLink } from "@/lib/shareLink";
 import { SaveRoutineButton } from "@/components/SaveRoutineButton";
+import {
+  visibleWorkoutExercises,
+  visibleWorkoutCounts,
+} from "@/lib/workoutPosts";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { apiImageSource } from "@/lib/mediaSource";
 import { useAuth } from "@/contexts/AuthContext";
@@ -444,6 +448,10 @@ export default function PostDetailScreen() {
 
   const isOwner = user && post.userId === Number(user.id);
   const ref = post.referenceData;
+  // Only exercises actually done, with their completed sets (older
+  // posts stored the whole plan, done or not).
+  const workoutExercises = visibleWorkoutExercises(ref);
+  const workoutCounts = visibleWorkoutCounts(ref);
 
   return (
     <KeyboardAvoidingView
@@ -620,20 +628,22 @@ export default function PostDetailScreen() {
                       style={{
                         color: theme.textSecondary,
                         marginBottom:
-                          ref.exercises?.length > 0 ? Spacing.md : 0,
+                          workoutExercises.length > 0 ? Spacing.md : 0,
                       }}
                     >
                       {[
                         ref.durationMinutes && `${ref.durationMinutes}m`,
-                        ref.totalSets && `${ref.totalSets} sets`,
-                        ref.exerciseCount && `${ref.exerciseCount} exercises`,
+                        workoutCounts.totalSets &&
+                          `${workoutCounts.totalSets} sets`,
+                        workoutCounts.exerciseCount &&
+                          `${workoutCounts.exerciseCount} exercises`,
                       ]
                         .filter(Boolean)
                         .join(" \u00B7 ")}
                     </ThemedText>
-                    {ref.exercises && ref.exercises.length > 0 && (
+                    {workoutExercises.length > 0 && (
                       <View>
-                        {ref.exercises.map((ex: any, exIdx: number) => (
+                        {workoutExercises.map((ex: any, exIdx: number) => (
                           <View
                             key={exIdx}
                             style={{ marginBottom: Spacing.md }}

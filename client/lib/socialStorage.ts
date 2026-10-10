@@ -73,14 +73,16 @@ export async function createSocialPost(post: {
   referenceData?: any;
   imageData?: string;
   visibility?: PostVisibility;
-}): Promise<{ success: boolean; postId?: number }> {
+}): Promise<{ success: boolean; postId?: number; error?: string }> {
   const result = await syncToServer<{ success: boolean; postId: number }>(
     "/api/social/posts",
     "POST",
     post,
   );
   if (result.success && result.data) return result.data;
-  return { success: false };
+  // Pass the server's reason through (e.g. a rejected photo) instead of
+  // leaving the screen to show a generic failure.
+  return { success: false, error: result.error };
 }
 
 export async function getPostById(

@@ -37,6 +37,7 @@ import { simplifyRoute } from "@/lib/units";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { takeTransient } from "@/lib/transientParams";
 import { routineReferenceData } from "@/lib/sharedRoutines";
+import { completedWorkoutSummary } from "@/lib/workoutPosts";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -59,6 +60,10 @@ const POST_TYPES: {
     color: "#facc15",
   },
 ];
+
+// Base64 characters. The server accepts up to 1,000,000; staying well
+// under leaves room for the rest of the post payload.
+const POST_IMAGE_BUDGET = 650_000;
 
 export default function CreatePostScreen() {
   const headerHeight = useHeaderHeight();
@@ -171,10 +176,13 @@ export default function CreatePostScreen() {
 
   const compressImage = async (uri: string): Promise<string | null> => {
     try {
-      const manipulated = {
-        base64: await compressImageToJpegBase64(uri, 1536, 0.85),
-      };
-      return manipulated.base64 || null;
+      // Longest side 1600px and a size budget under the server's post
+      // image cap. Width-only bounding let portrait phone photos come out
+      // 1536x2048 and blow past the cap ("imageData exceeds ... limit").
+      return await compressImageToJpegBase64(uri, 1600, 0.85, {
+        maxHeight: 1600,
+        maxBase64Length: POST_IMAGE_BUDGET,
+      });
     } catch (error) {
       console.error("Image compression failed:", error);
       return null;
@@ -265,17 +273,10 @@ export default function CreatePostScreen() {
     setReferenceData({
       routineName: w.routineName,
       durationMinutes: w.durationMinutes,
-      totalSets: w.exercises.reduce((acc, e) => acc + e.sets.length, 0),
-      exerciseCount: w.exercises.length,
       totalVolumeKg: w.totalVolumeKg,
-      exercises: w.exercises.map((e) => ({
-        name: e.exerciseName,
-        sets: e.sets.map((s) => ({
-          weight: s.weight,
-          reps: s.reps,
-          completed: s.completed,
-        })),
-      })),
+      // Completed sets/exercises only — same rule as posting from the
+      // workout-complete screen.
+      ...completedWorkoutSummary(w.exercises),
     });
   };
 
@@ -335,7 +336,12 @@ export default function CreatePostScreen() {
         await storage.clearPostDraft();
         navigation.goBack();
       } else {
-        webSafeAlert("Error", "Failed to create post. Try again.");
+        webSafeAlert(
+          "Couldn't post",
+          result.error && !/^HTTP \d+$/.test(result.error)
+            ? result.error
+            : "Failed to create post. Try again.",
+        );
       }
     } catch (err) {
       // Without this try/catch the previous code would throw past

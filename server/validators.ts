@@ -14,7 +14,10 @@ export const LIMITS = {
   SEARCH_QUERY: 200,
   // Base64-encoded image caps. base64 inflates raw bytes by ~33%, so the
   // underlying JPEG is roughly (cap * 0.75).
-  POST_IMAGE_BASE64: 700_000, // ~525 KB JPEG
+  // ~750 KB JPEG. Current clients compress to fit ~650k; the headroom
+  // keeps older cached app versions (which sent larger portrait photos
+  // and were rejected) working.
+  POST_IMAGE_BASE64: 1_000_000,
   ANALYZE_PHOTO_BASE64: 3_000_000, // ~2.25 MB JPEG
   // Avatar input cap before server-side sharp resize. Client compresses to
   // a small size already, but accept up to ~1MB raw in case someone uploads

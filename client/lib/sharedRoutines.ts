@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import type { Post, Routine } from "@/types";
 import * as storage from "@/lib/storage";
 import { exerciseSlug } from "@/lib/exerciseSlug";
+import { visibleWorkoutExercises } from "@/lib/workoutPosts";
 import { normalizeExerciseName } from "../../shared/exerciseNames";
 
 // The routines API rejects more than 30 exercises per routine.
@@ -28,11 +29,11 @@ export function savableRoutineFromPost(
 ): { name: string; exerciseNames: string[] } | null {
   if (post.postType !== "workout" && post.postType !== "routine") return null;
   const ref = post.referenceData;
-  const names: string[] = Array.isArray(ref?.exercises)
-    ? ref.exercises
-        .map((e: any) => (typeof e?.name === "string" ? e.name.trim() : ""))
-        .filter(Boolean)
-    : [];
+  // A logged workout saves what was actually done (exercises with
+  // completed sets); a shared plan saves every exercise.
+  const names: string[] = visibleWorkoutExercises(ref)
+    .map((e) => (typeof e?.name === "string" ? e.name.trim() : ""))
+    .filter(Boolean);
   if (names.length === 0) return null;
   const name =
     typeof ref?.routineName === "string" && ref.routineName.trim()

@@ -27,6 +27,10 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
 import { SaveRoutineButton } from "@/components/SaveRoutineButton";
+import {
+  visibleWorkoutExercises,
+  visibleWorkoutCounts,
+} from "@/lib/workoutPosts";
 import { useTheme } from "@/hooks/useTheme";
 import { apiImageSource } from "@/lib/mediaSource";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -86,6 +90,9 @@ const PostCard = React.memo(function PostCard({
 }) {
   const config = POST_TYPE_CONFIG[post.postType] || POST_TYPE_CONFIG.text;
   const ref = post.referenceData;
+  // Only exercises actually done (older posts stored the whole plan).
+  const shownExercises = visibleWorkoutExercises(ref);
+  const shownCounts = visibleWorkoutCounts(ref);
 
   return (
     <AnimatedPress
@@ -172,28 +179,28 @@ const PostCard = React.memo(function PostCard({
                 theme={theme}
               />
             ) : null}
-            {ref.totalSets ? (
+            {shownCounts.totalSets ? (
               <StatChip
                 icon="layers"
-                value={`${ref.totalSets} sets`}
+                value={`${shownCounts.totalSets} sets`}
                 theme={theme}
               />
             ) : null}
-            {ref.exerciseCount ? (
+            {shownCounts.exerciseCount ? (
               <StatChip
                 icon="list"
-                value={`${ref.exerciseCount} exercises`}
+                value={`${shownCounts.exerciseCount} exercises`}
                 theme={theme}
               />
             ) : null}
           </View>
-          {ref.exercises?.length > 0 && (
+          {shownExercises.length > 0 && (
             <ThemedText
               type="caption"
               style={{ color: theme.textSecondary, marginTop: 4 }}
               numberOfLines={1}
             >
-              {ref.exercises.map((e: any) => e.name).join(", ")}
+              {shownExercises.map((e) => e.name).join(", ")}
             </ThemedText>
           )}
           {!isOwn ? <SaveRoutineButton post={post} /> : null}

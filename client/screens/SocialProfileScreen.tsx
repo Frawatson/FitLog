@@ -23,6 +23,7 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
 import { SaveRoutineButton } from "@/components/SaveRoutineButton";
+import { visibleWorkoutExercises } from "@/lib/workoutPosts";
 import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -445,15 +446,15 @@ export default function SocialProfileScreen() {
                 <ThemedText type="h4">
                   {item.referenceData.routineName || "Workout"}
                 </ThemedText>
-                {Array.isArray(item.referenceData.exercises) &&
-                item.referenceData.exercises.length > 0 ? (
+                {visibleWorkoutExercises(item.referenceData).length > 0 ? (
                   <ThemedText
                     type="caption"
                     numberOfLines={2}
                     style={{ color: theme.textSecondary, marginTop: 2 }}
                   >
-                    {item.referenceData.exercises
-                      .map((e: any) => e.name)
+                    {/* Only exercises actually done. */}
+                    {visibleWorkoutExercises(item.referenceData)
+                      .map((e) => e.name)
                       .join(", ")}
                   </ThemedText>
                 ) : null}

@@ -21,6 +21,7 @@ import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Workout, UnitSystem } from "@/types";
 import * as storage from "@/lib/storage";
 import { stashTransient } from "@/lib/transientParams";
+import { completedWorkoutSummary } from "@/lib/workoutPosts";
 import { weightLabel } from "@/lib/units";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -351,23 +352,11 @@ export default function WorkoutCompleteScreen() {
                   ? {
                       routineName: workout.routineName,
                       durationMinutes: workout.durationMinutes,
-                      // Completed sets only — the post says what was done,
-                      // not what was planned.
-                      totalSets: workout.exercises.reduce(
-                        (acc: number, e: any) =>
-                          acc + e.sets.filter((s: any) => s.completed).length,
-                        0,
-                      ),
-                      exerciseCount: workout.exercises.length,
                       totalVolumeKg: workout.totalVolumeKg,
-                      exercises: workout.exercises.map((e: any) => ({
-                        name: e.exerciseName,
-                        sets: e.sets.map((s: any) => ({
-                          weight: s.weight,
-                          reps: s.reps,
-                          completed: s.completed,
-                        })),
-                      })),
+                      // Only what was done: completed sets, and only the
+                      // exercises that have any (4 of 7 done used to post
+                      // all 7).
+                      ...completedWorkoutSummary(workout.exercises),
                     }
                   : undefined,
               });
