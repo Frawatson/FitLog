@@ -25,6 +25,7 @@ export const LIMITS = {
 
 export const POST_TYPES = new Set([
   "workout",
+  "routine", // shared workout plan
   "run",
   "meal",
   "achievement",

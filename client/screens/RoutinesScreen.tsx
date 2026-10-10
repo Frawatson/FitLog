@@ -24,6 +24,8 @@ import { webSafeAlert } from "@/lib/webSafeAlert";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
 import type { Routine } from "@/types";
 import * as storage from "@/lib/storage";
+import { routineReferenceData } from "@/lib/sharedRoutines";
+import { stashTransient } from "@/lib/transientParams";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Routine>);
@@ -107,6 +109,18 @@ export default function RoutinesScreen() {
     Haptics.selectionAsync();
   };
 
+  // Share the plan to the community; followers (or everyone, if public)
+  // can save it to their own workouts.
+  const handleShare = (routine: Routine) => {
+    Haptics.selectionAsync();
+    stashTransient("createPostPrefill", {
+      postType: "routine",
+      referenceId: routine.id,
+      referenceData: routineReferenceData(routine),
+    });
+    navigation.navigate("CreatePost");
+  };
+
   const renderRoutine = ({ item }: { item: Routine }) => {
     const exercisePreview = item.exercises.map((e) => e.exerciseName);
     const isExpanded = expandedRoutines.has(item.id);
@@ -185,6 +199,27 @@ export default function RoutinesScreen() {
               style={{ color: theme.textSecondary, marginLeft: Spacing.sm }}
             >
               Edit
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => handleShare(item)}
+            disabled={item.exercises.length === 0}
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${item.name} with the community`}
+            style={[
+              styles.secondaryButton,
+              {
+                backgroundColor: Colors.light.primary + "12",
+                opacity: item.exercises.length === 0 ? 0.4 : 1,
+              },
+            ]}
+          >
+            <Feather name="share-2" size={16} color={Colors.light.primary} />
+            <ThemedText
+              type="small"
+              style={{ color: Colors.light.primary, marginLeft: Spacing.sm }}
+            >
+              Share
             </ThemedText>
           </Pressable>
           <Pressable

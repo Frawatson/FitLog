@@ -26,6 +26,7 @@ import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
+import { SaveRoutineButton } from "@/components/SaveRoutineButton";
 import { useTheme } from "@/hooks/useTheme";
 import { apiImageSource } from "@/lib/mediaSource";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -56,13 +57,15 @@ const POST_TYPE_CONFIG: Record<
   { icon: keyof typeof Feather.glyphMap; color: string; label: string }
 > = {
   workout: { icon: "activity", color: "#1B3A27", label: "Workout" },
+  routine: { icon: "clipboard", color: "#1B3A27", label: "Workout Plan" },
   run: { icon: "map-pin", color: "#00D084", label: "Run" },
   meal: { icon: "pie-chart", color: "#818cf8", label: "Meal" },
   achievement: { icon: "award", color: "#facc15", label: "Achievement" },
   text: { icon: "edit-3", color: "#9BA1A6", label: "Post" },
 };
 
-function PostCard({
+// Memoized: a like or new page used to re-render every card in the feed.
+const PostCard = React.memo(function PostCard({
   post,
   onLike,
   onPress,
@@ -70,6 +73,7 @@ function PostCard({
   theme,
   serverTime,
   unitSystem,
+  isOwn,
 }: {
   post: Post;
   onLike: (post: Post) => void;
@@ -78,6 +82,7 @@ function PostCard({
   theme: any;
   serverTime?: string;
   unitSystem: UnitSystem;
+  isOwn: boolean;
 }) {
   const config = POST_TYPE_CONFIG[post.postType] || POST_TYPE_CONFIG.text;
   const ref = post.referenceData;
@@ -144,10 +149,18 @@ function PostCard({
         />
       ) : null}
 
-      {post.postType === "workout" && ref && (
+      {(post.postType === "workout" || post.postType === "routine") && ref && (
         <View
           style={[styles.refCard, { backgroundColor: theme.backgroundDefault }]}
         >
+          {post.postType === "routine" ? (
+            <ThemedText
+              type="caption"
+              style={{ color: theme.textSecondary, marginBottom: 2 }}
+            >
+              WORKOUT PLAN
+            </ThemedText>
+          ) : null}
           <ThemedText type="h4" style={{ marginBottom: 4 }}>
             {ref.routineName || "Workout"}
           </ThemedText>
@@ -183,6 +196,7 @@ function PostCard({
               {ref.exercises.map((e: any) => e.name).join(", ")}
             </ThemedText>
           )}
+          {!isOwn ? <SaveRoutineButton post={post} /> : null}
         </View>
       )}
 
@@ -278,7 +292,7 @@ function PostCard({
       </View>
     </AnimatedPress>
   );
-}
+});
 
 function StatChip({
   icon,
@@ -472,7 +486,7 @@ export default function SocialFeedScreen() {
     }
   };
 
-  const handleLike = async (post: Post) => {
+  const handleLike = useCallback(async (post: Post) => {
     // Optimistic update with targeted rollback. Capturing the whole posts
     // array would clobber any concurrent optimistic update to other rows
     // (e.g. user double-likes B while A is still in-flight) — so we only
@@ -505,58 +519,66 @@ export default function SocialFeedScreen() {
         ),
       );
     }
-  };
+  }, []);
 
-  const handlePostPress = (post: Post) => {
-    navigation.navigate("PostDetail", { postId: post.id });
-  };
+  const handlePostPress = useCallback(
+    (post: Post) => {
+      navigation.navigate("PostDetail", { postId: post.id });
+    },
+    [navigation],
+  );
 
-  const handleMorePress = (post: Post) => {
-    const reportWith = (reason: "spam" | "harassment" | "inappropriate") => {
-      reportContentApi("post", post.id, reason);
-      webSafeAlert("Reported", "Thanks for letting us know.");
-    };
-    const confirmBlock = () => {
-      showSystemMenu({
-        title: `Block ${post.authorName}?`,
-        message: "They won't be able to see your posts or find you.",
-        options: [
-          {
-            label: "Block",
-            destructive: true,
-            onPress: async () => {
-              await blockUserApi(post.userId);
-              setPosts((prev) => prev.filter((p) => p.userId !== post.userId));
-              webSafeAlert("Blocked", `${post.authorName} has been blocked.`);
+  const handleMorePress = useCallback(
+    (post: Post) => {
+      const reportWith = (reason: "spam" | "harassment" | "inappropriate") => {
+        reportContentApi("post", post.id, reason);
+        webSafeAlert("Reported", "Thanks for letting us know.");
+      };
+      const confirmBlock = () => {
+        showSystemMenu({
+          title: `Block ${post.authorName}?`,
+          message: "They won't be able to see your posts or find you.",
+          options: [
+            {
+              label: "Block",
+              destructive: true,
+              onPress: async () => {
+                await blockUserApi(post.userId);
+                setPosts((prev) =>
+                  prev.filter((p) => p.userId !== post.userId),
+                );
+                webSafeAlert("Blocked", `${post.authorName} has been blocked.`);
+              },
             },
-          },
-          { label: "Cancel", cancel: true },
-        ],
-      });
-    };
-    const openReportReasons = () => {
+            { label: "Cancel", cancel: true },
+          ],
+        });
+      };
+      const openReportReasons = () => {
+        showSystemMenu({
+          title: "Why are you reporting this post?",
+          options: [
+            { label: "Spam", onPress: () => reportWith("spam") },
+            { label: "Harassment", onPress: () => reportWith("harassment") },
+            {
+              label: "Inappropriate",
+              onPress: () => reportWith("inappropriate"),
+            },
+            { label: "Cancel", cancel: true },
+          ],
+        });
+      };
       showSystemMenu({
-        title: "Why are you reporting this post?",
+        title: "Post Options",
         options: [
-          { label: "Spam", onPress: () => reportWith("spam") },
-          { label: "Harassment", onPress: () => reportWith("harassment") },
-          {
-            label: "Inappropriate",
-            onPress: () => reportWith("inappropriate"),
-          },
+          { label: "Report Post", onPress: openReportReasons },
+          { label: "Block User", destructive: true, onPress: confirmBlock },
           { label: "Cancel", cancel: true },
         ],
       });
-    };
-    showSystemMenu({
-      title: "Post Options",
-      options: [
-        { label: "Report Post", onPress: openReportReasons },
-        { label: "Block User", destructive: true, onPress: confirmBlock },
-        { label: "Cancel", cancel: true },
-      ],
-    });
-  };
+    },
+    [navigation],
+  );
 
   if (isLoading) {
     return (
@@ -686,6 +708,7 @@ export default function SocialFeedScreen() {
             theme={theme}
             serverTime={serverTime}
             unitSystem={unitSystem}
+            isOwn={!!user && item.userId === Number(user.id)}
           />
         )}
         refreshControl={

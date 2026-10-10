@@ -69,6 +69,8 @@ import {
   getUnreadNotificationCount,
   updatePost,
   updateComment,
+  canViewProfileContent,
+  hasRecentNotification,
 } from "./db";
 import { requireAuth } from "./auth";
 import {
@@ -1977,7 +1979,12 @@ Return JSON only:
           return res.status(400).json({ error: "Invalid user" });
         }
         const success = await followUser(req.userId, targetId);
-        if (success) {
+        // One follow notification per actor per day, so unfollow/refollow
+        // toggling doesn't spam the person being followed.
+        if (
+          success &&
+          !(await hasRecentNotification(targetId, "follow", req.userId, 24))
+        ) {
           const user = await getUserById(req.userId);
           createNotification(
             targetId,
@@ -2265,11 +2272,8 @@ Return JSON only:
           return res.status(400).json({ error: "Invalid user ID" });
 
         // Privacy check: non-public profiles hidden from non-followers
-        if (targetId !== req.userId) {
-          const profile = await getSocialProfile(targetId, req.userId);
-          if (profile && !profile.isPublic && !profile.isFollowedByMe) {
-            return res.json({ posts: [], nextCursor: undefined });
-          }
+        if (!(await canViewProfileContent(targetId, req.userId))) {
+          return res.json({ posts: [], nextCursor: undefined });
         }
 
         const result = await getUserPosts(targetId, req.userId, cursor);

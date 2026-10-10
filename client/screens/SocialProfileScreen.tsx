@@ -22,6 +22,7 @@ import { Button } from "@/components/Button";
 import { AnimatedPress } from "@/components/AnimatedPress";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
+import { SaveRoutineButton } from "@/components/SaveRoutineButton";
 import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -422,22 +423,72 @@ export default function SocialProfileScreen() {
               },
             ]}
           >
-            <ThemedText type="body" numberOfLines={2}>
-              {item.content || `Shared a ${item.postType}`}
-            </ThemedText>
-            <View
-              style={{
-                flexDirection: "row",
-                gap: Spacing.lg,
-                marginTop: Spacing.sm,
-              }}
-            >
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                <Feather name="heart" size={12} /> {item.likesCount}
+            {item.content ? (
+              <ThemedText type="body" numberOfLines={2}>
+                {item.content}
               </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                <Feather name="message-circle" size={12} /> {item.commentsCount}
+            ) : null}
+            {(item.postType === "workout" || item.postType === "routine") &&
+            item.referenceData ? (
+              <View
+                style={[
+                  styles.refCard,
+                  { backgroundColor: theme.backgroundDefault },
+                ]}
+              >
+                <ThemedText
+                  type="caption"
+                  style={{ color: theme.textSecondary }}
+                >
+                  {item.postType === "routine" ? "WORKOUT PLAN" : "WORKOUT"}
+                </ThemedText>
+                <ThemedText type="h4">
+                  {item.referenceData.routineName || "Workout"}
+                </ThemedText>
+                {Array.isArray(item.referenceData.exercises) &&
+                item.referenceData.exercises.length > 0 ? (
+                  <ThemedText
+                    type="caption"
+                    numberOfLines={2}
+                    style={{ color: theme.textSecondary, marginTop: 2 }}
+                  >
+                    {item.referenceData.exercises
+                      .map((e: any) => e.name)
+                      .join(", ")}
+                  </ThemedText>
+                ) : null}
+                {!isOwnProfile ? <SaveRoutineButton post={item} /> : null}
+              </View>
+            ) : !item.content ? (
+              <ThemedText type="body" numberOfLines={2}>
+                {`Shared a ${item.postType}`}
               </ThemedText>
+            ) : null}
+            {/* Icons and numbers as row siblings: an icon nested inside
+                <Text> doesn't render reliably on the web. */}
+            <View style={styles.postMeta}>
+              <View style={styles.metaItem}>
+                <Feather name="heart" size={12} color={theme.textSecondary} />
+                <ThemedText
+                  type="caption"
+                  style={{ color: theme.textSecondary }}
+                >
+                  {item.likesCount}
+                </ThemedText>
+              </View>
+              <View style={styles.metaItem}>
+                <Feather
+                  name="message-circle"
+                  size={12}
+                  color={theme.textSecondary}
+                />
+                <ThemedText
+                  type="caption"
+                  style={{ color: theme.textSecondary }}
+                >
+                  {item.commentsCount}
+                </ThemedText>
+              </View>
             </View>
           </AnimatedPress>
         )}
@@ -460,6 +511,21 @@ export default function SocialProfileScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  refCard: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  postMeta: {
+    flexDirection: "row",
+    gap: Spacing.lg,
+    marginTop: Spacing.sm,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
   profileTop: { alignItems: "center", marginBottom: Spacing.xl },
   statsRow: {
     flexDirection: "row",

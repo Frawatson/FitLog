@@ -76,7 +76,7 @@ Previously updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
   retained to hide follow/block buttons when viewing your own profile.
   *(Done in `28bab09`.)*
 
-- [ ] **P2** Pagination on `SocialProfileScreen` user posts — currently
+- [x] **P2** Pagination on `SocialProfileScreen` user posts *(done in Tier 4)* — currently
   fetches only the first page from `getUserPostsFeed`.
 
 - [ ] **P2** Pagination on `NotificationsScreen` — endpoint accepts `page`
@@ -123,11 +123,11 @@ Previously updated: 2026-05-27 (after PR D: all P1s shipped — `d7907f2`)
   `SocialProfileScreen.tsx:253,256` doesn't render reliably on web.
   Restructure into a flexrow with two Text children.
 
-- [ ] **P3** Server-side dedupe of follow notifications. Currently no
+- [x] **P3** Server-side dedupe of follow notifications. *(Done 2026-10-09: one follow notification per actor per 24h.)* Currently no
   `(user_id, type, actor_id, reference_id)` unique constraint so
   follow→unfollow→follow generates two follow notifications.
 
-- [ ] **P1** Follower / following counts drift on user deletion.
+- [x] **P1** Follower / following counts drift on user deletion. *(Done 2026-10-09: counts are now computed live from `follows`, filtered like the visible lists; the denormalized counters are no longer read or written.)*
   `users.followers_count` and `users.following_count` are denormalized
   columns maintained manually inside `followUser` / `unfollowUser` /
   `blockUser` (server/db.ts). `deleteUser` (server/db.ts:578) just

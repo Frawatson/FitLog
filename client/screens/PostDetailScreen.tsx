@@ -26,6 +26,9 @@ import { Button } from "@/components/Button";
 import { SkeletonLoader } from "@/components/SkeletonLoader";
 import { Avatar } from "@/components/Avatar";
 import { useTheme } from "@/hooks/useTheme";
+import { sharePostLink } from "@/lib/shareLink";
+import { SaveRoutineButton } from "@/components/SaveRoutineButton";
+import { AnimatedPress } from "@/components/AnimatedPress";
 import { apiImageSource } from "@/lib/mediaSource";
 import { useAuth } from "@/contexts/AuthContext";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
@@ -593,92 +596,127 @@ export default function PostDetailScreen() {
               ) : null}
 
               {/* Reference data */}
-              {post.postType === "workout" && ref && (
-                <View
-                  style={[
-                    styles.refCard,
-                    { backgroundColor: theme.backgroundDefault },
-                  ]}
-                >
-                  <ThemedText type="h4" style={{ marginBottom: 4 }}>
-                    {ref.routineName || "Workout"}
-                  </ThemedText>
-                  <ThemedText
-                    type="small"
-                    style={{
-                      color: theme.textSecondary,
-                      marginBottom: ref.exercises?.length > 0 ? Spacing.md : 0,
-                    }}
+              {(post.postType === "workout" || post.postType === "routine") &&
+                ref && (
+                  <View
+                    style={[
+                      styles.refCard,
+                      { backgroundColor: theme.backgroundDefault },
+                    ]}
                   >
-                    {[
-                      ref.durationMinutes && `${ref.durationMinutes}m`,
-                      ref.totalSets && `${ref.totalSets} sets`,
-                      ref.exerciseCount && `${ref.exerciseCount} exercises`,
-                    ]
-                      .filter(Boolean)
-                      .join(" \u00B7 ")}
-                  </ThemedText>
-                  {ref.exercises && ref.exercises.length > 0 && (
-                    <View>
-                      {ref.exercises.map((ex: any, exIdx: number) => (
-                        <View key={exIdx} style={{ marginBottom: Spacing.md }}>
-                          <ThemedText
-                            type="body"
-                            style={{
-                              fontWeight: "600",
-                              marginBottom: Spacing.xs,
-                            }}
+                    {post.postType === "routine" ? (
+                      <ThemedText
+                        type="caption"
+                        style={{ color: theme.textSecondary, marginBottom: 2 }}
+                      >
+                        WORKOUT PLAN
+                      </ThemedText>
+                    ) : null}
+                    <ThemedText type="h4" style={{ marginBottom: 4 }}>
+                      {ref.routineName || "Workout"}
+                    </ThemedText>
+                    <ThemedText
+                      type="small"
+                      style={{
+                        color: theme.textSecondary,
+                        marginBottom:
+                          ref.exercises?.length > 0 ? Spacing.md : 0,
+                      }}
+                    >
+                      {[
+                        ref.durationMinutes && `${ref.durationMinutes}m`,
+                        ref.totalSets && `${ref.totalSets} sets`,
+                        ref.exerciseCount && `${ref.exerciseCount} exercises`,
+                      ]
+                        .filter(Boolean)
+                        .join(" \u00B7 ")}
+                    </ThemedText>
+                    {ref.exercises && ref.exercises.length > 0 && (
+                      <View>
+                        {ref.exercises.map((ex: any, exIdx: number) => (
+                          <View
+                            key={exIdx}
+                            style={{ marginBottom: Spacing.md }}
                           >
-                            {ex.name}
-                          </ThemedText>
-                          {ex.sets?.map((set: any, setIdx: number) => (
-                            <View
-                              key={setIdx}
+                            <ThemedText
+                              type="body"
                               style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: Spacing.md,
-                                paddingVertical: 2,
+                                fontWeight: "600",
+                                marginBottom: Spacing.xs,
                               }}
                             >
-                              <ThemedText
-                                type="caption"
+                              {ex.name}
+                            </ThemedText>
+                            {ex.sets?.map((set: any, setIdx: number) => (
+                              <View
+                                key={setIdx}
                                 style={{
-                                  color: theme.textSecondary,
-                                  width: 24,
+                                  flexDirection: "row",
+                                  alignItems: "center",
+                                  gap: Spacing.md,
+                                  paddingVertical: 2,
                                 }}
                               >
-                                {setIdx + 1}
-                              </ThemedText>
-                              <ThemedText
-                                type="small"
-                                style={{
-                                  color: set.completed
-                                    ? theme.text
-                                    : theme.textSecondary,
-                                  flex: 1,
-                                }}
-                              >
-                                {set.weight} {weightLabel(unitSystem)} x{" "}
-                                {set.reps}
-                              </ThemedText>
-                              <Feather
-                                name={set.completed ? "check" : "x"}
-                                size={12}
-                                color={
-                                  set.completed
-                                    ? Colors.light.success
-                                    : theme.textSecondary
-                                }
-                              />
-                            </View>
-                          ))}
-                        </View>
-                      ))}
+                                <ThemedText
+                                  type="caption"
+                                  style={{
+                                    color: theme.textSecondary,
+                                    width: 24,
+                                  }}
+                                >
+                                  {setIdx + 1}
+                                </ThemedText>
+                                <ThemedText
+                                  type="small"
+                                  style={{
+                                    color: set.completed
+                                      ? theme.text
+                                      : theme.textSecondary,
+                                    flex: 1,
+                                  }}
+                                >
+                                  {set.weight} {weightLabel(unitSystem)} x{" "}
+                                  {set.reps}
+                                </ThemedText>
+                                <Feather
+                                  name={set.completed ? "check" : "x"}
+                                  size={12}
+                                  color={
+                                    set.completed
+                                      ? Colors.light.success
+                                      : theme.textSecondary
+                                  }
+                                />
+                              </View>
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                    <View style={styles.shareRow}>
+                      {!isOwner ? <SaveRoutineButton post={post} /> : null}
+                      <AnimatedPress
+                        onPress={() =>
+                          sharePostLink(post.id, ref.routineName || "Workout")
+                        }
+                        accessibilityLabel="Share link to this workout"
+                        style={styles.shareLinkButton}
+                      >
+                        <Feather
+                          name="share"
+                          size={14}
+                          color={theme.textSecondary}
+                        />
+                        <ThemedText
+                          type="small"
+                          style={{ color: theme.textSecondary }}
+                        >
+                          Share link
+                        </ThemedText>
+                      </AnimatedPress>
                     </View>
-                  )}
-                </View>
-              )}
+                  </View>
+                )}
 
               {post.postType === "run" && ref && (
                 <View
@@ -936,6 +974,19 @@ export default function PostDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  shareRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  shareLinkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
   container: { flex: 1 },
   postHeader: {
     flexDirection: "row",

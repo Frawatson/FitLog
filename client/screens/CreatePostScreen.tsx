@@ -23,13 +23,20 @@ import { AnimatedPress } from "@/components/AnimatedPress";
 import { showSystemMenu } from "@/components/SystemMenu";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius, Colors } from "@/constants/theme";
-import type { PostType, PostVisibility, Workout, RunEntry } from "@/types";
+import type {
+  PostType,
+  PostVisibility,
+  Workout,
+  RunEntry,
+  Routine,
+} from "@/types";
 import { createSocialPost } from "@/lib/socialStorage";
 import * as storage from "@/lib/storage";
 import { compressImageToJpegBase64 } from "@/lib/imageCompression";
 import { simplifyRoute } from "@/lib/units";
 import { webSafeAlert } from "@/lib/webSafeAlert";
 import { takeTransient } from "@/lib/transientParams";
+import { routineReferenceData } from "@/lib/sharedRoutines";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -42,6 +49,7 @@ const POST_TYPES: {
 }[] = [
   { type: "text", icon: "edit-3", label: "Text", color: "#9BA1A6" },
   { type: "workout", icon: "activity", label: "Workout", color: "#1B3A27" },
+  { type: "routine", icon: "clipboard", label: "Plan", color: "#1B3A27" },
   { type: "run", icon: "map-pin", label: "Run", color: "#00D084" },
   { type: "meal", icon: "pie-chart", label: "Meal", color: "#818cf8" },
   {
@@ -82,6 +90,7 @@ export default function CreatePostScreen() {
     prefill?.referenceId,
   );
   const [recentWorkouts, setRecentWorkouts] = useState<Workout[]>([]);
+  const [myRoutines, setMyRoutines] = useState<Routine[]>([]);
   const [recentRuns, setRecentRuns] = useState<RunEntry[]>([]);
   // selectedRefIndex was previously `prefill ? 0 : null`, but the
   // reference picker is only rendered when !hasPrefill, so the 0 was
@@ -135,11 +144,23 @@ export default function CreatePostScreen() {
 
   const loadRecent = async () => {
     try {
-      const [workouts, runs] = await Promise.all([
+      const [workouts, runs, routines] = await Promise.all([
         storage.getWorkouts(),
         storage.getRunHistory(),
+        storage.getRoutines(),
       ]);
-      setRecentWorkouts(workouts.slice(0, 5));
+      // Most recent first — merged local + server history isn't ordered.
+      setRecentWorkouts(
+        [...workouts]
+          .filter((w) => w.completedAt)
+          .sort(
+            (a, b) =>
+              new Date(b.completedAt!).getTime() -
+              new Date(a.completedAt!).getTime(),
+          )
+          .slice(0, 5),
+      );
+      setMyRoutines(routines.filter((r) => r.exercises.length > 0));
       setRecentRuns(runs.slice(0, 5));
       setRecentLoadError(false);
     } catch (e) {
@@ -256,6 +277,12 @@ export default function CreatePostScreen() {
         })),
       })),
     });
+  };
+
+  const selectRoutine = (r: Routine, idx: number) => {
+    setSelectedRefIndex(idx);
+    setReferenceId(r.id);
+    setReferenceData(routineReferenceData(r));
   };
 
   const selectRun = (r: RunEntry, idx: number) => {
@@ -466,15 +493,17 @@ export default function CreatePostScreen() {
               type="body"
               style={{ fontWeight: "600", color: Colors.light.primary }}
             >
-              {postType === "workout"
+              {postType === "workout" || postType === "routine"
                 ? referenceData.routineName || "Workout"
                 : `${referenceData.distanceKm?.toFixed(2)} km Run`}
             </ThemedText>
           </View>
           <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-            {postType === "workout"
-              ? `${referenceData.durationMinutes}min \u00B7 ${referenceData.exerciseCount} exercises`
-              : `${referenceData.durationMinutes}min${referenceData.pace ? ` \u00B7 ${referenceData.pace}` : ""}`}
+            {postType === "routine"
+              ? `Workout plan \u00B7 ${referenceData.exerciseCount} exercises \u2014 others can save it`
+              : postType === "workout"
+                ? `${referenceData.durationMinutes}min \u00B7 ${referenceData.exerciseCount} exercises`
+                : `${referenceData.durationMinutes}min${referenceData.pace ? ` \u00B7 ${referenceData.pace}` : ""}`}
           </ThemedText>
         </View>
       )}
@@ -534,6 +563,57 @@ export default function CreatePostScreen() {
               </ThemedText>
             </AnimatedPress>
           ))}
+        </View>
+      )}
+
+      {!hasPrefill && postType === "routine" && (
+        <View style={{ marginBottom: Spacing.xl }}>
+          <ThemedText type="h4" style={{ marginBottom: Spacing.xs }}>
+            Share a Workout Plan
+          </ThemedText>
+          <ThemedText
+            type="caption"
+            style={{ color: theme.textSecondary, marginBottom: Spacing.sm }}
+          >
+            People who see it can save it to their own workouts.
+          </ThemedText>
+          {myRoutines.length === 0 ? (
+            <ThemedText type="small" style={{ color: theme.textSecondary }}>
+              You don&apos;t have any routines with exercises yet.
+            </ThemedText>
+          ) : (
+            myRoutines.map((r, i) => (
+              <AnimatedPress
+                key={r.id}
+                onPress={() => selectRoutine(r, i)}
+                style={[
+                  styles.refItem,
+                  {
+                    backgroundColor:
+                      selectedRefIndex === i
+                        ? Colors.light.primary + "15"
+                        : theme.backgroundDefault,
+                    borderColor:
+                      selectedRefIndex === i
+                        ? Colors.light.primary
+                        : theme.border,
+                  },
+                ]}
+              >
+                <ThemedText type="body" style={{ fontWeight: "600" }}>
+                  {r.name}
+                </ThemedText>
+                <ThemedText
+                  type="caption"
+                  style={{ color: theme.textSecondary }}
+                  numberOfLines={1}
+                >
+                  {r.exercises.length} exercises {"\u00B7"}{" "}
+                  {r.exercises.map((e) => e.exerciseName).join(", ")}
+                </ThemedText>
+              </AnimatedPress>
+            ))
+          )}
         </View>
       )}
 

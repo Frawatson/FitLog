@@ -631,19 +631,8 @@ export async function deleteUser(id: number): Promise<boolean> {
       user.email,
     ]);
   }
-  // The follows rows cascade-delete with the user, but the surviving
-  // users' denormalized follower/following counters were never
-  // decremented — profiles drifted (count said 5, list showed 3).
-  await pool.query(
-    `UPDATE users SET followers_count = GREATEST(followers_count - 1, 0)
-     WHERE id IN (SELECT following_id FROM follows WHERE follower_id = $1)`,
-    [id],
-  );
-  await pool.query(
-    `UPDATE users SET following_count = GREATEST(following_count - 1, 0)
-     WHERE id IN (SELECT follower_id FROM follows WHERE following_id = $1)`,
-    [id],
-  );
+  // follows rows cascade-delete with the user; counts are computed live
+  // from that table, so nothing else needs adjusting.
   const result = await pool.query(
     "DELETE FROM users WHERE id = $1 RETURNING id",
     [id],
@@ -1392,6 +1381,19 @@ export async function followUser(
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // No following across a block in either direction (this used to be
+    // allowed: someone you blocked could still follow you).
+    const blocked = await client.query(
+      `SELECT 1 FROM user_blocks
+       WHERE (blocker_id = $1 AND blocked_id = $2)
+          OR (blocker_id = $2 AND blocked_id = $1)
+       LIMIT 1`,
+      [followerId, followingId],
+    );
+    if ((blocked.rowCount ?? 0) > 0) {
+      await client.query("ROLLBACK");
+      return false;
+    }
     const result = await client.query(
       "INSERT INTO follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING id",
       [followerId, followingId],
@@ -1400,14 +1402,8 @@ export async function followUser(
       await client.query("ROLLBACK");
       return false;
     }
-    await client.query(
-      "UPDATE users SET following_count = following_count + 1 WHERE id = $1",
-      [followerId],
-    );
-    await client.query(
-      "UPDATE users SET followers_count = followers_count + 1 WHERE id = $1",
-      [followingId],
-    );
+    // Follower/following counts are computed live from this table (see
+    // getSocialProfile); no denormalized counters to maintain.
     await client.query("COMMIT");
     return true;
   } catch {
@@ -1433,14 +1429,6 @@ export async function unfollowUser(
       await client.query("ROLLBACK");
       return false;
     }
-    await client.query(
-      "UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1",
-      [followerId],
-    );
-    await client.query(
-      "UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1",
-      [followingId],
-    );
     await client.query("COMMIT");
     return true;
   } catch {
@@ -1709,6 +1697,43 @@ export async function getUserAvatar(
   return { data: Buffer.from(match[2], "base64"), mime: match[1] };
 }
 
+// Is a profile's content visible to the viewer? Owner, public profile,
+// or an existing follower. (The user-posts route used to call
+// getSocialProfile — several count subqueries — just to answer this.)
+export async function canViewProfileContent(
+  targetUserId: number,
+  viewerId: number,
+): Promise<boolean> {
+  if (targetUserId === viewerId) return true;
+  const result = await pool.query(
+    `SELECT u.is_public,
+       EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS follows
+     FROM users u WHERE u.id = $1`,
+    [targetUserId, viewerId],
+  );
+  if (result.rows.length === 0) return false;
+  const row = result.rows[0];
+  return (row.is_public ?? true) || row.follows;
+}
+
+// True if `actorId` already notified `userId` of `type` recently. Used to
+// stop follow/unfollow/follow toggling from spamming notifications.
+export async function hasRecentNotification(
+  userId: number,
+  type: string,
+  actorId: number,
+  withinHours: number,
+): Promise<boolean> {
+  const result = await pool.query(
+    `SELECT 1 FROM notifications
+     WHERE user_id = $1 AND type = $2 AND actor_id = $3
+       AND created_at > NOW() - ($4 || ' hours')::interval
+     LIMIT 1`,
+    [userId, type, actorId, String(withinHours)],
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
 export async function deletePost(
   userId: number,
   postId: number,
@@ -1720,6 +1745,26 @@ export async function deletePost(
   return (result.rowCount ?? 0) > 0;
 }
 
+// Pagination cursor = "<created_at ISO>|<post id>". Paging on created_at
+// alone skipped posts that shared a timestamp with the page boundary.
+// Compared at millisecond precision: created_at has microseconds but the
+// cursor (a JS ISO string) only milliseconds. A legacy cursor
+// (timestamp only) still works.
+function parsePostCursor(cursor?: string): { at: string; id: number } | null {
+  if (!cursor) return null;
+  const [at, idPart] = cursor.split("|");
+  if (!at || isNaN(Date.parse(at))) return null;
+  // posts.id is a 32-bit integer; the largest one stands in for "any id"
+  // when a legacy cursor carries only a timestamp.
+  const MAX_INT = 2147483647;
+  const id = idPart ? parseInt(idPart, 10) : MAX_INT;
+  return { at, id: Number.isFinite(id) ? Math.min(id, MAX_INT) : MAX_INT };
+}
+
+function postCursor(row: PostRow): string {
+  return `${row.createdAt}|${row.id}`;
+}
+
 export async function getFeedPosts(
   userId: number,
   cursor?: string,
@@ -1727,9 +1772,11 @@ export async function getFeedPosts(
 ): Promise<{ posts: PostRow[]; nextCursor?: string }> {
   const params: any[] = [userId, limit + 1];
   let cursorClause = "";
-  if (cursor) {
-    cursorClause = "AND p.created_at < $3";
-    params.push(cursor);
+  const parsed = parsePostCursor(cursor);
+  if (parsed) {
+    cursorClause =
+      "AND (date_trunc('milliseconds', p.created_at), p.id) < ($3::timestamp, $4::int)";
+    params.push(parsed.at, parsed.id);
   }
 
   const result = await pool.query(
@@ -1742,12 +1789,14 @@ export async function getFeedPosts(
      FROM posts p
      JOIN users u ON u.id = p.user_id
      WHERE (p.user_id = $1
-       OR p.user_id IN (SELECT following_id FROM follows WHERE follower_id = $1)
-       OR p.visibility = 'public')
-       AND p.user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = $1)
-       AND p.user_id NOT IN (SELECT blocker_id FROM user_blocks WHERE blocked_id = $1)
+       OR p.visibility = 'public'
+       OR EXISTS (SELECT 1 FROM follows f
+         WHERE f.follower_id = $1 AND f.following_id = p.user_id))
+       AND NOT EXISTS (SELECT 1 FROM user_blocks b
+         WHERE (b.blocker_id = $1 AND b.blocked_id = p.user_id)
+            OR (b.blocker_id = p.user_id AND b.blocked_id = $1))
        ${cursorClause}
-     ORDER BY p.created_at DESC
+     ORDER BY date_trunc('milliseconds', p.created_at) DESC, p.id DESC
      LIMIT $2`,
     params,
   );
@@ -1756,7 +1805,7 @@ export async function getFeedPosts(
   let nextCursor: string | undefined;
   if (rows.length > limit) {
     rows.pop();
-    nextCursor = rows[rows.length - 1].createdAt;
+    nextCursor = postCursor(rows[rows.length - 1]);
   }
   return { posts: rows, nextCursor };
 }
@@ -1769,9 +1818,11 @@ export async function getUserPosts(
 ): Promise<{ posts: PostRow[]; nextCursor?: string }> {
   const params: any[] = [targetUserId, requestingUserId, limit + 1];
   let cursorClause = "";
-  if (cursor) {
-    cursorClause = "AND p.created_at < $4";
-    params.push(cursor);
+  const parsed = parsePostCursor(cursor);
+  if (parsed) {
+    cursorClause =
+      "AND (date_trunc('milliseconds', p.created_at), p.id) < ($4::timestamp, $5::int)";
+    params.push(parsed.at, parsed.id);
   }
 
   const result = await pool.query(
@@ -1790,7 +1841,7 @@ export async function getUserPosts(
          WHERE (ub.blocker_id = $1 AND ub.blocked_id = $2)
             OR (ub.blocker_id = $2 AND ub.blocked_id = $1))
        ${cursorClause}
-     ORDER BY p.created_at DESC
+     ORDER BY date_trunc('milliseconds', p.created_at) DESC, p.id DESC
      LIMIT $3`,
     params,
   );
@@ -1799,7 +1850,7 @@ export async function getUserPosts(
   let nextCursor: string | undefined;
   if (rows.length > limit) {
     rows.pop();
-    nextCursor = rows[rows.length - 1].createdAt;
+    nextCursor = postCursor(rows[rows.length - 1]);
   }
   return { posts: rows, nextCursor };
 }
@@ -2042,7 +2093,22 @@ export async function getSocialProfile(
 ): Promise<SocialProfileRow | null> {
   const result = await pool.query(
     `SELECT u.id AS user_id, u.name, u.bio, (u.avatar_url IS NOT NULL) AS has_avatar, u.is_public,
-       u.followers_count, u.following_count, u.current_streak, u.created_at,
+       -- Live counts, filtered exactly like the followers/following
+       -- lists the viewer opens (block relationships with the viewer are
+       -- hidden there). The old denormalized counters drifted: accounts
+       -- deleted before their follows were subtracted left phantom
+       -- followers behind.
+       (SELECT COUNT(*)::int FROM follows f
+         WHERE f.following_id = u.id
+           AND NOT EXISTS (SELECT 1 FROM user_blocks b
+             WHERE (b.blocker_id = $2 AND b.blocked_id = f.follower_id)
+                OR (b.blocker_id = f.follower_id AND b.blocked_id = $2))) AS followers_count,
+       (SELECT COUNT(*)::int FROM follows f
+         WHERE f.follower_id = u.id
+           AND NOT EXISTS (SELECT 1 FROM user_blocks b
+             WHERE (b.blocker_id = $2 AND b.blocked_id = f.following_id)
+                OR (b.blocker_id = f.following_id AND b.blocked_id = $2))) AS following_count,
+       u.current_streak, u.created_at,
        EXISTS(SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = u.id) AS is_followed_by_me,
        EXISTS(SELECT 1 FROM user_blocks ub WHERE ub.blocker_id = $2 AND ub.blocked_id = u.id) AS is_blocked_by_me,
        (SELECT COUNT(*)::int FROM workouts w WHERE w.user_id = u.id) AS total_workouts,
@@ -2125,34 +2191,12 @@ export async function blockUser(
       return false;
     }
     // Auto-unfollow both directions
-    const unfollowed1 = await client.query(
-      "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
+    await client.query(
+      `DELETE FROM follows
+       WHERE (follower_id = $1 AND following_id = $2)
+          OR (follower_id = $2 AND following_id = $1)`,
       [blockerId, blockedId],
     );
-    if ((unfollowed1.rowCount ?? 0) > 0) {
-      await client.query(
-        "UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1",
-        [blockerId],
-      );
-      await client.query(
-        "UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1",
-        [blockedId],
-      );
-    }
-    const unfollowed2 = await client.query(
-      "DELETE FROM follows WHERE follower_id = $1 AND following_id = $2 RETURNING id",
-      [blockedId, blockerId],
-    );
-    if ((unfollowed2.rowCount ?? 0) > 0) {
-      await client.query(
-        "UPDATE users SET following_count = GREATEST(following_count - 1, 0) WHERE id = $1",
-        [blockedId],
-      );
-      await client.query(
-        "UPDATE users SET followers_count = GREATEST(followers_count - 1, 0) WHERE id = $1",
-        [blockerId],
-      );
-    }
     await client.query("COMMIT");
     return true;
   } catch {

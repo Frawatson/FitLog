@@ -146,10 +146,21 @@ export default function RootStackNavigator() {
     checkOnboarding();
   }, [user]);
 
+  // Whether the signed-out navigator was ever shown this session. Only
+  // then does the captured deep link need restoring: when the app starts
+  // already signed in, URL linking has opened the page itself, and
+  // re-dispatching it reset navigation and loaded the screen twice.
+  const sawSignedOutRef = React.useRef(false);
+  if (!loading && !user) sawSignedOutRef.current = true;
+
   // Restore the captured deep link once the user is signed in and the
   // authenticated navigator is mounted.
   useEffect(() => {
     if (!user || !onboardingComplete || !pendingDeepLink) return;
+    if (!sawSignedOutRef.current) {
+      pendingDeepLink = null;
+      return;
+    }
     const path = pendingDeepLink.replace(/^\//, "");
     pendingDeepLink = null;
     try {

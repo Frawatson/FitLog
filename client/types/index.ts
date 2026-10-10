@@ -138,7 +138,14 @@ export interface HeartRateZoneInfo {
 }
 
 // Social Types
-export type PostType = "workout" | "run" | "meal" | "achievement" | "text";
+// "routine" = a shared workout PLAN (name + exercises) others can save.
+export type PostType =
+  | "workout"
+  | "routine"
+  | "run"
+  | "meal"
+  | "achievement"
+  | "text";
 export type PostVisibility = "followers" | "public";
 
 export interface Post {
